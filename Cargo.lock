@@ -57,6 +57,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "alloy"
+version = "1.0.38"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b17c19591d57add4f0c47922877a48aae1f47074e3433436545f8948353b3bbb"
+dependencies = [
+ "alloy-consensus",
+ "alloy-contract",
+ "alloy-core",
+ "alloy-eips",
+ "alloy-network",
+ "alloy-provider",
+ "alloy-rpc-client",
+ "alloy-transport",
+ "alloy-transport-http",
+]
+
+[[package]]
 name = "alloy-chains"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -129,6 +146,18 @@ dependencies = [
  "futures-util",
  "serde_json",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "alloy-core"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "575053cea24ea8cb7e775e39d5c53c33b19cfd0ca1cf6c0fd653f3d8c682095f"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-primitives",
+ "alloy-sol-types",
 ]
 
 [[package]]
@@ -4852,6 +4881,7 @@ dependencies = [
  "clap",
  "revm",
  "serde",
+ "tempo-precompiles",
 ]
 
 [[package]]
@@ -9742,6 +9772,27 @@ dependencies = [
  "once_cell",
  "rustix 1.1.2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tempo-contracts"
+version = "0.1.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=f5774d7#f5774d77cf7fbad5c46cc9e74d8ce44ec463dc70"
+dependencies = [
+ "alloy",
+]
+
+[[package]]
+name = "tempo-precompiles"
+version = "0.1.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=f5774d7#f5774d77cf7fbad5c46cc9e74d8ce44ec463dc70"
+dependencies = [
+ "alloy",
+ "alloy-evm",
+ "revm",
+ "tempo-contracts",
+ "thiserror 2.0.17",
+ "tracing",
 ]
 
 [[package]]

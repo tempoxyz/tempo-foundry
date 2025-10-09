@@ -17,14 +17,18 @@ pub mod celo;
 #[derive(Clone, Debug, Default, Parser, Copy, Serialize, Deserialize, PartialEq)]
 pub struct NetworkConfigs {
     /// Enable Optimism network features.
-    #[arg(help_heading = "Networks", long, visible_alias = "optimism", conflicts_with = "celo")]
+    #[arg(help_heading = "Networks", long, visible_alias = "optimism", conflicts_with_all = ["celo", "tempo"])]
     // Skipped from configs (forge) as there is no feature to be added yet.
     #[serde(skip)]
     optimism: bool,
     /// Enable Celo network features.
-    #[arg(help_heading = "Networks", long, conflicts_with = "optimism")]
+    #[arg(help_heading = "Networks", long, conflicts_with_all = ["optimism", "tempo"])]
     #[serde(default)]
     celo: bool,
+    /// Enable Tempo network features.
+    #[arg(help_heading = "Networks", long, conflicts_with_all = ["celo", "optimism"])]
+    #[serde(default)]
+    tempo: bool,
 }
 
 impl NetworkConfigs {
@@ -36,12 +40,20 @@ impl NetworkConfigs {
         Self { celo: true, ..Default::default() }
     }
 
+    pub fn with_tempo() -> Self {
+        Self { tempo: true, ..Default::default() }
+    }
+
     pub fn is_optimism(&self) -> bool {
         self.optimism
     }
 
     pub fn is_celo(&self) -> bool {
         self.celo
+    }
+
+    pub fn is_tempo(&self) -> bool {
+        self.tempo
     }
 
     pub fn with_chain_id(mut self, chain_id: u64) -> Self {
@@ -57,6 +69,10 @@ impl NetworkConfigs {
             precompiles.apply_precompile(&CELO_TRANSFER_ADDRESS, move |_| {
                 Some(celo::transfer::precompile())
             });
+        }
+        if self.tempo {
+            // todo(onbjerg): chain ID
+            tempo_precompiles::precompiles::extend_tempo_precompiles(precompiles, 1337);
         }
     }
 
