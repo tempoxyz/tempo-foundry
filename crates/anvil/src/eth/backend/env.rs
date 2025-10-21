@@ -2,13 +2,17 @@ use alloy_evm::EvmEnv;
 use foundry_evm::{EnvMut, core::AsEnvMut};
 use foundry_evm_networks::NetworkConfigs;
 use op_revm::OpTransaction;
-use revm::context::{BlockEnv, CfgEnv, TxEnv};
+use revm::{
+    context::{BlockEnv, CfgEnv, TxEnv},
+    primitives::hardfork::SpecId,
+};
+use tempo_revm::TempoBlockEnv;
 
 /// Helper container type for [`EvmEnv`] and [`OpTransaction<TxEnd>`].
 #[derive(Clone, Debug, Default)]
 pub struct Env {
-    pub evm_env: EvmEnv,
-    pub tx: OpTransaction<TxEnv>,
+    pub evm_env: EvmEnv<SpecId, TempoBlockEnv>,
+    pub tx: OpTransaction<TempoTxEnv>,
     pub networks: NetworkConfigs,
 }
 
@@ -16,7 +20,7 @@ pub struct Env {
 impl Env {
     pub fn new(
         cfg: CfgEnv,
-        block: BlockEnv,
+        block: TempoBlockEnv,
         tx: OpTransaction<TxEnv>,
         networks: NetworkConfigs,
     ) -> Self {

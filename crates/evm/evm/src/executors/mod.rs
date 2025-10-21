@@ -50,6 +50,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tempo_revm::{TempoBlockEnv, TempoTxEnv};
 
 mod builder;
 pub use builder::ExecutorBuilder;
@@ -708,22 +709,25 @@ impl Executor {
                 // We always set the gas price to 0 so we can execute the transaction regardless of
                 // network conditions - the actual gas price is kept in `self.block` and is applied
                 // by the cheatcode handler if it is enabled
-                block_env: BlockEnv {
-                    basefee: 0,
-                    gas_limit: self.gas_limit,
+                block_env: TempoBlockEnv {
+                    inner: BlockEnv { basefee: 0, gas_limit: self.gas_limit, ..Default::default() },
+                    // hack(onbjerg): does this work or what
                     ..self.env().evm_env.block_env.clone()
                 },
             },
-            tx: TxEnv {
-                caller,
-                kind,
-                data,
-                value,
-                // As above, we set the gas price to 0.
-                gas_price: 0,
-                gas_priority_fee: None,
-                gas_limit: self.gas_limit,
-                chain_id: Some(self.env().evm_env.cfg_env.chain_id),
+            tx: TempoTxEnv {
+                inner: TxEnv {
+                    caller,
+                    kind,
+                    data,
+                    value,
+                    // As above, we set the gas price to 0.
+                    gas_price: 0,
+                    gas_priority_fee: None,
+                    gas_limit: self.gas_limit,
+                    chain_id: Some(self.env().evm_env.cfg_env.chain_id),
+                    ..Default::default()
+                },
                 ..self.env().tx.clone()
             },
         }

@@ -28,6 +28,7 @@ use std::{
     },
     time::Duration,
 };
+use tempo_evm::TempoBlockEnv;
 
 /// The _unique_ identifier for a specific fork, this could be the name of the network a custom
 /// descriptive name.
@@ -171,7 +172,7 @@ impl MultiFork {
     ///
     /// This is required for tx level forking where we need to fork off the `block - 1` state but
     /// still need use env settings for `env`.
-    pub fn update_block_env(&self, fork: ForkId, env: BlockEnv) -> eyre::Result<()> {
+    pub fn update_block_env(&self, fork: ForkId, env: TempoBlockEnv) -> eyre::Result<()> {
         trace!(?fork, ?env, "update fork block");
         self.handler
             .clone()
@@ -223,7 +224,7 @@ enum Request {
     /// Updates the block number and timestamp of the fork.
     UpdateBlock(ForkId, U256, U256),
     /// Updates the block the entire block env,
-    UpdateEnv(ForkId, BlockEnv),
+    UpdateEnv(ForkId, TempoBlockEnv),
     /// Shutdowns the entire `MultiForkHandler`, see `ShutDownMultiFork`
     ShutDown(OneshotSender<()>),
     /// Returns the Fork Url for the `ForkId` if it exists.
@@ -324,7 +325,7 @@ impl MultiForkHandler {
     }
 
     /// Update the fork's block entire env
-    fn update_env(&mut self, fork_id: ForkId, env: BlockEnv) {
+    fn update_env(&mut self, fork_id: ForkId, env: TempoBlockEnv) {
         if let Some(fork) = self.forks.get_mut(&fork_id) {
             fork.opts.env.evm_env.block_env = env;
         }
@@ -543,7 +544,7 @@ async fn create_fork(mut fork: CreateFork) -> eyre::Result<(ForkId, CreatedFork,
     // Initialise the fork environment.
     let (env, block) = fork.evm_opts.fork_evm_env_with_provider(&fork.url, &provider).await?;
     fork.env = env;
-    let meta = BlockchainDbMeta::new(fork.env.evm_env.block_env.clone(), fork.url.clone());
+    let meta = BlockchainDbMeta::new(fork.env.evm_env.block_env.inner.clone(), fork.url.clone());
 
     // We need to use the block number from the block because the env's number can be different on
     // some L2s (e.g. Arbitrum).
