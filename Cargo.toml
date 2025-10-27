@@ -292,6 +292,7 @@ revm-inspectors = { version = "0.31.2", features = ["serde"] }
 op-revm = { version = "11.1.2", default-features = false }
 tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "v0.1.3" }
 tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "v0.1.3" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "v0.1.3" }
 ## alloy-evm
 alloy-evm = "0.22.3"
 alloy-op-evm = "0.22.3"

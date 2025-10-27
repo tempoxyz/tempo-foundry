@@ -73,7 +73,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
-use tempo_revm::{TempoBlockEnv, evm::TempoContext};
+use tempo_revm::{TempoBlockEnv, TempoInvalidTransaction, evm::TempoContext};
 
 mod utils;
 
@@ -97,7 +97,7 @@ pub trait CheatcodesExecutor {
         &mut self,
         inputs: CreateInputs,
         ccx: &mut CheatsCtxt,
-    ) -> Result<CreateOutcome, EVMError<DatabaseError>> {
+    ) -> Result<CreateOutcome, EVMError<DatabaseError, TempoInvalidTransaction>> {
         with_evm(self, ccx, |evm| {
             evm.journaled_state.depth += 1;
 
@@ -129,12 +129,12 @@ fn with_evm<E, F, O>(
     executor: &mut E,
     ccx: &mut CheatsCtxt,
     f: F,
-) -> Result<O, EVMError<DatabaseError>>
+) -> Result<O, EVMError<DatabaseError, TempoInvalidTransaction>>
 where
     E: CheatcodesExecutor + ?Sized,
     F: for<'a, 'b> FnOnce(
         &mut FoundryEvm<'a, &'b mut dyn InspectorExt>,
-    ) -> Result<O, EVMError<DatabaseError>>,
+    ) -> Result<O, EVMError<DatabaseError, TempoInvalidTransaction>>,
 {
     let mut inspector = executor.get_inspector(ccx.state);
     let error = std::mem::replace(&mut ccx.ecx.error, Ok(()));
