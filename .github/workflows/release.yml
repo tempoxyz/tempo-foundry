@@ -135,6 +135,7 @@ jobs:
       # Make git@github.com:* rewrite to https://x-access-token:<token>@github.com/*
       - name: Configure Git to use GITHUB_TOKEN for GitHub
         run: |
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
           git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "git@github.com:"
 
       - name: Apple M1 setup
