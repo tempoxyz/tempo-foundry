@@ -2765,6 +2765,7 @@ forgetest_async!(show_state_changes_in_traces, |prj, cmd| {
     let (api, handle) = anvil::spawn(NodeConfig::test()).await;
 
     foundry_test_utils::util::initialize(prj.root());
+    prj.initialize_default_contracts();
     // Deploy counter contract.
     cmd.args([
         "script",
@@ -2933,6 +2934,7 @@ forgetest_async!(cast_call_disable_labels, |prj, cmd| {
     let (_, handle) = anvil::spawn(NodeConfig::test()).await;
 
     foundry_test_utils::util::initialize(prj.root());
+    prj.initialize_default_contracts();
     prj.add_source(
         "Counter",
         r#"
@@ -3034,6 +3036,7 @@ forgetest_async!(cast_call_custom_override, |prj, cmd| {
     let (_, handle) = anvil::spawn(NodeConfig::test()).await;
 
     foundry_test_utils::util::initialize(prj.root());
+    prj.initialize_default_contracts();
     prj.add_source(
         "Counter",
         r#"
@@ -4225,6 +4228,20 @@ casttest!(erc20_allowance_success, |_prj, cmd| {
         .assert_success()
         .stdout_eq(str![[r#"
 0
+
+"#]]);
+});
+
+casttest!(keccak_stdin_bytes, |_prj, cmd| {
+    cmd.args(["keccak"]).stdin("0x12").assert_success().stdout_eq(str![[r#"
+0x5fa2358263196dbbf23d1ca7a509451f7a2f64c15837bfbb81298b1e3e24e4fa
+
+"#]]);
+});
+
+casttest!(keccak_stdin_bytes_with_newline, |_prj, cmd| {
+    cmd.args(["keccak"]).stdin("0x12\n").assert_success().stdout_eq(str![[r#"
+0x5fa2358263196dbbf23d1ca7a509451f7a2f64c15837bfbb81298b1e3e24e4fa
 
 "#]]);
 });

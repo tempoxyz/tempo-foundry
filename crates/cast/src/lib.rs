@@ -1373,7 +1373,7 @@ impl SimpleCast {
         let mut out = String::new();
         for s in values {
             let s = s.as_ref();
-            out.push_str(s.strip_prefix("0x").unwrap_or(s))
+            out.push_str(strip_0x(s))
         }
         format!("0x{out}")
     }
@@ -2095,8 +2095,11 @@ impl SimpleCast {
     /// ```
     pub fn keccak(data: &str) -> Result<String> {
         // Hex-decode if data starts with 0x.
-        let hash =
-            if data.starts_with("0x") { keccak256(hex::decode(data)?) } else { keccak256(data) };
+        let hash = if data.starts_with("0x") {
+            keccak256(hex::decode(data.trim_end())?)
+        } else {
+            keccak256(data)
+        };
         Ok(hash.to_string())
     }
 
