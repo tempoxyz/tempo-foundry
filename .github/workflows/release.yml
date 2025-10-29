@@ -244,23 +244,6 @@ jobs:
           tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz
           printf 'foundry_man=%s\n' "foundry_man_${VERSION_NAME}.tar.gz" >> "$GITHUB_OUTPUT"
 
-      - name: Binaries attestation
-        id: attestation
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: |
-            ${{ env.chisel_bin_path }}
-            ${{ env.forge_bin_path }}
-
-      - name: Record attestation URL
-        env:
-          ATTESTATION_URL: ${{ steps.attestation.outputs.attestation-url }}
-          FOUNDRY_ATTESTATION: ${{ steps.artifacts.outputs.foundry_attestation }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s\n' "$ATTESTATION_URL" > "$FOUNDRY_ATTESTATION"
-
       # Creates the release for this specific version
       - name: Create release
         uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
