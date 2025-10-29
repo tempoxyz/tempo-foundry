@@ -3,8 +3,6 @@ name: nix
 permissions: {}
 
 on:
-  schedule:
-    - cron: "0 0 * * SUN" # Run weekly on Sundays at midnight UTC
   workflow_dispatch: # Needed so we can run it manually
 
 concurrency:
