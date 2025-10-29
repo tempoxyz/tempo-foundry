@@ -130,9 +130,9 @@ jobs:
       # Make git@github.com:* rewrite to https://x-access-token:<token>@github.com/*
       - name: Configure Git to use GITHUB_TOKEN for GitHub
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ secrets.GITHUB_PAT }}
         run: |
-          authenticated_url="https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/"
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
           echo "$authenticated_url"
           git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
           # git config --global url."$authenticated_url".insteadOf "git@github.com:"
