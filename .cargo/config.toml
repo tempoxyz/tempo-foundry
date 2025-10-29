@@ -10,3 +10,6 @@ rustflags = ["-Clink-arg=/STACK:10000000"]
 
 [target.i686-pc-windows-msvc]
 rustflags = ["-Clink-arg=/STACK:10000000"]
+
+[net]
+git-fetch-with-cli = true
