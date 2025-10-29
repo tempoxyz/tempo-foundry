@@ -127,6 +127,11 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
 
+      # Make git@github.com:* rewrite to https://x-access-token:<token>@github.com/*
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "git@github.com:"
+
       - name: Apple M1 setup
         if: matrix.target == 'aarch64-apple-darwin'
         run: |
