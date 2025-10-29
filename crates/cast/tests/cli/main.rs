@@ -23,6 +23,7 @@ use std::{fs, path::Path, str::FromStr};
 extern crate foundry_test_utils;
 
 mod selectors;
+mod tip20;
 
 casttest!(print_short_version, |_prj, cmd| {
     cmd.arg("-V").assert_success().stdout_eq(str![[r#"
