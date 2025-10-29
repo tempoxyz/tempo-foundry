@@ -53,7 +53,7 @@ pub(crate) async fn handle_traces(
     let config_labels = config.labels.clone().into_iter();
 
     let mut builder = CallTraceDecoderBuilder::new()
-        .with_labels(labels.chain(config_labels))
+        .with_labels(labels.chain(config_labels).chain(result.labels.clone().into_iter()))
         .with_signature_identifier(SignaturesIdentifier::from_config(config)?)
         .with_label_disabled(disable_label);
     let mut identifier = TraceIdentifiers::new().with_external(config, chain)?;

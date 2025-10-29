@@ -1,3 +1,5 @@
+use crate::inspectors::tempo_labels::TempoLabels;
+
 use super::{
     Cheatcodes, CheatsConfig, ChiselState, CustomPrintTracer, Fuzzer, LineCoverageCollector,
     LogCollector, RevertDiagnostic, ScriptExecutionInspector, TracingInspector,
@@ -349,6 +351,8 @@ pub struct InspectorStackInner {
     pub top_frame_journal: HashMap<Address, Account>,
     /// Address that reverted the call, if any.
     pub reverter: Option<Address>,
+    /// HACK: Tempo label collection.
+    pub tempo_labels: TempoLabels,
 }
 
 /// Struct keeping mutable references to both parts of [InspectorStack] and implementing
@@ -534,6 +538,7 @@ impl InspectorStack {
                     log_collector,
                     tracer,
                     reverter,
+                    tempo_labels,
                     ..
                 },
         } = self;
@@ -556,12 +561,14 @@ impl InspectorStack {
             SparsedTraceArena { arena, ignored }
         });
 
+        let mut labels = tempo_labels.labels.clone();
+        labels.extend(
+            cheatcodes.as_ref().map(|cheatcodes| cheatcodes.labels.clone()).unwrap_or_default(),
+        );
+
         InspectorData {
             logs: log_collector.map(|logs| logs.logs).unwrap_or_default(),
-            labels: cheatcodes
-                .as_ref()
-                .map(|cheatcodes| cheatcodes.labels.clone())
-                .unwrap_or_default(),
+            labels,
             traces,
             line_coverage: line_coverage.map(|line_coverage| line_coverage.finish()),
             edge_coverage: edge_coverage.map(|edge_coverage| edge_coverage.into_hitcount()),
@@ -935,6 +942,8 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> 
         if ecx.journaled_state.depth == 0 {
             self.top_level_frame_start(ecx);
         }
+
+        let _ = self.tempo_labels.call(ecx, call);
 
         call_inspectors!(
             #[ret]
