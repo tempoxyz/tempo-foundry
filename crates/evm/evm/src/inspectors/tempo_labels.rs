@@ -6,7 +6,7 @@ use revm::{
     inspector::JournalExt,
     interpreter::{CallInputs, CallOutcome, interpreter::EthInterpreter},
 };
-use tempo_precompiles::contracts::is_tip20;
+use tempo_precompiles::tip20::is_tip20;
 
 #[derive(Default, Clone, Debug)]
 pub(crate) struct TempoLabels {
@@ -24,7 +24,7 @@ where
         if is_tip20(&inputs.target_address) && !self.labels.contains_key(&inputs.target_address) {
             let bytes = ctx
                 .db_mut()
-                .storage(inputs.target_address, tempo_precompiles::contracts::tip20::slots::NAME)
+                .storage(inputs.target_address, tempo_precompiles::tip20::slots::NAME)
                 .unwrap_or_default()
                 .to_be_bytes::<32>();
             let len = bytes[31] as usize / 2; // Last byte stores length * 2 for short strings

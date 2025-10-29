@@ -31,7 +31,7 @@ use revm::{
     primitives::hardfork::SpecId,
 };
 use tempo_evm::TempoBlockEnv;
-use tempo_precompiles::precompiles::extend_tempo_precompiles;
+use tempo_precompiles::extend_tempo_precompiles;
 use tempo_revm::{
     TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, handler::TempoEvmHandler,
 };
