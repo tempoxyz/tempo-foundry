@@ -132,11 +132,10 @@ jobs:
         run: |
           authenticated_url="https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/"
           git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
-          git config --global url."$authenticated_url".insteadOf "git@github.com:"
+          # git config --global url."$authenticated_url".insteadOf "git@github.com:"
 
       - name: test the above
         run: |
-          sed -i 's|git = "ssh://git@github.com/tempoxyz/tempo"|path = "/tmp/tempo"|' Cargo.toml
           cd /tmp
           mkdir test12345
           cd test12345
