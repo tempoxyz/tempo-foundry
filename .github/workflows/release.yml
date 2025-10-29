@@ -137,7 +137,7 @@ jobs:
         run: |
           cd /tmp
           mkdir test12345
-          cd test123
+          cd test12345
           git init
           git fetch --no-tags --force --update-head-ok 'ssh://git@github.com/tempoxyz/tempo' '+d6f4461d3e21204cd76ea754ef68645dfba5c4cc:refs/commit/d6f4461d3e21204cd76ea754ef68645dfba5c4cc
 
