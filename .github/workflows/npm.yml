@@ -9,9 +9,6 @@ on:
         type: string
         required: false
         description: The run id of the release to publish
-  workflow_run:
-    types: [completed]
-    workflows: [release]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
