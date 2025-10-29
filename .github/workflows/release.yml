@@ -142,13 +142,13 @@ jobs:
           git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
           # git config --global url."$authenticated_url".insteadOf "git@github.com:"
 
-      - name: test the above
-        run: |
-          cd /tmp
-          mkdir test12345
-          cd test12345
-          git init
-          git fetch --no-tags --force --update-head-ok 'ssh://git@github.com/tempoxyz/tempo' '+d6f4461d3e21204cd76ea754ef68645dfba5c4cc:refs/commit/d6f4461d3e21204cd76ea754ef68645dfba5c4cc'
+      # - name: test the above
+      #   run: |
+      #     cd /tmp
+      #     mkdir test12345
+      #     cd test12345
+      #     git init
+      #     git fetch --no-tags --force --update-head-ok 'ssh://git@github.com/tempoxyz/tempo' '+d6f4461d3e21204cd76ea754ef68645dfba5c4cc:refs/commit/d6f4461d3e21204cd76ea754ef68645dfba5c4cc'
 
       - name: Apple M1 setup
         if: matrix.target == 'aarch64-apple-darwin'
