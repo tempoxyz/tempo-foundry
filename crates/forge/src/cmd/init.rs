@@ -41,6 +41,10 @@ pub struct InitArgs {
     #[arg(long, conflicts_with = "template")]
     pub vyper: bool,
 
+    /// Initialize a Tempo project template.
+    #[arg(long, conflicts_with_all = &["vyper", "template"])]
+    pub tempo: bool,
+
     /// Use the parent git repository instead of initializing a new one.
     /// Only valid if the target is in a git repository.
     #[arg(long, conflicts_with = "template")]
@@ -66,6 +70,7 @@ impl InitArgs {
             vscode,
             use_parent_git,
             vyper,
+            tempo,
             empty,
         } = self;
         let DependencyInstallOpts { shallow, no_git, commit } = install;
@@ -211,14 +216,25 @@ impl InitArgs {
                 init_git_repo(git, commit, use_parent_git, vyper)?;
             }
 
-            // install forge-std
             if !offline {
+                // install forge-std
                 if root.join("lib/forge-std").exists() {
                     sh_warn!("\"lib/forge-std\" already exists, skipping install...")?;
                     self.install.install(&mut config, vec![]).await?;
                 } else {
                     let dep = "https://github.com/foundry-rs/forge-std".parse()?;
                     self.install.install(&mut config, vec![dep]).await?;
+                }
+
+                // install tempo-std
+                if tempo {
+                    if root.join("lib/tempo-std").exists() {
+                        sh_warn!("\"lib/tempo-std\" already exists, skipping install...")?;
+                        self.install.install(&mut config, vec![]).await?;
+                    } else {
+                        let dep = "https://github.com/tempoxyz/tempo-std".parse()?;
+                        self.install.install(&mut config, vec![dep]).await?;
+                    }
                 }
             }
 
