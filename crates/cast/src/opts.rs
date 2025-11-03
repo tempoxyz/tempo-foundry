@@ -1142,7 +1142,7 @@ pub enum CastSubcommand {
     DAEstimate(DAEstimateArgs),
 
     /// ERC20 token operations.
-    #[command(visible_alias = "erc20")]
+    #[command(visible_alias = "erc20", aliases = ["tip20"])]
     Erc20Token {
         #[command(subcommand)]
         command: Erc20Subcommand,
