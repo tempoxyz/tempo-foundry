@@ -17,7 +17,6 @@ use futures::{
     stream::Fuse,
     task::{Context, Poll},
 };
-use revm::context::BlockEnv;
 use std::{
     fmt::{self, Write},
     pin::Pin,

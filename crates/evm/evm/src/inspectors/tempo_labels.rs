@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, map::AddressMap};
+use alloy_primitives::map::AddressMap;
 use foundry_evm_core::backend::DatabaseError;
 use revm::{
     Database, Inspector,
@@ -9,7 +9,7 @@ use revm::{
 use tempo_precompiles::tip20::is_tip20;
 
 #[derive(Default, Clone, Debug)]
-pub(crate) struct TempoLabels {
+pub struct TempoLabels {
     pub(crate) labels: AddressMap<String>,
 }
 

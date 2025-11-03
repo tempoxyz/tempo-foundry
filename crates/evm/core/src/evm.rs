@@ -7,20 +7,16 @@ use crate::{
     Env, InspectorExt, backend::DatabaseExt, constants::DEFAULT_CREATE2_DEPLOYER_CODEHASH,
 };
 use alloy_consensus::constants::KECCAK_EMPTY;
-use alloy_evm::{Evm, EvmEnv, eth::EthEvmContext, precompiles::PrecompilesMap};
+use alloy_evm::{Evm, EvmEnv, precompiles::PrecompilesMap};
 use alloy_primitives::{Address, Bytes, U256};
 use foundry_fork_db::DatabaseError;
 use revm::{
     Context, Journal,
     context::{
-        BlockEnv, CfgEnv, ContextTr, CreateScheme, Evm as RevmEvm, JournalTr, LocalContext,
-        LocalContextTr, TxEnv,
+        ContextTr, CreateScheme, JournalTr, LocalContext, LocalContextTr,
         result::{EVMError, ExecResultAndState, ExecutionResult, HaltReason, ResultAndState},
     },
-    handler::{
-        EthFrame, EthPrecompiles, EvmTr, FrameResult, FrameTr, Handler, ItemOrResult,
-        instructions::EthInstructions,
-    },
+    handler::{EthPrecompiles, EvmTr, FrameResult, FrameTr, Handler, ItemOrResult},
     inspector::{InspectorEvmTr, InspectorHandler},
     interpreter::{
         CallInput, CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome,

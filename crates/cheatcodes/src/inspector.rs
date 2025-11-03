@@ -52,7 +52,7 @@ use rand::Rng;
 use revm::{
     Inspector, Journal,
     bytecode::opcode as op,
-    context::{BlockEnv, JournalTr, LocalContext, TransactionType, result::EVMError},
+    context::{JournalTr, LocalContext, TransactionType, result::EVMError},
     context_interface::{CreateScheme, transaction::SignedAuthorization},
     handler::FrameResult,
     interpreter::{

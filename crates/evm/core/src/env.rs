@@ -1,7 +1,7 @@
 pub use alloy_evm::EvmEnv;
 use revm::{
-    Context, Database, Journal, JournalEntry,
-    context::{BlockEnv, CfgEnv, JournalInner, JournalTr, TxEnv},
+    Database, JournalEntry,
+    context::{CfgEnv, JournalInner},
     primitives::hardfork::SpecId,
 };
 use tempo_evm::TempoBlockEnv;
