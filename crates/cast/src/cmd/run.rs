@@ -13,7 +13,7 @@ use foundry_cli::{
     opts::{EtherscanOpts, RpcOpts},
     utils::{TraceResult, init_progress},
 };
-use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_impersonated_tx, is_known_system_sender, shell};
+use foundry_common::{is_impersonated_tx, shell};
 use foundry_compilers::artifacts::EvmVersion;
 use foundry_config::{
     Config,
