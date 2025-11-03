@@ -48,5 +48,8 @@ tokio = { workspace = true, features = ["time", "macros"] }
 tracing.workspace = true
 yansi.workspace = true
 
+tempo-contracts.workspace = true
+tempo-precompiles.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true

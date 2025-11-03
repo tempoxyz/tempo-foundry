@@ -18,6 +18,7 @@ use revm::{
     interpreter::InstructionResult,
 };
 use serde::Serialize;
+use tempo_revm::TempoInvalidTransaction;
 use tokio::time::Duration;
 
 pub(crate) type Result<T> = std::result::Result<T, BlockchainError>;
@@ -134,11 +135,11 @@ impl From<RpcError> for BlockchainError {
     }
 }
 
-impl<T> From<EVMError<T>> for BlockchainError
+impl<T> From<EVMError<T, TempoInvalidTransaction>> for BlockchainError
 where
     T: Into<Self>,
 {
-    fn from(err: EVMError<T>) -> Self {
+    fn from(err: EVMError<T, TempoInvalidTransaction>) -> Self {
         match err {
             EVMError::Transaction(err) => InvalidTransactionError::from(err).into(),
             EVMError::Header(err) => match err {

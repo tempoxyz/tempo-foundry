@@ -1,4 +1,5 @@
 use alloy_json_abi::JsonAbi;
+use alloy_primitives::map::AddressMap;
 use eyre::{Result, WrapErr};
 use foundry_common::{TestFunctionExt, fs, selectors::SelectorKind, shell};
 use foundry_compilers::{
@@ -277,13 +278,19 @@ pub struct TraceResult {
     pub success: bool,
     pub traces: Option<Traces>,
     pub gas_used: u64,
+    pub labels: AddressMap<String>,
 }
 
 impl TraceResult {
     /// Create a new [`TraceResult`] from a [`RawCallResult`].
     pub fn from_raw(raw: RawCallResult, trace_kind: TraceKind) -> Self {
-        let RawCallResult { gas_used, traces, reverted, .. } = raw;
-        Self { success: !reverted, traces: traces.map(|arena| vec![(trace_kind, arena)]), gas_used }
+        let RawCallResult { gas_used, traces, reverted, labels, .. } = raw;
+        Self {
+            success: !reverted,
+            traces: traces.map(|arena| vec![(trace_kind, arena)]),
+            gas_used,
+            labels,
+        }
     }
 }
 
