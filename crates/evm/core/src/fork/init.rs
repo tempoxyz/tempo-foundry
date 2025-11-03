@@ -6,6 +6,7 @@ use alloy_rpc_types::BlockNumberOrTag;
 use foundry_common::NON_ARCHIVE_NODE_WARNING;
 use foundry_evm_networks::NetworkConfigs;
 use revm::context::{BlockEnv, CfgEnv, TxEnv};
+use tempo_revm::TempoTxEnv;
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.
@@ -67,22 +68,28 @@ pub async fn environment<N: Network, P: Provider<N>>(
     let mut env = Env {
         evm_env: EvmEnv {
             cfg_env: cfg,
-            block_env: BlockEnv {
-                number: U256::from(block.header().number()),
-                timestamp: U256::from(block.header().timestamp()),
-                beneficiary: block.header().beneficiary(),
-                difficulty: block.header().difficulty(),
-                prevrandao: block.header().mix_hash(),
-                basefee: block.header().base_fee_per_gas().unwrap_or_default(),
-                gas_limit: block.header().gas_limit(),
+            block_env: tempo_evm::TempoBlockEnv {
+                inner: BlockEnv {
+                    number: U256::from(block.header().number()),
+                    timestamp: U256::from(block.header().timestamp()),
+                    beneficiary: block.header().beneficiary(),
+                    difficulty: block.header().difficulty(),
+                    prevrandao: block.header().mix_hash(),
+                    basefee: block.header().base_fee_per_gas().unwrap_or_default(),
+                    gas_limit: block.header().gas_limit(),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         },
-        tx: TxEnv {
-            caller: origin,
-            gas_price,
-            chain_id: Some(chain_id),
-            gas_limit: block.header().gas_limit(),
+        tx: TempoTxEnv {
+            inner: TxEnv {
+                caller: origin,
+                gas_price,
+                chain_id: Some(chain_id),
+                gas_limit: block.header().gas_limit(),
+                ..Default::default()
+            },
             ..Default::default()
         },
     };

@@ -112,11 +112,11 @@ jobs:
             svm_target_platform: macosx-aarch64
             platform: darwin
             arch: arm64
-          - runner: depot-windows-latest-16
-            target: x86_64-pc-windows-msvc
-            svm_target_platform: windows-amd64
-            platform: win32
-            arch: amd64
+          # - runner: depot-windows-latest-16
+          #   target: x86_64-pc-windows-msvc
+          #   svm_target_platform: windows-amd64
+          #   platform: win32
+          #   arch: amd64
     steps:
       - uses: actions/checkout@v5
         with:
@@ -134,17 +134,14 @@ jobs:
 
       # Make git@github.com:* rewrite to https://x-access-token:<token>@github.com/*
       - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
         run: |
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "git@github.com:"
-
-      - name: test the above
-        run: |
-          cd /tmp
-          mkdir test12345
-          cd test12345
-          git init
-          git fetch --no-tags --force --update-head-ok 'ssh://git@github.com/tempoxyz/tempo' '+d6f4461d3e21204cd76ea754ef68645dfba5c4cc:refs/commit/d6f4461d3e21204cd76ea754ef68645dfba5c4cc
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
+          # git config --global url."$authenticated_url".insteadOf "git@github.com:"
 
       - name: Apple M1 setup
         if: matrix.target == 'aarch64-apple-darwin'
@@ -170,7 +167,7 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          flags=(--target $TARGET --profile $PROFILE --bins
+          flags=(--target $TARGET --profile $PROFILE --bin forge --bin cast
             --no-default-features --features aws-kms,gcp-kms,cli,asm-keccak,js-tracer)
 
           # `jemalloc` is not fully supported on MSVC or aarch64 Linux.

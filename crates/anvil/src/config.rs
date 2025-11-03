@@ -62,6 +62,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tempo_revm::TempoBlockEnv;
 use tokio::sync::RwLock as TokioRwLock;
 use yansi::Paint;
 
@@ -1077,9 +1078,12 @@ impl NodeConfig {
         let spec_id = cfg.spec;
         let mut env = Env::new(
             cfg,
-            BlockEnv {
-                gas_limit: self.gas_limit(),
-                basefee: self.get_base_fee(),
+            TempoBlockEnv {
+                inner: BlockEnv {
+                    gas_limit: self.gas_limit(),
+                    basefee: self.get_base_fee(),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             OpTransaction {
@@ -1367,7 +1371,7 @@ latest block number: {latest_block}"
             self.networks,
         );
 
-        let meta = BlockchainDbMeta::new(env.evm_env.block_env.clone(), eth_rpc_url.clone());
+        let meta = BlockchainDbMeta::new(env.evm_env.block_env.inner.clone(), eth_rpc_url.clone());
         let block_chain_db = if self.fork_chain_id.is_some() {
             BlockchainDb::new_skip_check(meta, self.block_cache_path(fork_block_number))
         } else {

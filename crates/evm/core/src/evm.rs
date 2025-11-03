@@ -24,11 +24,16 @@ use revm::{
     inspector::{InspectorEvmTr, InspectorHandler},
     interpreter::{
         CallInput, CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome,
-        FrameInput, Gas, InstructionResult, InterpreterResult, SharedMemory,
+        FrameInput, Gas, InitialAndFloorGas, InstructionResult, InterpreterResult, SharedMemory,
         interpreter::EthInterpreter, interpreter_action::FrameInit, return_ok,
     },
     precompile::{PrecompileSpecId, Precompiles},
     primitives::hardfork::SpecId,
+};
+use tempo_evm::TempoBlockEnv;
+use tempo_precompiles::extend_tempo_precompiles;
+use tempo_revm::{
+    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, handler::TempoEvmHandler,
 };
 
 pub fn new_evm_with_inspector<'db, I: InspectorExt>(
@@ -36,7 +41,9 @@ pub fn new_evm_with_inspector<'db, I: InspectorExt>(
     env: Env,
     inspector: I,
 ) -> FoundryEvm<'db, I> {
-    let mut ctx = EthEvmContext {
+    let chain_id = env.evm_env.chainid();
+    let spec_id = *env.evm_env.spec_id();
+    let mut ctx = TempoContext {
         journaled_state: {
             let mut journal = Journal::new(db);
             journal.set_spec_id(env.evm_env.cfg_env.spec);
@@ -50,15 +57,8 @@ pub fn new_evm_with_inspector<'db, I: InspectorExt>(
         error: Ok(()),
     };
     ctx.cfg.tx_chain_id_check = true;
-    let spec = ctx.cfg.spec;
-
     let mut evm = FoundryEvm {
-        inner: RevmEvm::new_with_inspector(
-            ctx,
-            inspector,
-            EthInstructions::default(),
-            get_precompiles(spec),
-        ),
+        inner: TempoEvm::new(ctx, inspector).with_precompiles(get_precompiles(spec_id, chain_id)),
     };
 
     evm.inspector().get_networks().inject_precompiles(evm.precompiles_mut());
@@ -66,18 +66,13 @@ pub fn new_evm_with_inspector<'db, I: InspectorExt>(
 }
 
 pub fn new_evm_with_existing_context<'a>(
-    ctx: EthEvmContext<&'a mut dyn DatabaseExt>,
+    ctx: TempoContext<&'a mut dyn DatabaseExt>,
     inspector: &'a mut dyn InspectorExt,
 ) -> FoundryEvm<'a, &'a mut dyn InspectorExt> {
-    let spec = ctx.cfg.spec;
-
+    let chain_id = ctx.cfg.chain_id;
+    let spec_id = ctx.cfg.spec;
     let mut evm = FoundryEvm {
-        inner: RevmEvm::new_with_inspector(
-            ctx,
-            inspector,
-            EthInstructions::default(),
-            get_precompiles(spec),
-        ),
+        inner: TempoEvm::new(ctx, inspector).with_precompiles(get_precompiles(spec_id, chain_id)),
     };
 
     evm.inspector().get_networks().inject_precompiles(evm.precompiles_mut());
@@ -85,14 +80,19 @@ pub fn new_evm_with_existing_context<'a>(
 }
 
 /// Get the precompiles for the given spec.
-fn get_precompiles(spec: SpecId) -> PrecompilesMap {
-    PrecompilesMap::from_static(
+fn get_precompiles(spec: SpecId, chain_id: u64) -> PrecompilesMap {
+    let mut precompiles = PrecompilesMap::from_static(
         EthPrecompiles {
             precompiles: Precompiles::new(PrecompileSpecId::from_spec_id(spec)),
             spec,
         }
         .precompiles,
-    )
+    );
+
+    // TODO: hack for now because apparently tempo doesn't set precompiles on its own??
+    extend_tempo_precompiles(&mut precompiles, chain_id);
+
+    precompiles
 }
 
 /// Get the call inputs for the CREATE2 factory.
@@ -118,24 +118,18 @@ fn get_create2_factory_call_inputs(
 
 pub struct FoundryEvm<'db, I: InspectorExt> {
     #[allow(clippy::type_complexity)]
-    inner: RevmEvm<
-        EthEvmContext<&'db mut dyn DatabaseExt>,
-        I,
-        EthInstructions<EthInterpreter, EthEvmContext<&'db mut dyn DatabaseExt>>,
-        PrecompilesMap,
-        EthFrame<EthInterpreter>,
-    >,
+    inner: TempoEvm<&'db mut dyn DatabaseExt, I>,
 }
 impl<'db, I: InspectorExt> FoundryEvm<'db, I> {
     /// Consumes the EVM and returns the inner context.
-    pub fn into_context(self) -> EthEvmContext<&'db mut dyn DatabaseExt> {
-        self.inner.ctx
+    pub fn into_context(self) -> TempoContext<&'db mut dyn DatabaseExt> {
+        self.inner.0.ctx
     }
 
     pub fn run_execution(
         &mut self,
         frame: FrameInput,
-    ) -> Result<FrameResult, EVMError<DatabaseError>> {
+    ) -> Result<FrameResult, EVMError<DatabaseError, TempoInvalidTransaction>> {
         let mut handler = FoundryHandler::<I>::default();
 
         // Create first frame
@@ -157,13 +151,13 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
     type Precompiles = PrecompilesMap;
     type Inspector = I;
     type DB = &'db mut dyn DatabaseExt;
-    type Error = EVMError<DatabaseError>;
+    type Error = EVMError<DatabaseError, TempoInvalidTransaction>;
     type HaltReason = HaltReason;
     type Spec = SpecId;
-    type Tx = TxEnv;
-    type BlockEnv = BlockEnv;
+    type Tx = TempoTxEnv;
+    type BlockEnv = TempoBlockEnv;
 
-    fn block(&self) -> &BlockEnv {
+    fn block(&self) -> &TempoBlockEnv {
         &self.inner.block
     }
 
@@ -177,9 +171,9 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
 
     fn components_mut(&mut self) -> (&mut Self::DB, &mut Self::Inspector, &mut Self::Precompiles) {
         (
-            &mut self.inner.ctx.journaled_state.database,
-            &mut self.inner.inspector,
-            &mut self.inner.precompiles,
+            &mut self.inner.0.ctx.journaled_state.database,
+            &mut self.inner.0.inspector,
+            &mut self.inner.0.precompiles,
         )
     }
 
@@ -211,7 +205,7 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
         &mut self,
         tx: Self::Tx,
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
-        self.inner.ctx.tx = tx;
+        self.inner.0.ctx.tx = tx;
 
         let mut handler = FoundryHandler::<I>::default();
         let result = handler.inspect_run(&mut self.inner)?;
@@ -228,53 +222,101 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
         unimplemented!()
     }
 
-    fn finish(self) -> (Self::DB, EvmEnv<Self::Spec>)
+    fn finish(self) -> (Self::DB, EvmEnv<Self::Spec, TempoBlockEnv>)
     where
         Self: Sized,
     {
-        let Context { block: block_env, cfg: cfg_env, journaled_state, .. } = self.inner.ctx;
+        let Context { block: block_env, cfg: cfg_env, journaled_state, .. } = self.inner.0.ctx;
 
         (journaled_state.database, EvmEnv { block_env, cfg_env })
     }
 }
 
 impl<'db, I: InspectorExt> Deref for FoundryEvm<'db, I> {
-    type Target = Context<BlockEnv, TxEnv, CfgEnv, &'db mut dyn DatabaseExt>;
+    type Target = TempoContext<&'db mut dyn DatabaseExt>;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner.ctx
+        &self.inner.0.ctx
     }
 }
 
 impl<I: InspectorExt> DerefMut for FoundryEvm<'_, I> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner.ctx
+        &mut self.inner.0.ctx
     }
 }
 
 pub struct FoundryHandler<'db, I: InspectorExt> {
     create2_overrides: Vec<(usize, CallInputs)>,
+    inner: TempoEvmHandler<&'db mut dyn DatabaseExt, I>,
     _phantom: PhantomData<(&'db mut dyn DatabaseExt, I)>,
 }
 
 impl<I: InspectorExt> Default for FoundryHandler<'_, I> {
     fn default() -> Self {
-        Self { create2_overrides: Vec::new(), _phantom: PhantomData }
+        Self { create2_overrides: Vec::new(), inner: TempoEvmHandler::new(), _phantom: PhantomData }
     }
 }
 
 // Blanket Handler implementation for FoundryHandler, needed for implementing the InspectorHandler
 // trait.
 impl<'db, I: InspectorExt> Handler for FoundryHandler<'db, I> {
-    type Evm = RevmEvm<
-        EthEvmContext<&'db mut dyn DatabaseExt>,
-        I,
-        EthInstructions<EthInterpreter, EthEvmContext<&'db mut dyn DatabaseExt>>,
-        PrecompilesMap,
-        EthFrame<EthInterpreter>,
-    >;
-    type Error = EVMError<DatabaseError>;
+    type Evm = TempoEvm<&'db mut dyn DatabaseExt, I>;
+    type Error = EVMError<DatabaseError, TempoInvalidTransaction>;
     type HaltReason = HaltReason;
+
+    #[inline]
+    fn run(
+        &mut self,
+        evm: &mut Self::Evm,
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        self.inner.run(evm)
+    }
+
+    #[inline]
+    fn execution(
+        &mut self,
+        evm: &mut Self::Evm,
+        init_floor_and_gas: &InitialAndFloorGas,
+    ) -> Result<FrameResult, Self::Error> {
+        self.inner.execution(evm, init_floor_and_gas)
+    }
+
+    #[inline]
+    fn validate_against_state_and_deduct_caller(
+        &self,
+        evm: &mut Self::Evm,
+    ) -> Result<(), Self::Error> {
+        self.inner.validate_against_state_and_deduct_caller(evm)
+    }
+
+    #[inline]
+    fn reimburse_caller(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        self.inner.reimburse_caller(evm, exec_result)
+    }
+
+    #[inline]
+    fn reward_beneficiary(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        self.inner.reward_beneficiary(evm, exec_result)
+    }
+
+    #[inline]
+    fn validate_env(&self, evm: &mut Self::Evm) -> Result<(), Self::Error> {
+        self.inner.validate_env(evm)
+    }
+
+    #[inline]
+    fn validate_initial_tx_gas(&self, evm: &Self::Evm) -> Result<InitialAndFloorGas, Self::Error> {
+        self.inner.validate_initial_tx_gas(evm)
+    }
 }
 
 impl<'db, I: InspectorExt> FoundryHandler<'db, I> {
@@ -369,6 +411,22 @@ impl<'db, I: InspectorExt> FoundryHandler<'db, I> {
 
 impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
+
+    fn inspect_run(
+        &mut self,
+        evm: &mut Self::Evm,
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        self.inner.inspect_run(evm)
+    }
+
+    #[inline]
+    fn inspect_execution(
+        &mut self,
+        evm: &mut Self::Evm,
+        init_and_floor_gas: &InitialAndFloorGas,
+    ) -> Result<FrameResult, Self::Error> {
+        self.inner.inspect_execution(evm, init_and_floor_gas)
+    }
 
     fn inspect_run_exec_loop(
         &mut self,
