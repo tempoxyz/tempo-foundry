@@ -45,8 +45,8 @@ revm = { workspace = true, default-features = false, features = [
     "arbitrary",
     "c-kzg",
 ] }
-tempo-precompiles.workspace = true
-tempo-revm.workspace = true
+tempo-precompiles = { workspace = true, default-features = false }
+tempo-revm = { workspace = true, default-features = false }
 revm-inspectors.workspace = true
 
 eyre.workspace = true

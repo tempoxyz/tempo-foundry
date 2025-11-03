@@ -52,9 +52,9 @@ revm = { workspace = true, features = [
 ] }
 revm-inspectors.workspace = true
 op-revm.workspace = true
-tempo-evm.workspace = true
-tempo-revm.workspace = true
-tempo-precompiles.workspace = true
+tempo-evm = { workspace = true, default-features = false }
+tempo-revm = { workspace = true, default-features = false }
+tempo-precompiles = { workspace = true, default-features = false }
 alloy-op-evm.workspace = true
 
 auto_impl.workspace = true

@@ -68,7 +68,7 @@ revm = { workspace = true, features = [
     "memory_limit",
     "c-kzg",
 ] }
-tempo-revm.workspace = true
+tempo-revm = { workspace = true, default-features = false }
 revm-inspectors.workspace = true
 op-revm.workspace = true
 
