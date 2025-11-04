@@ -4,7 +4,12 @@ pragma solidity ^0.8.13;
 import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
 
 contract Mail {
-    event MailSent(address indexed from, address indexed to, string message, uint256 amount, bytes32 memo);
+    event MailSent(address indexed from, address indexed to, string message, Attachment attachment);
+
+    struct Attachment {
+        uint256 amount;
+        bytes32 memo;
+    }
 
     ITIP20 public token;
 
@@ -12,9 +17,9 @@ contract Mail {
         token = token_;
     }
 
-    function sendMail(address to, string memory message, uint256 amount, bytes32 memo) external {
-        token.transferWithMemo(to, amount, memo);
+    function sendMail(address to, string memory message, Attachment memory attachment) external {
+        token.transferWithMemo(to, attachment.amount, attachment.memo);
 
-        emit MailSent(msg.sender, to, message, amount, memo);
+        emit MailSent(msg.sender, to, message, attachment);
     }
 }
