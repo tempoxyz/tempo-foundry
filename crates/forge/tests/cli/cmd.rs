@@ -890,13 +890,13 @@ Installing tempo-std in [..] (url: https://github.com/tempoxyz/tempo-std, tag: N
     assert!(prj.root().join("lib/tempo-std").exists());
 
     assert!(prj.root().join("src").exists());
-    assert!(prj.root().join("src").join("Counter.sol").exists());
+    assert!(prj.root().join("src").join("Mail.sol").exists());
 
     assert!(prj.root().join("test").exists());
-    assert!(prj.root().join("test").join("Counter.t.sol").exists());
+    assert!(prj.root().join("test").join("Mail.t.sol").exists());
 
     assert!(prj.root().join("script").exists());
-    assert!(prj.root().join("script").join("Counter.s.sol").exists());
+    assert!(prj.root().join("script").join("Mail.s.sol").exists());
 
     assert!(prj.root().join(".github").join("workflows").exists());
     assert!(prj.root().join(".github").join("workflows").join("test.yml").exists());
