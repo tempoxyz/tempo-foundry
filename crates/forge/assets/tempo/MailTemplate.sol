@@ -18,7 +18,8 @@ contract Mail {
     }
 
     function sendMail(address to, string memory message, Attachment memory attachment) external {
-        token.transferWithMemo(to, attachment.amount, attachment.memo);
+        // token.transferFromWithMemo(msg.sender, to, attachment.amount, attachment.memo);
+        token.transferFrom(msg.sender, to, attachment.amount);
 
         emit MailSent(msg.sender, to, message, attachment);
     }

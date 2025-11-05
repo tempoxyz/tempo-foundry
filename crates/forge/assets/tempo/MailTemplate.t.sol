@@ -23,16 +23,17 @@ contract MailTest is Test {
                 "testUSD", "tUSD", "USD", ITIP20(StdPrecompiles.LINKING_USD_ADDRESS), address(this)
             )
         );
-        ITIP20RolesAuth(address(token)).grantRole(keccak256("ISSUER_ROLE"), ALICE);
+
+        ITIP20RolesAuth(address(token)).grantRole(keccak256("ISSUER_ROLE"), address(this));
         token.mint(ALICE, 100000 * 10 ** token.decimals());
         mail = new Mail(token);
     }
 
     function test_SendMail() public {
         Mail.Attachment memory attachment =
-            Mail.Attachment({amount: 100 * 10 ** token.decimals(), memo: "Invoice #1234"});
+            Mail.Attachment({amount: 100 * 10 ** token.decimals(), memo: bytes32("Invoice #1234")});
 
-        vm.startPrank(ALICE);
+        vm.prank(ALICE);
         token.approve(address(mail), attachment.amount);
 
         vm.prank(ALICE);
