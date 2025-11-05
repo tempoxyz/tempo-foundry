@@ -29,11 +29,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .or_else(|_| env::var("CARGO_TAG_NAME"))
         .unwrap_or_else(|_| String::from("dev"));
     let (is_nightly, version_suffix) = if tag_name.contains("nightly") {
-        (true, "-nightly".to_string())
+        (true, "-nightly-tempo".to_string())
     } else if let Some((_, rc_number)) = tag_name.split_once("rc") {
-        (false, format!("-rc{rc_number}"))
+        (false, format!("-rc{rc_number}-tempo"))
     } else {
-        (false, format!("-{tag_name}"))
+        (false, format!("-{tag_name}-tempo"))
     };
 
     // Whether the version is a nightly build.
