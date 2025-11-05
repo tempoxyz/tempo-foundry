@@ -11,17 +11,19 @@ import {Mail} from "../src/Mail.sol";
 contract MailTest is Test {
     ITIP20Factory internal constant TIP20_FACTORY = ITIP20Factory(StdPrecompiles.TIP20_FACTORY_ADDRESS);
 
-    ITIP20RolesAuth public token;
+    ITIP20 public token;
     Mail public mail;
 
     address public constant ALICE = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     address public constant BOB = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
 
     function setUp() public {
-        token = ITIP20RolesAuth(
-            TIP20_FACTORY.createToken("testUSD", "tUSD", "USD", StdPrecompiles.LINKING_USD_ADDRESS, address(this))
+        token = ITIP20(
+            TIP20_FACTORY.createToken(
+                "testUSD", "tUSD", "USD", ITIP20(StdPrecompiles.LINKING_USD_ADDRESS), address(this)
+            )
         );
-        token.grantRole(keccak256("MINTER_ROLE"), address(this));
+        ITIP20RolesAuth(address(token)).grantRole(keccak256("ISSUER_ROLE"), ALICE);
         token.mint(ALICE, 100000 * 10 ** token.decimals());
         mail = new Mail(token);
     }
