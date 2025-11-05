@@ -119,7 +119,7 @@ pub struct FoundryEvm<'db, I: InspectorExt> {
 impl<'db, I: InspectorExt> FoundryEvm<'db, I> {
     /// Consumes the EVM and returns the inner context.
     pub fn into_context(self) -> TempoContext<&'db mut dyn DatabaseExt> {
-        self.inner.0.ctx
+        self.inner.inner.ctx
     }
 
     pub fn run_execution(
@@ -129,8 +129,9 @@ impl<'db, I: InspectorExt> FoundryEvm<'db, I> {
         let mut handler = FoundryHandler::<I>::default();
 
         // Create first frame
-        let memory =
-            SharedMemory::new_with_buffer(self.inner.ctx().local().shared_memory_buffer().clone());
+        let memory = SharedMemory::new_with_buffer(
+            self.inner.inner.ctx().local().shared_memory_buffer().clone(),
+        );
         let first_frame_input = FrameInit { depth: 0, memory, frame_input: frame };
 
         // Run execution loop
@@ -158,39 +159,43 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
     }
 
     fn chain_id(&self) -> u64 {
-        self.inner.ctx.cfg.chain_id
+        self.inner.inner.ctx.cfg.chain_id
     }
 
     fn components(&self) -> (&Self::DB, &Self::Inspector, &Self::Precompiles) {
-        (&self.inner.ctx.journaled_state.database, &self.inner.inspector, &self.inner.precompiles)
+        (
+            &self.inner.inner.ctx.journaled_state.database,
+            &self.inner.inner.inspector,
+            &self.inner.inner.precompiles,
+        )
     }
 
     fn components_mut(&mut self) -> (&mut Self::DB, &mut Self::Inspector, &mut Self::Precompiles) {
         (
-            &mut self.inner.0.ctx.journaled_state.database,
-            &mut self.inner.0.inspector,
-            &mut self.inner.0.precompiles,
+            &mut self.inner.inner.ctx.journaled_state.database,
+            &mut self.inner.inner.inspector,
+            &mut self.inner.inner.precompiles,
         )
     }
 
     fn db_mut(&mut self) -> &mut Self::DB {
-        &mut self.inner.ctx.journaled_state.database
+        &mut self.inner.inner.ctx.journaled_state.database
     }
 
     fn precompiles(&self) -> &Self::Precompiles {
-        &self.inner.precompiles
+        &self.inner.inner.precompiles
     }
 
     fn precompiles_mut(&mut self) -> &mut Self::Precompiles {
-        &mut self.inner.precompiles
+        &mut self.inner.inner.precompiles
     }
 
     fn inspector(&self) -> &Self::Inspector {
-        &self.inner.inspector
+        &self.inner.inner.inspector
     }
 
     fn inspector_mut(&mut self) -> &mut Self::Inspector {
-        &mut self.inner.inspector
+        &mut self.inner.inner.inspector
     }
 
     fn set_inspector_enabled(&mut self, _enabled: bool) {
@@ -201,12 +206,12 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
         &mut self,
         tx: Self::Tx,
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
-        self.inner.0.ctx.tx = tx;
+        self.inner.inner.ctx.tx = tx;
 
         let mut handler = FoundryHandler::<I>::default();
         let result = handler.inspect_run(&mut self.inner)?;
 
-        Ok(ResultAndState::new(result, self.inner.ctx.journaled_state.inner.state.clone()))
+        Ok(ResultAndState::new(result, self.inner.inner.ctx.journaled_state.inner.state.clone()))
     }
 
     fn transact_system_call(
@@ -222,7 +227,7 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
     where
         Self: Sized,
     {
-        let Context { block: block_env, cfg: cfg_env, journaled_state, .. } = self.inner.0.ctx;
+        let Context { block: block_env, cfg: cfg_env, journaled_state, .. } = self.inner.inner.ctx;
 
         (journaled_state.database, EvmEnv { block_env, cfg_env })
     }
@@ -232,13 +237,13 @@ impl<'db, I: InspectorExt> Deref for FoundryEvm<'db, I> {
     type Target = TempoContext<&'db mut dyn DatabaseExt>;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner.0.ctx
+        &self.inner.inner.ctx
     }
 }
 
 impl<I: InspectorExt> DerefMut for FoundryEvm<'_, I> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner.0.ctx
+        &mut self.inner.inner.ctx
     }
 }
 
