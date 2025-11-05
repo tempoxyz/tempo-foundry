@@ -31,7 +31,6 @@ use std::{collections::BTreeMap, sync::OnceLock};
 use tempo_precompiles::{
     LINKING_USD_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS,
     TIP_ACCOUNT_REGISTRAR, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS,
-    TIP4217_REGISTRY_ADDRESS,
 };
 
 mod precompiles;
@@ -197,7 +196,6 @@ impl CallTraceDecoder {
                 (LINKING_USD_ADDRESS, "LinkingUSD".to_string()),
                 (TIP403_REGISTRY_ADDRESS, "TIP403Registry".to_string()),
                 (TIP20_FACTORY_ADDRESS, "TIP20Factory".to_string()),
-                (TIP4217_REGISTRY_ADDRESS, "TIP4217Registry".to_string()),
                 (TIP_ACCOUNT_REGISTRAR, "TIPAccountRegistrar".to_string()),
                 (STABLECOIN_EXCHANGE_ADDRESS, "StablecoinAMM".to_string()),
                 (NONCE_PRECOMPILE_ADDRESS, "Nonce".to_string()),
@@ -217,9 +215,6 @@ impl CallTraceDecoder {
                 )
                 .chain(tempo_contracts::precompiles::ITIP20Factory::abi::functions().into_values())
                 .chain(
-                    tempo_contracts::precompiles::ITIP4217Registry::abi::functions().into_values(),
-                )
-                .chain(
                     tempo_contracts::precompiles::ITipAccountRegistrar::abi::functions()
                         .into_values(),
                 )
@@ -238,7 +233,6 @@ impl CallTraceDecoder {
                 .chain(tempo_contracts::precompiles::ITIP20::abi::events().into_values())
                 .chain(tempo_contracts::precompiles::ITIP403Registry::abi::events().into_values())
                 .chain(tempo_contracts::precompiles::ITIP20Factory::abi::events().into_values())
-                .chain(tempo_contracts::precompiles::ITIP4217Registry::abi::events().into_values())
                 .chain(
                     tempo_contracts::precompiles::ITipAccountRegistrar::abi::events().into_values(),
                 )
