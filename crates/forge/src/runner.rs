@@ -10,13 +10,13 @@ use crate::{
 };
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_json_abi::Function;
-use alloy_primitives::{Address, Bytes, U256, address, map::HashMap};
+use alloy_primitives::{Address, Bytes, U256, address, keccak256, map::HashMap};
 use eyre::Result;
 use foundry_common::{TestFunctionExt, TestFunctionKind, contracts::ContractsByAddress};
 use foundry_compilers::utils::canonicalized;
 use foundry_config::{Config, FuzzCorpusConfig};
 use foundry_evm::{
-    constants::CALLER,
+    constants::{CALLER, TEST_CONTRACT_ADDRESS},
     decode::RevertDecoder,
     executors::{
         CallResult, EvmError, Executor, ITest, RawCallResult,
@@ -34,6 +34,7 @@ use foundry_evm::{
 use itertools::Itertools;
 use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
+use revm::state::{AccountInfo, Bytecode};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -200,7 +201,91 @@ impl<'a> ContractRunner<'a> {
 
         result.fuzz_fixtures = self.fuzz_fixtures(address);
 
+        // HACK: We initialize Tempo precompiles
+        self.initialize_tempo_precompiles();
+
         Ok(result)
+    }
+
+    fn initialize_tempo_precompiles(&mut self) {
+        use tempo_precompiles::*;
+
+        let admin = TEST_CONTRACT_ADDRESS;
+
+        let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
+        for precompile in [
+            LINKING_USD_ADDRESS,
+            NONCE_PRECOMPILE_ADDRESS,
+            STABLECOIN_EXCHANGE_ADDRESS,
+            TIP20_FACTORY_ADDRESS,
+            TIP20_REWARDS_REGISTRY_ADDRESS,
+            TIP403_REGISTRY_ADDRESS,
+            TIP_ACCOUNT_REGISTRAR,
+            TIP_FEE_MANAGER_ADDRESS,
+            VALIDATOR_CONFIG_ADDRESS,
+        ] {
+            self.executor.backend_mut().insert_account_info(
+                precompile,
+                AccountInfo {
+                    code_hash: bytecode.hash_slow(),
+                    code: Some(bytecode.clone()),
+                    ..Default::default()
+                },
+            );
+        }
+        // note(onbjerg): we should use the initialize fns from the precompiles, but these are
+        // currently not that easy to work with because they require an `S:
+        // PrecompileStorageProvider` which is cumbersome to implement in foundry at the moment. <https://github.com/tempoxyz/tempo/blob/3b1a90454d5fa9b098dc78c93ae131c070b183aa/crates/precompiles/src/validator_config/mod.rs#L80>
+        self.executor
+            .backend_mut()
+            .insert_account_storage(
+                VALIDATOR_CONFIG_ADDRESS,
+                validator_config::slots::OWNER,
+                admin.into_word().into(),
+            )
+            .expect("failed to initialize validator config state");
+
+        // <https://github.com/tempoxyz/tempo/blob/3b1a90454d5fa9b098dc78c93ae131c070b183aa/crates/precompiles/src/linking_usd/mod.rs#L31>
+        for (slot, v) in [
+            (tip20::slots::NAME, encode_str("linkingUSD")),
+            (tip20::slots::SYMBOL, encode_str("linkingUSD")),
+            (tip20::slots::CURRENCY, encode_str("USD")),
+            (tip20::slots::QUOTE_TOKEN, Address::ZERO.into_word().into()),
+            (tip20::slots::NEXT_QUOTE_TOKEN, Address::ZERO.into_word().into()),
+            (tip20::slots::SUPPLY_CAP, U256::MAX),
+            (tip20::slots::TRANSFER_POLICY_ID, U256::ONE),
+        ] {
+            self.executor
+                .backend_mut()
+                .insert_account_storage(LINKING_USD_ADDRESS, slot, v)
+                .expect("failed to initialize linking usd state");
+        }
+
+        // LinkingUSD rbac initialization
+        let roles_slot = tip20::slots::ROLES_BASE_SLOT;
+        let role_admin_base_slot = tip20::slots::ROLE_ADMIN_BASE_SLOT;
+
+        // <https://github.com/tempoxyz/tempo/blob/3b1a90454d5fa9b098dc78c93ae131c070b183aa/crates/precompiles/src/tip20/roles.rs#L38>
+        let slot = mapping_slot(tip20::roles::UNGRANTABLE_ROLE.as_ref(), role_admin_base_slot);
+        self.executor
+            .backend_mut()
+            .insert_account_storage(
+                LINKING_USD_ADDRESS,
+                slot,
+                tip20::roles::UNGRANTABLE_ROLE.into(),
+            )
+            .expect("failed to initialize linking usd state");
+
+        // <https://github.com/tempoxyz/tempo/blob/3b1a90454d5fa9b098dc78c93ae131c070b183aa/crates/precompiles/src/tip20/roles.rs#L43>
+        let slot = double_mapping_slot(
+            admin.as_ref(),
+            tip20::roles::DEFAULT_ADMIN_ROLE.as_ref(),
+            roles_slot,
+        );
+        self.executor
+            .backend_mut()
+            .insert_account_storage(LINKING_USD_ADDRESS, slot, U256::ONE)
+            .expect("failed to initialize linking usd state");
     }
 
     fn initial_balance(&self) -> U256 {
@@ -1187,4 +1272,45 @@ fn record_invariant_failure(
     ) {
         error!(%err, "Failed to record call sequence");
     }
+}
+
+// == temporary helpers for tempo ==
+
+/// A helper to encode a small string (<=31 bytes) to the format expected by Solidity.
+fn encode_str(val: &str) -> U256 {
+    let bytes = val.as_bytes();
+
+    let mut encoded = [0u8; 32];
+    encoded[..bytes.len()].copy_from_slice(bytes);
+    encoded[31] = (bytes.len() * 2) as u8; // length * 2 in last byte
+
+    U256::from_be_bytes(encoded)
+}
+
+/// Compute the storage slot for a key in a mapping.
+fn mapping_slot(key: &[u8], mapping_slot: U256) -> U256 {
+    let mut buf = [0u8; 64];
+    buf[..32].copy_from_slice(&pad_to_32(key));
+    buf[32..].copy_from_slice(&mapping_slot.to_le_bytes::<32>());
+    U256::from_be_bytes(keccak256(buf).0)
+}
+
+/// Compute the storage slot for a set of keys in a doubly nested mapping.
+fn double_mapping_slot(a: &[u8], b: &[u8], base_slot: U256) -> U256 {
+    let intermediate_slot = mapping_slot(a, base_slot);
+    let mut buf = [0u8; 64];
+    buf[..32].copy_from_slice(&pad_to_32(b));
+    buf[32..].copy_from_slice(&intermediate_slot.to_be_bytes::<32>());
+    U256::from_be_bytes(keccak256(buf).0)
+}
+
+/// Helper function to pad a byte slice to 32 bytes.
+const fn pad_to_32(x: &[u8]) -> [u8; 32] {
+    let mut buf = [0u8; 32];
+    let mut i = 0;
+    while i < x.len() && i < 32 {
+        buf[i] = x[i];
+        i += 1;
+    }
+    buf
 }

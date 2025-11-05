@@ -4947,6 +4947,7 @@ dependencies = [
  "strum 0.27.2",
  "svm-rs",
  "tempfile",
+ "tempo-precompiles",
  "thiserror 2.0.17",
  "tokio",
  "toml_edit 0.23.7",

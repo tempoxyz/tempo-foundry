@@ -50,6 +50,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tempo_precompiles::storage::PrecompileStorageProvider;
 use tempo_revm::{TempoBlockEnv, TempoTxEnv};
 
 mod builder;

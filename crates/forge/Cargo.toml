@@ -87,6 +87,9 @@ clearscreen = "4.0"
 evm-disassembler.workspace = true
 path-slash.workspace = true
 
+# tempo
+tempo-precompiles.workspace = true
+
 # doc server
 axum = { workspace = true, features = ["ws"] }
 tower-http = { workspace = true, features = ["fs"] }
