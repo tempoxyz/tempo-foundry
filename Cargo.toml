@@ -290,10 +290,10 @@ op-alloy-flz = "0.13.1"
 revm = { version = "31.0.0", default-features = false }
 revm-inspectors = { version = "0.32.0", features = ["serde"] }
 op-revm = { version = "12.0.0", default-features = false }
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "50457b9db7c0a369a3aaba40147efbb01a9fa6b8" }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "50457b9db7c0a369a3aaba40147efbb01a9fa6b8" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "50457b9db7c0a369a3aaba40147efbb01a9fa6b8" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "50457b9db7c0a369a3aaba40147efbb01a9fa6b8" }
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5141316" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5141316" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5141316" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5141316" }
 ## alloy-evm
 alloy-evm = "0.23.1"
 alloy-op-evm = "0.23.1"
