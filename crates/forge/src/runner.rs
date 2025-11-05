@@ -162,6 +162,9 @@ impl<'a> ContractRunner<'a> {
         // construction
         self.executor.set_balance(address, self.initial_balance())?;
 
+        // HACK: We initialize Tempo precompiles
+        self.initialize_tempo_precompiles();
+
         // Deploy the test contract
         let deploy_result = self.executor.deploy(
             self.sender,
@@ -200,9 +203,6 @@ impl<'a> ContractRunner<'a> {
         }
 
         result.fuzz_fixtures = self.fuzz_fixtures(address);
-
-        // HACK: We initialize Tempo precompiles
-        self.initialize_tempo_precompiles();
 
         Ok(result)
     }
