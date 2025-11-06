@@ -1290,7 +1290,7 @@ fn encode_str(val: &str) -> U256 {
 /// Compute the storage slot for a key in a mapping.
 fn mapping_slot(key: &[u8], mapping_slot: U256) -> U256 {
     let mut buf = [0u8; 64];
-    buf[..32].copy_from_slice(&pad_to_32(key));
+    buf[..32].copy_from_slice(&left_pad_to_32(key));
     buf[32..].copy_from_slice(&mapping_slot.to_be_bytes::<32>());
     U256::from_be_bytes(keccak256(buf).0)
 }
@@ -1299,7 +1299,7 @@ fn mapping_slot(key: &[u8], mapping_slot: U256) -> U256 {
 fn double_mapping_slot(a: &[u8], b: &[u8], base_slot: U256) -> U256 {
     let intermediate_slot = mapping_slot(a, base_slot);
     let mut buf = [0u8; 64];
-    buf[..32].copy_from_slice(&pad_to_32(b));
+    buf[..32].copy_from_slice(&left_pad_to_32(b));
     buf[32..].copy_from_slice(&intermediate_slot.to_be_bytes::<32>());
     U256::from_be_bytes(keccak256(buf).0)
 }
