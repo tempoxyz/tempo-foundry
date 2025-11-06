@@ -2,8 +2,6 @@
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-Since Tempo introduces several protocol-level features that extend beyond Ethereum's vanilla EVM implementation — including custom precompiles, new transaction types, fee payments in stablecoins, and native account abstraction — a custom `forge` and `cast` built from [Tempo's fork](https://github.com/tempoxyz/tempo-foundry) of [Foundry](https://github.com/foundry-rs/foundry) is required.
-
 Tempo's fork of Foundry consists of:
 
 - **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
