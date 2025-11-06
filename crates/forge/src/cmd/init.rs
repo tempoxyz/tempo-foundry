@@ -219,7 +219,12 @@ impl InitArgs {
 
             // Write the default README file
             let readme_path = root.join("README.md");
-            fs::write(readme_path, include_str!("../../assets/README.md"))?;
+
+            if tempo {
+                fs::write(readme_path, include_str!("../../assets/tempo/README.md"))?;
+            } else {
+                fs::write(readme_path, include_str!("../../assets/README.md"))?;
+            }
 
             // write foundry.toml, if it doesn't exist already
             let dest = root.join(Config::FILE_NAME);

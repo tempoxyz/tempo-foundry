@@ -840,6 +840,8 @@ Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag:
 
     assert!(prj.root().join(".github").join("workflows").exists());
     assert!(prj.root().join(".github").join("workflows").join("test.yml").exists());
+
+    assert!(prj.root().join("README.md").exists());
 });
 
 // checks that `forge init --vyper` works.
@@ -869,6 +871,8 @@ Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag:
 
     assert!(prj.root().join(".github").join("workflows").exists());
     assert!(prj.root().join(".github").join("workflows").join("test.yml").exists());
+
+    assert!(prj.root().join("README.md").exists());
 });
 
 // checks that `forge init --tempo` works.
@@ -900,6 +904,8 @@ Installing tempo-std in [..] (url: https://github.com/tempoxyz/tempo-std, tag: N
 
     assert!(prj.root().join(".github").join("workflows").exists());
     assert!(prj.root().join(".github").join("workflows").join("test.yml").exists());
+
+    assert!(prj.root().join("README.md").exists());
 });
 
 // checks that clone works with raw src containing `node_modules`
