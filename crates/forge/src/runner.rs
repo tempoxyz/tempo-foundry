@@ -1291,7 +1291,7 @@ fn encode_str(val: &str) -> U256 {
 fn mapping_slot(key: &[u8], mapping_slot: U256) -> U256 {
     let mut buf = [0u8; 64];
     buf[..32].copy_from_slice(&pad_to_32(key));
-    buf[32..].copy_from_slice(&mapping_slot.to_le_bytes::<32>());
+    buf[32..].copy_from_slice(&mapping_slot.to_be_bytes::<32>());
     U256::from_be_bytes(keccak256(buf).0)
 }
 
@@ -1305,12 +1305,8 @@ fn double_mapping_slot(a: &[u8], b: &[u8], base_slot: U256) -> U256 {
 }
 
 /// Helper function to pad a byte slice to 32 bytes.
-const fn pad_to_32(x: &[u8]) -> [u8; 32] {
+fn left_pad_to_32(data: &[u8]) -> [u8; 32] {
     let mut buf = [0u8; 32];
-    let mut i = 0;
-    while i < x.len() && i < 32 {
-        buf[i] = x[i];
-        i += 1;
-    }
+    buf[32 - data.len()..].copy_from_slice(data);
     buf
 }
