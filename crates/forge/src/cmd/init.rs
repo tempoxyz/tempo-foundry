@@ -175,6 +175,24 @@ impl InitArgs {
                         contract_path,
                         include_str!("../../assets/vyper/CounterTemplate.s.sol"),
                     )?;
+                } else if tempo {
+                    // write the contract file
+                    let contract_path = src.join("Mail.sol");
+                    fs::write(contract_path, include_str!("../../assets/tempo/MailTemplate.sol"))?;
+
+                    // write the tests
+                    let contract_path = test.join("Mail.t.sol");
+                    fs::write(
+                        contract_path,
+                        include_str!("../../assets/tempo/MailTemplate.t.sol"),
+                    )?;
+
+                    // write the script
+                    let contract_path = script.join("Mail.s.sol");
+                    fs::write(
+                        contract_path,
+                        include_str!("../../assets/tempo/MailTemplate.s.sol"),
+                    )?;
                 } else {
                     // write the contract file
                     let contract_path = src.join("Counter.sol");
@@ -201,7 +219,12 @@ impl InitArgs {
 
             // Write the default README file
             let readme_path = root.join("README.md");
-            fs::write(readme_path, include_str!("../../assets/README.md"))?;
+
+            if tempo {
+                fs::write(readme_path, include_str!("../../assets/tempo/README.md"))?;
+            } else {
+                fs::write(readme_path, include_str!("../../assets/README.md"))?;
+            }
 
             // write foundry.toml, if it doesn't exist already
             let dest = root.join(Config::FILE_NAME);
