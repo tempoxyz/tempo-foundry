@@ -13,7 +13,7 @@ use foundry_cli::{
     opts::{EtherscanOpts, RpcOpts},
     utils::{TraceResult, init_progress},
 };
-use foundry_common::{is_impersonated_tx, shell};
+use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_impersonated_tx, is_known_system_sender, shell};
 use foundry_compilers::artifacts::EvmVersion;
 use foundry_config::{
     Config,
@@ -231,6 +231,19 @@ impl RunArgs {
                     }
 
                     configure_tx_env(&mut env.as_env_mut(), &tx.inner);
+
+                    // System transactions may have zero or invalid gas limits from the RPC.
+                    // Override with a reasonable value to allow execution.
+                    if is_known_system_sender(tx.from())
+                        || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
+                    {
+                        env.evm_env.cfg_env.disable_block_gas_limit = true;
+                        env.evm_env.cfg_env.disable_balance_check = true;
+                        env.evm_env.cfg_env.disable_nonce_check = true;
+                        env.evm_env.cfg_env.disable_fee_charge = true;
+                        env.evm_env.cfg_env.disable_base_fee = true;
+                        env.tx.gas_limit = u64::MAX;
+                    }
 
                     env.evm_env.cfg_env.disable_balance_check = true;
 
