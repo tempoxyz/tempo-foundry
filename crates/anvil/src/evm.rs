@@ -16,19 +16,6 @@ pub trait PrecompileFactory: Send + Sync + Unpin + Debug {
     fn precompiles(&self) -> Vec<(Address, DynPrecompile)>;
 }
 
-/// Inject custom precompiles into the EVM dynamically.
-pub fn inject_custom_precompiles<DB, I>(
-    evm: &mut EitherEvm<DB, I, PrecompilesMap>,
-    precompiles: Vec<(Address, DynPrecompile)>,
-) where
-    DB: Database,
-    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
-{
-    for (addr, precompile) in precompiles {
-        evm.precompiles_mut().apply_precompile(&addr, move |_| Some(precompile));
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
