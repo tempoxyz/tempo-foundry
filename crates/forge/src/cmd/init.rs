@@ -293,7 +293,7 @@ fn init_git_repo(git: Git<'_>, commit: bool, use_parent_git: bool, vyper: bool) 
         if vyper {
             fs::write(workflow, include_str!("../../assets/vyper/workflowTemplate.yml"))?;
         } else {
-            fs::write(workflow, include_str!("../../assets/tempo/workflowTemplate.yml"))?;
+            fs::write(workflow, include_str!("../../assets/solidity/workflowTemplate.yml"))?;
         }
     }
 
