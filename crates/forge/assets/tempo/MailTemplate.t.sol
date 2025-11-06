@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
 import {ITIP20RolesAuth} from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import {ITIP20Factory} from "tempo-std/interfaces/ITIP20Factory.sol";
@@ -28,7 +28,7 @@ contract MailTest is Test {
         token.mint(ALICE, 100_000 * 10 ** token.decimals());
 
         Mail.Attachment memory attachment =
-            Mail.Attachment({amount: 100 * 10 ** token.decimals(), memo: bytes32("Invoice #1234")});
+            Mail.Attachment({amount: 100 * 10 ** token.decimals(), memo: "Invoice #1234"});
 
         vm.prank(ALICE);
         token.approve(address(mail), attachment.amount);
