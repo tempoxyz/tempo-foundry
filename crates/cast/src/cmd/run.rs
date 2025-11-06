@@ -1,5 +1,5 @@
 use crate::{debug::handle_traces, utils::apply_chain_and_block_specific_env_changes};
-use alloy_consensus::Transaction;
+use alloy_consensus::{EthereumTxEnvelope, Transaction, TxEip4844};
 use alloy_network::{AnyNetwork, TransactionResponse};
 use alloy_primitives::{
     Address, Bytes, U256,
@@ -230,8 +230,10 @@ impl RunArgs {
                         break;
                     }
 
-                    // System transactions such as on L2s don't contain any pricing info so
-                    // we disable the revm checks, as otherwise this would cause reverts
+                    configure_tx_env(&mut env.as_env_mut(), &tx.inner);
+
+                    // System transactions may have zero or invalid gas limits from the RPC.
+                    // Override with a reasonable value to allow execution.
                     if is_known_system_sender(tx.from())
                         || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
                     {
@@ -240,9 +242,8 @@ impl RunArgs {
                         env.evm_env.cfg_env.disable_nonce_check = true;
                         env.evm_env.cfg_env.disable_fee_charge = true;
                         env.evm_env.cfg_env.disable_base_fee = true;
+                        env.tx.gas_limit = u64::MAX;
                     }
-
-                    configure_tx_env(&mut env.as_env_mut(), &tx.inner);
 
                     env.evm_env.cfg_env.disable_balance_check = true;
 
