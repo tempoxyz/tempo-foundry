@@ -55,8 +55,6 @@ main() {
     esac; shift
   done
 
-  echo "test"
-
   # Tempo only distributes `forge` and `cast` binaries
   if [[ -n "$FOUNDRYUP_TEMPO" ]]; then
     BINS=(forge cast)
