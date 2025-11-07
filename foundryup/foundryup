@@ -133,37 +133,8 @@ main() {
 
     say "installing foundry (version ${FOUNDRYUP_VERSION}, tag ${FOUNDRYUP_TAG})"
 
-    uname_s=$(uname -s)
-    PLATFORM=$(tolower "${FOUNDRYUP_PLATFORM:-$uname_s}")
-    EXT="tar.gz"
-    case $PLATFORM in
-      linux|alpine) ;;
-      darwin|mac*)
-        PLATFORM="darwin"
-        ;;
-      mingw*|win*)
-        EXT="zip"
-        PLATFORM="win32"
-        ;;
-      *)
-        err "unsupported platform: $PLATFORM"
-        ;;
-    esac
-
-    uname_m=$(uname -m)
-    ARCHITECTURE=$(tolower "${FOUNDRYUP_ARCH:-$uname_m}")
-    if [ "${ARCHITECTURE}" = "x86_64" ]; then
-      # Redirect stderr to /dev/null to avoid printing errors if non Rosetta.
-      if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
-        ARCHITECTURE="arm64" # Rosetta.
-      else
-        ARCHITECTURE="amd64" # Intel.
-      fi
-    elif [ "${ARCHITECTURE}" = "arm64" ] ||[ "${ARCHITECTURE}" = "aarch64" ] ; then
-      ARCHITECTURE="arm64" # Arm.
-    else
-      ARCHITECTURE="amd64" # Amd.
-    fi
+    # Detect platform and architecture.
+    detect_platform_arch
 
     # Compute the URL of the release tarball in the Foundry repository.
     RELEASE_URL="https://github.com/${FOUNDRYUP_REPO}/releases/download/${FOUNDRYUP_TAG}/"
@@ -359,37 +330,8 @@ main() {
 
     say "installing tempo-foundry (version ${FOUNDRYUP_VERSION}, tag ${FOUNDRYUP_TAG})"
 
-    uname_s=$(uname -s)
-    PLATFORM=$(tolower "${FOUNDRYUP_PLATFORM:-$uname_s}")
-    EXT="tar.gz"
-    case $PLATFORM in
-      linux|alpine) ;;
-      darwin|mac*)
-        PLATFORM="darwin"
-        ;;
-      mingw*|win*)
-        EXT="zip"
-        PLATFORM="win32"
-        ;;
-      *)
-        err "unsupported platform: $PLATFORM"
-        ;;
-    esac
-
-    uname_m=$(uname -m)
-    ARCHITECTURE=$(tolower "${FOUNDRYUP_ARCH:-$uname_m}")
-    if [ "${ARCHITECTURE}" = "x86_64" ]; then
-      # Redirect stderr to /dev/null to avoid printing errors if non Rosetta.
-      if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
-        ARCHITECTURE="arm64" # Rosetta.
-      else
-        ARCHITECTURE="amd64" # Intel.
-      fi
-    elif [ "${ARCHITECTURE}" = "arm64" ] ||[ "${ARCHITECTURE}" = "aarch64" ] ; then
-      ARCHITECTURE="arm64" # Arm.
-    else
-      ARCHITECTURE="amd64" # Amd.
-    fi
+    # Detect platform and architecture.
+    detect_platform_arch
 
     # Compute the URL of the release tarball in the Tempo Foundry repository.
     RELEASE_URL="https://github.com/${FOUNDRYUP_REPO}/releases/download/${FOUNDRYUP_TAG}/"
@@ -653,6 +595,40 @@ need_cmd() {
 
 check_cmd() {
   command -v "$1" &>/dev/null
+}
+
+detect_platform_arch() {
+  uname_s=$(uname -s)
+  PLATFORM=$(tolower "${FOUNDRYUP_PLATFORM:-$uname_s}")
+  EXT="tar.gz"
+  case $PLATFORM in
+    linux|alpine) ;;
+    darwin|mac*)
+      PLATFORM="darwin"
+      ;;
+    mingw*|win*)
+      EXT="zip"
+      PLATFORM="win32"
+      ;;
+    *)
+      err "unsupported platform: $PLATFORM"
+      ;;
+  esac
+
+  uname_m=$(uname -m)
+  ARCHITECTURE=$(tolower "${FOUNDRYUP_ARCH:-$uname_m}")
+  if [ "${ARCHITECTURE}" = "x86_64" ]; then
+    # Redirect stderr to /dev/null to avoid printing errors if non Rosetta.
+    if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
+      ARCHITECTURE="arm64" # Rosetta.
+    else
+      ARCHITECTURE="amd64" # Intel.
+    fi
+  elif [ "${ARCHITECTURE}" = "arm64" ] ||[ "${ARCHITECTURE}" = "aarch64" ] ; then
+    ARCHITECTURE="arm64" # Arm.
+  else
+    ARCHITECTURE="amd64" # Amd.
+  fi
 }
 
 check_installer_up_to_date() {
