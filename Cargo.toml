@@ -288,14 +288,16 @@ op-alloy-rpc-types = "0.22.0"
 op-alloy-flz = "0.13.1"
 
 ## revm
-
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "1924ba0" }
 revm = { version = "31.0.0", default-features = false }
 revm-inspectors = { version = "0.32.0", features = ["serde"] }
 op-revm = { version = "12.0.0", default-features = false }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "1924ba0" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "1924ba0" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "1924ba0" }
+
+# tempo
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
+
 ## alloy-evm
 alloy-evm = "0.23.1"
 alloy-op-evm = "0.23.1"

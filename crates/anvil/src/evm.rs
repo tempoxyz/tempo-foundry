@@ -20,7 +20,7 @@ pub trait PrecompileFactory: Send + Sync + Unpin + Debug {
 mod tests {
     use std::convert::Infallible;
 
-    use crate::{PrecompileFactory, inject_custom_precompiles};
+    use crate::PrecompileFactory;
     use alloy_evm::{
         EthEvm, Evm, EvmEnv,
         eth::EthEvmContext,
