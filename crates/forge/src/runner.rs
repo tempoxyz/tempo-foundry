@@ -262,8 +262,8 @@ impl<'a> ContractRunner<'a> {
         }
 
         // LinkingUSD rbac initialization
-        let roles_slot = tip20::slots::ROLES_BASE_SLOT;
-        let role_admin_base_slot = tip20::slots::ROLE_ADMIN_BASE_SLOT;
+        let roles_slot = tip20::slots::ROLES;
+        let role_admin_base_slot = tip20::slots::ROLE_ADMINS;
 
         // <https://github.com/tempoxyz/tempo/blob/3b1a90454d5fa9b098dc78c93ae131c070b183aa/crates/precompiles/src/tip20/roles.rs#L38>
         let slot = mapping_slot(tip20::roles::UNGRANTABLE_ROLE.as_ref(), role_admin_base_slot);
