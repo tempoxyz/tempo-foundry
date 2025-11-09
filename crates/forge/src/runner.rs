@@ -35,8 +35,10 @@ use foundry_evm::{
 use itertools::Itertools;
 use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
-use revm::Database;
-use revm::state::{AccountInfo, Bytecode};
+use revm::{
+    Database,
+    state::{AccountInfo, Bytecode},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -97,7 +99,7 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
     fn get_account_info(
         &mut self,
         _address: Address,
-    ) -> Result<AccountInfo, tempo_precompiles::error::TempoPrecompileError> {
+    ) -> Result<&AccountInfo, tempo_precompiles::error::TempoPrecompileError> {
         // Not needed for test initialization
         Err(tempo_precompiles::error::TempoPrecompileError::Fatal(
             "get_account_info not supported in test initialization".to_string(),
