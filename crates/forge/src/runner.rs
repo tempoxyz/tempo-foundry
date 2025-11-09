@@ -32,10 +32,10 @@ use foundry_evm::{
     },
     traces::{TraceKind, TraceMode, load_contracts},
 };
-use revm::Database;
 use itertools::Itertools;
 use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
+use revm::Database;
 use revm::state::{AccountInfo, Bytecode};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -68,11 +68,7 @@ struct FoundryStorageProvider<'a> {
 }
 
 impl<'a> FoundryStorageProvider<'a> {
-    fn new(
-        backend: &'a mut Backend,
-        chain_id: u64,
-        timestamp: U256,
-    ) -> Self {
+    fn new(backend: &'a mut Backend, chain_id: u64, timestamp: U256) -> Self {
         Self { backend, chain_id, timestamp, gas_used: 0 }
     }
 }
@@ -86,31 +82,25 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         self.timestamp
     }
 
-    fn set_code(&mut self, address: Address, code: Bytecode) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    fn set_code(
+        &mut self,
+        address: Address,
+        code: Bytecode,
+    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
         self.backend.insert_account_info(
             address,
-            AccountInfo {
-                code_hash: code.hash_slow(),
-                code: Some(code),
-                ..Default::default()
-            },
+            AccountInfo { code_hash: code.hash_slow(), code: Some(code), ..Default::default() },
         );
         Ok(())
     }
 
     fn get_account_info(
         &mut self,
-        address: Address,
-    ) -> Result<&'_ AccountInfo, tempo_precompiles::error::TempoPrecompileError> {
-        // For test initialization, we don't need full account info loading
-        // Just return a default account if it doesn't exist
-        self.backend.basic(address)
-            .map_err(|e| tempo_precompiles::error::TempoPrecompileError::Fatal(e.to_string()))?;
-
-        // Since we can't return a reference from basic(), we'll use a workaround
-        // In practice during init, this method is rarely called
+        _address: Address,
+    ) -> Result<AccountInfo, tempo_precompiles::error::TempoPrecompileError> {
+        // Not needed for test initialization
         Err(tempo_precompiles::error::TempoPrecompileError::Fatal(
-            "get_account_info not fully supported in test initialization".to_string()
+            "get_account_info not supported in test initialization".to_string(),
         ))
     }
 
@@ -125,19 +115,30 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
             .map_err(|e| tempo_precompiles::error::TempoPrecompileError::Fatal(e.to_string()))
     }
 
-    fn sload(&mut self, address: Address, key: U256) -> Result<U256, tempo_precompiles::error::TempoPrecompileError> {
+    fn sload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<U256, tempo_precompiles::error::TempoPrecompileError> {
         self.backend
             .storage(address, key)
             .map_err(|e| tempo_precompiles::error::TempoPrecompileError::Fatal(e.to_string()))
     }
 
-    fn emit_event(&mut self, _address: Address, _event: alloy_primitives::LogData) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    fn emit_event(
+        &mut self,
+        _address: Address,
+        _event: alloy_primitives::LogData,
+    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
         // Events during initialization are not captured in test setup
         // This is acceptable as initialization events aren't tested
         Ok(())
     }
 
-    fn deduct_gas(&mut self, gas: u64) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    fn deduct_gas(
+        &mut self,
+        gas: u64,
+    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
         // Track gas for accounting purposes, but don't enforce limits during init
         self.gas_used = self.gas_used.saturating_add(gas);
         Ok(())
@@ -301,6 +302,10 @@ impl<'a> ContractRunner<'a> {
         Ok(result)
     }
 
+    /// Initialize Tempo precompiles for test execution.
+    ///
+    /// This initialization should be kept aligned with Tempo's genesis file to ensure
+    /// test environments accurately reflect production behavior.
     fn initialize_tempo_precompiles(&mut self) {
         use tempo_precompiles::*;
 
@@ -341,14 +346,10 @@ impl<'a> ContractRunner<'a> {
         // Initialize linking_usd using canonical tempo initialization
         let chain_id = self.executor.env().evm_env.cfg_env.chain_id;
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
-        let mut storage_provider = FoundryStorageProvider::new(
-            self.executor.backend_mut(),
-            chain_id,
-            timestamp,
-        );
+        let mut storage_provider =
+            FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
         let mut linking_usd = linking_usd::LinkingUSD::new(&mut storage_provider);
-        linking_usd.initialize(admin)
-            .expect("failed to initialize linking_usd");
+        linking_usd.initialize(admin).expect("failed to initialize linking_usd");
     }
 
     fn initial_balance(&self) -> U256 {
@@ -1336,4 +1337,3 @@ fn record_invariant_failure(
         error!(%err, "Failed to record call sequence");
     }
 }
-
