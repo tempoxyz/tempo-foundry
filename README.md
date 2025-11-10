@@ -15,6 +15,8 @@
 
 ### Notable differences with Foundry
 
+Tempo uses a custom fork of Foundry that supports protocol-level features like custom precompiles, new transaction types, and native account abstraction.
+
 - `forge`:
 
   - `forge init`: adds Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
@@ -27,7 +29,7 @@
 - Internal changes:
 
   - Support for Tempo's (stateful) precompiles including labels in traces.
-  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate the various customizations Tempo has made.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate [the various customizations](https://docs.tempo.xyz/get-started/network-information/evm-compatibility) Tempo has made.
 
 <br>
 <br>
