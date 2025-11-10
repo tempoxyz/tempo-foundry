@@ -17,11 +17,11 @@
 
 - `forge`:
 
-  - `forge init`: add Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
+  - `forge init`: adds Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
 
 - `cast`:
 
-  - `cast run`: disable checks for system transactions allowing system transactions to be processed.
+  - `cast run`: allowing system transactions to be processed by modifying the transaction environment.
   - `cast tip20`: alias to `cast erc20`.
 
 - Internal changes:
