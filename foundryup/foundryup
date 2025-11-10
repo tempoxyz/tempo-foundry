@@ -40,8 +40,8 @@ main() {
       -P|--pr)          shift; FOUNDRYUP_PR=$1;;
       -C|--commit)      shift; FOUNDRYUP_COMMIT=$1;;
       -j|--jobs)        shift; FOUNDRYUP_JOBS=$1;;
-      -f|--force)       FOUNDRYUP_IGNORE_VERIFICATION=true;;
-      --tempo)          FOUNDRYUP_TEMPO=true;;
+      -f|--fork)        shift; FOUNDRYUP_FORK=$1;;
+      -F|--force)       FOUNDRYUP_IGNORE_VERIFICATION=true;;
       --arch)           shift; FOUNDRYUP_ARCH=$1;;
       --platform)       shift; FOUNDRYUP_PLATFORM=$1;;
       -h|--help)
@@ -56,7 +56,7 @@ main() {
   done
 
   # Tempo only distributes `forge` and `cast` binaries
-  if [[ -n "$FOUNDRYUP_TEMPO" ]]; then
+  if [[ "$FOUNDRYUP_FORK" == "tempo" ]]; then
     BINS=(forge cast)
   fi
 
@@ -109,7 +109,7 @@ main() {
 
 
   # If Tempo is set, use the Tempo fork of Foundry
-  if [[ -n "$FOUNDRYUP_TEMPO" ]]; then
+  if [[ "$FOUNDRYUP_FORK" == "tempo" ]]; then
     FOUNDRYUP_REPO="tempoxyz/tempo-foundry"
   else
     FOUNDRYUP_REPO=${FOUNDRYUP_REPO:-foundry-rs/foundry}
@@ -321,8 +321,8 @@ main() {
     use
 
     say "done!"
-  # Install from Tempo's foundry repo if --tempo is set
-  elif [[ -n "$FOUNDRYUP_TEMPO" ]]; then
+  # Install from Tempo's foundry repo if "--fork tempo" is set
+  elif [[ "$FOUNDRYUP_FORK" == "tempo" ]]; then
     FOUNDRYUP_VERSION=${FOUNDRYUP_VERSION:-nightly}
     FOUNDRYUP_TAG="${FOUNDRYUP_VERSION}"
 
@@ -460,8 +460,8 @@ OPTIONS:
     -P, --pr        Build and install a specific Pull Request
     -C, --commit    Build and install a specific commit
     -j, --jobs      Number of CPUs to use for building Foundry (default: all CPUs)
-    -f, --force     Skip SHA verification for downloaded binaries (INSECURE - use with caution)
-    --tempo         Install Tempo specific binaries
+    -F, --force     Skip SHA verification for downloaded binaries (INSECURE - use with caution)
+    -f, --fork      Install from a specific fork of Foundry (e.g., 'tempo' for Tempo's fork)
     --arch          Install a specific architecture (supports amd64 and arm64)
     --platform      Install a specific platform (supports win32, linux, darwin and alpine)
 EOF
