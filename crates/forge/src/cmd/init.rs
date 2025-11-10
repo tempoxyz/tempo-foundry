@@ -25,7 +25,7 @@ pub struct InitArgs {
     pub root: PathBuf,
 
     /// The template to start from.
-    #[arg(long)]
+    #[arg(long, short)]
     pub template: Option<String>,
 
     /// Branch argument that can only be used with template option.
@@ -48,7 +48,7 @@ pub struct InitArgs {
 
     /// Initialize a project of given type.
     #[arg(short, long, conflicts_with = "template", default_value = "solidity")]
-    pub r#type: ProjectTypes,
+    pub project: ProjectTypes,
 
     /// Use the parent git repository instead of initializing a new one.
     /// Only valid if the target is in a git repository.
@@ -74,13 +74,13 @@ impl InitArgs {
             force,
             vscode,
             use_parent_git,
-            r#type,
+            project,
             empty,
         } = self;
         let DependencyInstallOpts { shallow, no_git, commit } = install;
 
-        let vyper = matches!(r#type, ProjectTypes::Vyper);
-        let tempo = matches!(r#type, ProjectTypes::Tempo);
+        let vyper = matches!(project, ProjectTypes::Vyper);
+        let tempo = matches!(project, ProjectTypes::Tempo);
 
         // create the root dir if it does not exist
         if !root.exists() {
