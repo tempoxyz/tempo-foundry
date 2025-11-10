@@ -15,6 +15,10 @@
 
 ### Notable differences with Foundry
 
+Tempo builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
+
+This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/protocol), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/get-started/network-information/evm-compatibility).
+
 - `forge`:
 
   - `forge init`: adds Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
@@ -27,7 +31,7 @@
 - Internal changes:
 
   - Support for Tempo's (stateful) precompiles including labels in traces.
-  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate the various customizations Tempo has made.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate [the various customizations](https://docs.tempo.xyz/get-started/network-information/evm-compatibility) Tempo has made.
 
 <br>
 <br>
