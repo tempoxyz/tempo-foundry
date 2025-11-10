@@ -879,7 +879,8 @@ Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag:
 forgetest!(can_init_tempo_project, |prj, cmd| {
     prj.wipe();
 
-    cmd.args(["init", "-p", "tempo"]).arg(prj.root()).assert_success().stdout_eq(str![[r#"
+    cmd.args(["init", "--network", "tempo"]).arg(prj.root()).assert_success().stdout_eq(str![[
+        r#"
 Initializing [..]...
 Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag: None)
     Installed forge-std[..]
@@ -887,7 +888,8 @@ Installing tempo-std in [..] (url: https://github.com/tempoxyz/tempo-std, tag: N
     Installed tempo-std[..]
     Initialized forge project
 
-"#]]);
+"#
+    ]]);
 
     assert!(prj.root().join("foundry.toml").exists());
     assert!(prj.root().join("lib/forge-std").exists());
