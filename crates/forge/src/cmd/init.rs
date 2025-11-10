@@ -1,5 +1,5 @@
 use super::install::DependencyInstallOpts;
-use clap::{Parser, ValueEnum, ValueHint};
+use clap::{Parser, ValueHint};
 use eyre::Result;
 use foundry_cli::utils::Git;
 use foundry_common::fs;
@@ -8,12 +8,9 @@ use foundry_config::Config;
 use std::path::{Path, PathBuf};
 use yansi::Paint;
 
-/// Supported project types.
-#[derive(Clone, Debug, Default, ValueEnum)]
-pub enum ProjectTypes {
-    #[default]
-    Solidity,
-    Vyper,
+/// Supported networks for `forge init --network <NETWORK>`
+#[derive(Clone, Debug, clap::ValueEnum)]
+pub enum Networks {
     Tempo,
 }
 
@@ -46,9 +43,13 @@ pub struct InitArgs {
     #[arg(long, conflicts_with = "template")]
     pub vscode: bool,
 
-    /// Initialize a project of given type.
-    #[arg(short, long, conflicts_with = "template", default_value = "solidity")]
-    pub project: ProjectTypes,
+    /// Initialize a Vyper project template.
+    #[arg(long, conflicts_with = "template")]
+    pub vyper: bool,
+
+    /// Initialize a project template for the specified network in Foundry.
+    #[arg(long, short, conflicts_with_all = &["vyper", "template"])]
+    pub network: Option<Networks>,
 
     /// Use the parent git repository instead of initializing a new one.
     /// Only valid if the target is in a git repository.
@@ -74,13 +75,13 @@ impl InitArgs {
             force,
             vscode,
             use_parent_git,
-            project,
+            vyper,
+            network,
             empty,
         } = self;
         let DependencyInstallOpts { shallow, no_git, commit } = install;
 
-        let vyper = matches!(project, ProjectTypes::Vyper);
-        let tempo = matches!(project, ProjectTypes::Tempo);
+        let tempo = matches!(network, Some(Networks::Tempo));
 
         // create the root dir if it does not exist
         if !root.exists() {
