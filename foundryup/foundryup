@@ -323,7 +323,7 @@ main() {
     say "done!"
   # Install from Tempo's foundry repo if --tempo is set
   elif [[ -n "$FOUNDRYUP_TEMPO" ]]; then
-    FOUNDRYUP_VERSION="nightly"
+    FOUNDRYUP_VERSION=${FOUNDRYUP_VERSION:-nightly}
     FOUNDRYUP_TAG="${FOUNDRYUP_VERSION}"
 
     say "installing tempo-foundry (version ${FOUNDRYUP_VERSION}, tag ${FOUNDRYUP_TAG})"
