@@ -1,5 +1,5 @@
 use super::install::DependencyInstallOpts;
-use clap::{Parser, ValueHint};
+use clap::{Parser, ValueEnum, ValueHint};
 use eyre::Result;
 use foundry_cli::utils::Git;
 use foundry_common::fs;
@@ -8,9 +8,11 @@ use foundry_config::Config;
 use std::path::{Path, PathBuf};
 use yansi::Paint;
 
-/// Supported project forks.
-#[derive(Clone, Debug, clap::ValueEnum)]
-pub enum Forks {
+/// Supported project types.
+#[derive(Clone, Debug, ValueEnum)]
+pub enum ProjectTypes {
+    Solidity,
+    Vyper,
     Tempo,
 }
 
@@ -43,13 +45,9 @@ pub struct InitArgs {
     #[arg(long, conflicts_with = "template")]
     pub vscode: bool,
 
-    /// Initialize a Vyper project template.
+    /// Initialize a project template.
     #[arg(long, conflicts_with = "template")]
-    pub vyper: bool,
-
-    /// Initialize a project template for the specified fork of Foundry.
-    #[arg(long, short, conflicts_with_all = &["vyper", "template"])]
-    pub fork: Option<Forks>,
+    pub r#type: Option<ProjectTypes>,
 
     /// Use the parent git repository instead of initializing a new one.
     /// Only valid if the target is in a git repository.
@@ -75,13 +73,13 @@ impl InitArgs {
             force,
             vscode,
             use_parent_git,
-            vyper,
-            fork,
+            r#type,
             empty,
         } = self;
         let DependencyInstallOpts { shallow, no_git, commit } = install;
 
-        let tempo = matches!(fork, Some(Forks::Tempo));
+        let vyper = matches!(r#type, Some(ProjectTypes::Vyper));
+        let tempo = matches!(r#type, Some(ProjectTypes::Tempo));
 
         // create the root dir if it does not exist
         if !root.exists() {
