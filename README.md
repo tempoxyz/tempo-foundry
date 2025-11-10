@@ -16,15 +16,18 @@
 ### Notable differences with Foundry
 
 - `forge`:
+
   - `forge init`: add Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
 
 - `cast`:
+
   - `cast run`: disable checks for system transactions allowing system transactions to be processed.
   - `cast tip20`: alias to `cast erc20`.
 
 - Internal changes:
-  - Support for Tempo's (stateful) precompiles including labels.
-  - A custom `TempoEvm` replacing `FoundryEvm`.
+
+  - Support for Tempo's (stateful) precompiles including labels in traces.
+  - A custom `TempoEvm` replaces `FoundryEvm` to accommodate the various customizations Tempo has made to the EVM.
 
 <div align="center">
   <img src=".github/assets/banner.png" alt="Foundry banner" />
