@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 use yansi::Paint;
 
 /// Supported project types.
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, Default, ValueEnum)]
 pub enum ProjectTypes {
+    #[default]
     Solidity,
     Vyper,
     Tempo,
@@ -24,7 +25,7 @@ pub struct InitArgs {
     pub root: PathBuf,
 
     /// The template to start from.
-    #[arg(long, short)]
+    #[arg(long)]
     pub template: Option<String>,
 
     /// Branch argument that can only be used with template option.
@@ -45,9 +46,9 @@ pub struct InitArgs {
     #[arg(long, conflicts_with = "template")]
     pub vscode: bool,
 
-    /// Initialize a project template.
-    #[arg(long, conflicts_with = "template")]
-    pub r#type: Option<ProjectTypes>,
+    /// Initialize a project of given type.
+    #[arg(short, long, conflicts_with = "template", default_value = "solidity")]
+    pub r#type: ProjectTypes,
 
     /// Use the parent git repository instead of initializing a new one.
     /// Only valid if the target is in a git repository.
@@ -78,8 +79,8 @@ impl InitArgs {
         } = self;
         let DependencyInstallOpts { shallow, no_git, commit } = install;
 
-        let vyper = matches!(r#type, Some(ProjectTypes::Vyper));
-        let tempo = matches!(r#type, Some(ProjectTypes::Tempo));
+        let vyper = matches!(r#type, ProjectTypes::Vyper);
+        let tempo = matches!(r#type, ProjectTypes::Tempo);
 
         // create the root dir if it does not exist
         if !root.exists() {
