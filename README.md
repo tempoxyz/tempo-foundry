@@ -27,7 +27,7 @@
 - Internal changes:
 
   - Support for Tempo's (stateful) precompiles including labels in traces.
-  - A custom `TempoEvm` replaces `FoundryEvm` to accommodate the various customizations Tempo has made to the EVM.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate the various customizations Tempo has made.
 
 <br>
 <br>
