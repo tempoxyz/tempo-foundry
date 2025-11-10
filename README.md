@@ -15,7 +15,9 @@
 
 ### Notable differences with Foundry
 
-Tempo uses a custom fork of Foundry that supports protocol-level features like custom precompiles, new transaction types, and native account abstraction.
+Tempo builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
+
+This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/protocol), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/get-started/network-information/evm-compatibility).
 
 - `forge`:
 
