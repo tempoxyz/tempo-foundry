@@ -8,6 +8,12 @@ use foundry_config::Config;
 use std::path::{Path, PathBuf};
 use yansi::Paint;
 
+/// Supported project forks.
+#[derive(Clone, Debug, clap::ValueEnum)]
+pub enum Forks {
+    Tempo,
+}
+
 /// CLI arguments for `forge init`.
 #[derive(Clone, Debug, Default, Parser)]
 pub struct InitArgs {
@@ -41,9 +47,9 @@ pub struct InitArgs {
     #[arg(long, conflicts_with = "template")]
     pub vyper: bool,
 
-    /// Initialize a Tempo project template.
-    #[arg(long, conflicts_with_all = &["vyper", "template"])]
-    pub tempo: bool,
+    /// Initialize a project template for the specified fork of Foundry.
+    #[arg(long, short, conflicts_with_all = &["vyper", "template"])]
+    pub fork: Option<Forks>,
 
     /// Use the parent git repository instead of initializing a new one.
     /// Only valid if the target is in a git repository.
@@ -70,10 +76,12 @@ impl InitArgs {
             vscode,
             use_parent_git,
             vyper,
-            tempo,
+            fork,
             empty,
         } = self;
         let DependencyInstallOpts { shallow, no_git, commit } = install;
+
+        let tempo = matches!(fork, Some(Forks::Tempo));
 
         // create the root dir if it does not exist
         if !root.exists() {
