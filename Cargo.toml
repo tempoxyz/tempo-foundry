@@ -298,7 +298,6 @@ tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "59eed47" }
 tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "59eed47" }
 tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "59eed47" }
 
-
 ## alloy-evm
 alloy-evm = "0.23.1"
 alloy-op-evm = "0.23.1"
