@@ -149,6 +149,12 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
     fn gas_used(&self) -> u64 {
         self.gas_used
     }
+
+    fn beneficiary(&self) -> Address {
+        // note(onbjerg): this doesn't matter during initialization so we can safely set it to
+        // address zero. during execution the evm will set this to an appropriate value.
+        Address::ZERO
+    }
 }
 
 /// A type that executes all tests of a contract

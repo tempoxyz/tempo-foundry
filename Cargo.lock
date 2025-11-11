@@ -2353,7 +2353,7 @@ dependencies = [
  "bitflags 2.10.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "regex",
@@ -2371,7 +2371,7 @@ dependencies = [
  "bitflags 2.10.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "regex",
@@ -4185,7 +4185,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4605,7 +4605,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6640,7 +6640,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.61.2",
 ]
 
 [[package]]
@@ -7052,7 +7052,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8263,7 +8263,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -12318,9 +12318,9 @@ dependencies = [
 
 [[package]]
 name = "revm"
-version = "31.0.1"
+version = "31.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93df0ff5eb70facbc872f82da4b815d7bd8e36b7ee525c637cabcb2a6af8a708"
+checksum = "bb67a5223602113cae59a305acde2d9936bc18f2478dda879a6124b267cebfb6"
 dependencies = [
  "revm-bytecode",
  "revm-context",
@@ -12349,9 +12349,9 @@ dependencies = [
 
 [[package]]
 name = "revm-context"
-version = "11.0.1"
+version = "11.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "583c80d674f51b28a0d0a7309bda0867bcb0fd41b4e34976eded145edbb089fc"
+checksum = "92850e150f4f99d46c05a20ad0cd09286a7ad4ee21866fffb87101de6e602231"
 dependencies = [
  "bitvec",
  "cfg-if",
@@ -12382,9 +12382,9 @@ dependencies = [
 
 [[package]]
 name = "revm-database"
-version = "9.0.4"
+version = "9.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a4505d9688482fe0c3b8c09d9afbc4656e2bf9b48855e1c86c93bd4508e496a"
+checksum = "7b6c15bb255481fcf29f5ef7c97f00ed4c28a6ab6c490d77b990d73603031569"
 dependencies = [
  "alloy-eips",
  "revm-bytecode",
@@ -12409,9 +12409,9 @@ dependencies = [
 
 [[package]]
 name = "revm-handler"
-version = "12.0.1"
+version = "12.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3da9e26f05ed723cf423b92f012a7775eef9e7d897633d11ec83535e92cda2d"
+checksum = "b45418ed95cfdf0cb19effdbb7633cf2144cab7fb0e6ffd6b0eb9117a50adff6"
 dependencies = [
  "auto_impl",
  "derive-where",
@@ -12428,9 +12428,9 @@ dependencies = [
 
 [[package]]
 name = "revm-inspector"
-version = "12.0.1"
+version = "12.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57afb06e5985dbd2e8a48a3e6727cb0dd45148e4e6e028ac8222e262e440d3de"
+checksum = "c99801eac7da06cc112df2244bd5a64024f4ef21240e923b26e73c4b4a0e5da6"
 dependencies = [
  "auto_impl",
  "either",
@@ -12819,7 +12819,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -13716,7 +13716,7 @@ dependencies = [
  "solar-config",
  "solar-data-structures",
  "solar-macros",
- "thiserror 2.0.17",
+ "thiserror 1.0.69",
  "tracing",
  "unicode-width 0.2.0",
 ]
@@ -14060,7 +14060,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
- "thiserror 2.0.17",
+ "thiserror 1.0.69",
  "url",
  "zip",
 ]
@@ -14204,13 +14204,13 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.2",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "tempo-chainspec"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy-eips",
  "alloy-genesis",
@@ -14229,8 +14229,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-consensus"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -14247,16 +14247,16 @@ dependencies = [
 
 [[package]]
 name = "tempo-contracts"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy",
 ]
 
 [[package]]
 name = "tempo-evm"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -14284,8 +14284,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-payload-types"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
@@ -14300,8 +14300,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -14316,8 +14316,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles-macros"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -14327,8 +14327,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-primitives"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -14354,8 +14354,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-revm"
-version = "0.2.0"
-source = "git+ssh://git@github.com/tempoxyz/tempo?rev=4b334a1#4b334a15562eb633dc3ce3ed7d64d5656f68b0c7"
+version = "0.3.0"
+source = "git+ssh://git@github.com/tempoxyz/tempo?rev=c96bc95#c96bc957eac3dfbf78a007774631a28c56c7a3a8"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -14388,7 +14388,7 @@ version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2111ef44dae28680ae9752bb89409e7310ca33a8c621ebe7b106cf5c928b3ac0"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -15118,7 +15118,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "319c70195101a93f56db4c74733e272d720768e13471f400c78406a326b172b0"
 dependencies = [
  "cc",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -15921,7 +15921,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
