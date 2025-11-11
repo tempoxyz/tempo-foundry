@@ -1,31 +1,31 @@
 [workspace]
 members = [
-    "benches/",
-    # ignored for now because even though it has its own evm abstraction, it is still tangled with the other foundry-wide evm abstraction.
-    #"crates/anvil/",
-    #"crates/anvil/core/",
-    #"crates/anvil/rpc/",
-    #"crates/anvil/server/",
-    "crates/cast/",
-    "crates/cheatcodes/",
-    "crates/cheatcodes/spec/",
-    "crates/chisel/",
-    "crates/cli/",
-    "crates/common/",
-    "crates/config/",
-    "crates/debugger/",
-    "crates/doc/",
-    "crates/evm/core/",
-    "crates/evm/coverage/",
-    "crates/evm/evm/",
-    "crates/evm/fuzz/",
-    "crates/evm/traces/",
-    "crates/fmt/",
-    "crates/forge/",
-    "crates/script-sequence/",
-    "crates/macros/",
-    "crates/test-utils/",
-    "crates/lint/",
+  "benches/",
+  # ignored for now because even though it has its own evm abstraction, it is still tangled with the other foundry-wide evm abstraction.
+  #"crates/anvil/",
+  #"crates/anvil/core/",
+  #"crates/anvil/rpc/",
+  #"crates/anvil/server/",
+  "crates/cast/",
+  "crates/cheatcodes/",
+  "crates/cheatcodes/spec/",
+  "crates/chisel/",
+  "crates/cli/",
+  "crates/common/",
+  "crates/config/",
+  "crates/debugger/",
+  "crates/doc/",
+  "crates/evm/core/",
+  "crates/evm/coverage/",
+  "crates/evm/evm/",
+  "crates/evm/fuzz/",
+  "crates/evm/traces/",
+  "crates/fmt/",
+  "crates/forge/",
+  "crates/script-sequence/",
+  "crates/macros/",
+  "crates/test-utils/",
+  "crates/lint/",
 ]
 resolver = "2"
 
@@ -226,14 +226,14 @@ foundry-linking = { path = "crates/linking" }
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.22.0", default-features = false }
 foundry-compilers = { version = "0.19.5", default-features = false, features = [
-    "rustls",
-    "svm-solc",
+  "rustls",
+  "svm-solc",
 ] }
 foundry-fork-db = "0.20"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
 svm = { package = "svm-rs", version = "0.5", default-features = false, features = [
-    "rustls",
+  "rustls",
 ] }
 
 ## alloy
@@ -269,10 +269,10 @@ alloy-op-hardforks = { version = "0.4.0", default-features = false }
 alloy-dyn-abi = "1.4.1"
 alloy-json-abi = "1.4.1"
 alloy-primitives = { version = "1.4.1", features = [
-    "getrandom",
-    "rand",
-    "map-fxhash",
-    "map-foldhash",
+  "getrandom",
+  "rand",
+  "map-fxhash",
+  "map-foldhash",
 ] }
 alloy-sol-macro-expander = "1.4.1"
 alloy-sol-macro-input = "1.4.1"
@@ -293,10 +293,11 @@ revm-inspectors = { version = "0.32.0", features = ["serde"] }
 op-revm = { version = "12.0.0", default-features = false }
 
 # tempo
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "5b082b8" }
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "eb7f22c" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "eb7f22c" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "eb7f22c" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "eb7f22c" }
+
 
 ## alloy-evm
 alloy-evm = "0.23.1"
@@ -306,7 +307,7 @@ alloy-op-evm = "0.23.1"
 anstream = "0.6"
 anstyle = "1.0"
 dialoguer = { version = "0.12", default-features = false, features = [
-    "password",
+  "password",
 ] }
 clap_complete = "4"
 clap_complete_nushell = "4"
@@ -330,8 +331,8 @@ walkdir = "2"
 prettyplease = "0.2"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = [
-    "clock",
-    "std",
+  "clock",
+  "std",
 ] }
 axum = "0.8"
 ciborium = "0.2"
@@ -360,8 +361,8 @@ rand_chacha = "0.9.0"
 rayon = "1"
 regex = { version = "1", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = [
-    "rustls-tls",
-    "rustls-tls-native-roots",
+  "rustls-tls",
+  "rustls-tls-native-roots",
 ] }
 rustls = "0.23"
 semver = "1"
@@ -384,8 +385,8 @@ vergen = { version = "8", default-features = false }
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 path-slash = "0.2"
 jiff = { version = "0.2", default-features = false, features = [
-    "std",
-    "perf-inline",
+  "std",
+  "perf-inline",
 ] }
 heck = "0.5"
 uuid = "1.18.1"
