@@ -40,6 +40,7 @@ pub mod ic;
 pub mod opts;
 pub mod precompiles;
 pub mod state_snapshot;
+pub mod tempo;
 pub mod utils;
 
 /// An extension trait that allows us to add additional hooks to Inspector for later use in
