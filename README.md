@@ -363,6 +363,10 @@ If the answer is not there:
 
 If you want to contribute, or follow along with contributor discussion, you can use our [main telegram](https://t.me/foundry_rs) to chat with us about the development of Foundry!
 
+## Security
+
+See [`SECURITY.md`](https://github.com/tempoxyz/tempo-foundry?tab=security-ov-file).
+
 ## License
 
 Licensed under either of [Apache License](./LICENSE-APACHE), Version
