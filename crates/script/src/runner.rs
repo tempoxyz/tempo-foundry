@@ -7,12 +7,14 @@ use eyre::Result;
 use foundry_cheatcodes::BroadcastableTransaction;
 use foundry_config::Config;
 use foundry_evm::{
-    constants::CALLER,
+    constants::{CALLER, TEST_CONTRACT_ADDRESS},
     executors::{DeployResult, EvmError, ExecutionErr, Executor, RawCallResult},
     opts::EvmOpts,
     revm::interpreter::{InstructionResult, return_ok},
     traces::{TraceKind, Traces},
 };
+use foundry_evm_core::tempo::FoundryStorageProvider;
+use revm::state::{AccountInfo, Bytecode};
 use std::collections::VecDeque;
 
 /// Drives script execution
@@ -57,6 +59,8 @@ impl ScriptRunner {
 
         let mut library_transactions = VecDeque::new();
         let mut traces = Traces::default();
+
+        self.initialize_tempo_precompiles();
 
         // Deploy libraries
         match libraries {
@@ -225,6 +229,56 @@ impl ScriptRunner {
                 ..Default::default()
             },
         ))
+    }
+
+    /// Initialize Tempo precompiles for test execution.
+    ///
+    /// This initialization should be kept aligned with Tempo's genesis file to ensure
+    /// test environments accurately reflect production behavior.
+    fn initialize_tempo_precompiles(&mut self) {
+        use tempo_precompiles::*;
+
+        let admin = TEST_CONTRACT_ADDRESS;
+
+        // Set bytecode for all precompiles (except linking_usd which gets it via initialize)
+        let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
+        for precompile in [
+            NONCE_PRECOMPILE_ADDRESS,
+            STABLECOIN_EXCHANGE_ADDRESS,
+            TIP20_FACTORY_ADDRESS,
+            TIP20_REWARDS_REGISTRY_ADDRESS,
+            TIP403_REGISTRY_ADDRESS,
+            TIP_ACCOUNT_REGISTRAR,
+            TIP_FEE_MANAGER_ADDRESS,
+            VALIDATOR_CONFIG_ADDRESS,
+        ] {
+            self.executor.backend_mut().insert_account_info(
+                precompile,
+                AccountInfo {
+                    code_hash: bytecode.hash_slow(),
+                    code: Some(bytecode.clone()),
+                    ..Default::default()
+                },
+            );
+        }
+
+        // Initialize validator config (still manual as it's simpler)
+        self.executor
+            .backend_mut()
+            .insert_account_storage(
+                VALIDATOR_CONFIG_ADDRESS,
+                validator_config::slots::OWNER,
+                admin.into_word().into(),
+            )
+            .expect("failed to initialize validator config state");
+
+        // Initialize linking_usd using canonical tempo initialization
+        let chain_id = self.executor.env().evm_env.cfg_env.chain_id;
+        let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
+        let mut storage_provider =
+            FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
+        let mut linking_usd = linking_usd::LinkingUSD::new(&mut storage_provider);
+        linking_usd.initialize(admin).expect("failed to initialize linking_usd");
     }
 
     /// Executes the method that will collect all broadcastable transactions.
