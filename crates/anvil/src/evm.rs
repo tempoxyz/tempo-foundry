@@ -1,13 +1,14 @@
+use std::fmt::Debug;
+
 use alloy_evm::{
-    Database, Evm,
     eth::EthEvmContext,
     precompiles::{DynPrecompile, PrecompilesMap},
+    Database, Evm,
 };
 use alloy_primitives::Address;
 use foundry_evm::core::either_evm::EitherEvm;
 use op_revm::OpContext;
 use revm::Inspector;
-use std::fmt::Debug;
 
 /// Object-safe trait that enables injecting extra precompiles when using
 /// `anvil` as a library.
@@ -22,27 +23,27 @@ mod tests {
 
     use crate::PrecompileFactory;
     use alloy_evm::{
-        EthEvm, Evm, EvmEnv,
         eth::EthEvmContext,
         precompiles::{DynPrecompile, PrecompilesMap},
+        EthEvm, Evm, EvmEnv,
     };
     use alloy_op_evm::OpEvm;
-    use alloy_primitives::{Address, Bytes, TxKind, U256, address};
+    use alloy_primitives::{address, Address, Bytes, TxKind, U256};
     use foundry_evm::core::either_evm::EitherEvm;
     use foundry_evm_networks::NetworkConfigs;
     use itertools::Itertools;
-    use op_revm::{L1BlockInfo, OpContext, OpSpecId, OpTransaction, precompiles::OpPrecompiles};
+    use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpContext, OpSpecId, OpTransaction};
     use revm::{
-        Journal,
         context::{CfgEnv, Evm as RevmEvm, JournalTr, LocalContext, TxEnv},
         database::{EmptyDB, EmptyDBTyped},
-        handler::{EthPrecompiles, instructions::EthInstructions},
+        handler::{instructions::EthInstructions, EthPrecompiles},
         inspector::NoOpInspector,
         interpreter::interpreter::EthInterpreter,
         precompile::{PrecompileOutput, PrecompileSpecId, Precompiles},
         primitives::hardfork::SpecId,
+        Journal,
     };
-    use tempo_revm::{TempoTxEnv, evm::TempoContext};
+    use tempo_revm::{evm::TempoContext, TempoTxEnv};
 
     // A precompile activated in the `Prague` spec.
     const ETH_PRAGUE_PRECOMPILE: Address = address!("0x0000000000000000000000000000000000000011");
@@ -66,6 +67,7 @@ mod tests {
                     Ok(PrecompileOutput {
                         bytes: Bytes::copy_from_slice(input.data),
                         gas_used: 0,
+                        gas_refunded: 0,
                         reverted: false,
                     })
                 }),
