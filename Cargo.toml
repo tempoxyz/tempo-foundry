@@ -292,10 +292,11 @@ revm-inspectors = { version = "0.33.0", features = ["serde"] }
 op-revm = { version = "14.0.0", default-features = false }
 
 # tempo
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "30ae8bb" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "30ae8bb" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "30ae8bb" }
+tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "30ae8bb" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "30ae8bb" }
 
 ## alloy-evm
 alloy-evm = "0.24.1"
@@ -448,7 +449,18 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 # alloy-op-evm = { git = "https://github.com/alloy-rs/evm.git", rev = "237d0a0" }
 
 ## revm
-revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
+revm = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-primitives = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-interpreter = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-database = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-state = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-bytecode = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-context = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-context-interface = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-database-interface = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-handler = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-inspector = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
+revm-precompile = { git = "https://github.com/bluealloy/revm", rev = "7e59936" }
 op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
 # revm-inspectors = { git = "https://github.com/zerosnacks/revm-inspectors.git", rev = "0aaab71" }
 
