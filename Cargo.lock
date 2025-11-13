@@ -2947,6 +2947,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tempo-primitives",
  "tokio",
  "tracing",
  "yansi",

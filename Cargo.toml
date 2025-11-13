@@ -296,6 +296,7 @@ tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "2d3890a8
 tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "2d3890a8" }
 tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "2d3890a8" }
 tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "2d3890a8" }
+tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "2d3890a8" }
 tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "2d3890a8" }
 
 ## alloy-evm
