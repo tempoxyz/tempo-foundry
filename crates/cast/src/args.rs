@@ -4,9 +4,12 @@ use crate::{
     opts::{Cast as CastArgs, CastSubcommand, ToBaseArgs},
     traces::identifier::SignaturesIdentifier,
 };
-use alloy_consensus::transaction::{Recovered, SignerRecoverable};
+use alloy_consensus::{
+    TxEnvelope,
+    transaction::{Recovered, SignerRecoverable},
+};
 use alloy_dyn_abi::{DynSolValue, ErrorExt, EventExt};
-use alloy_eips::eip7702::SignedAuthorization;
+use alloy_eips::{Decodable2718, eip7702::SignedAuthorization};
 use alloy_ens::{ProviderEnsExt, namehash};
 use alloy_primitives::{Address, B256, eip191_hash_message, hex, keccak256};
 use alloy_provider::Provider;
@@ -739,13 +742,12 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
         CastSubcommand::Logs(cmd) => cmd.run().await?,
         CastSubcommand::DecodeTransaction { tx } => {
             let tx = stdin::unwrap_line(tx)?;
-            let tx = SimpleCast::decode_raw_transaction(&tx)?;
-
-            if let Ok(signer) = tx.recover_signer() {
-                let recovered = Recovered::new_unchecked(tx, signer);
-                sh_println!("{}", serde_json::to_string_pretty(&recovered)?)?;
+            let tx_hex = hex::decode(tx)?;
+            if let Ok(tx) = TxEnvelope::decode_2718_exact(&tx_hex) {
+                print_tx(tx)?;
             } else {
-                sh_println!("{}", serde_json::to_string_pretty(&tx)?)?;
+                let tx = tempo_primitives::TempoTxEnvelope::decode_2718_exact(&tx_hex)?;
+                print_tx(tx)?;
             }
         }
         CastSubcommand::RecoverAuthority { auth } => {
@@ -778,6 +780,20 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
                 let _ = sh_println!("{t}");
             });
         }
+    }
+
+    fn print_tx<T>(tx: T) -> eyre::Result<()>
+    where
+        T: SignerRecoverable + serde::Serialize,
+    {
+        if let Ok(signer) = tx.recover_signer() {
+            let recovered = Recovered::new_unchecked(tx, signer);
+            sh_println!("{}", serde_json::to_string_pretty(&recovered)?)?;
+        } else {
+            sh_println!("{}", serde_json::to_string_pretty(&tx)?)?;
+        }
+
+        Ok(())
     }
 
     Ok(())

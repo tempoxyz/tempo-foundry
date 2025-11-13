@@ -60,6 +60,9 @@ alloy-eips.workspace = true
 op-alloy-flz.workspace = true
 op-alloy-consensus = { workspace = true, features = ["alloy-compat"] }
 
+# tempo
+tempo-primitives.workspace = true
+
 chrono.workspace = true
 eyre.workspace = true
 futures.workspace = true

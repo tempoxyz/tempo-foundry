@@ -298,6 +298,7 @@ op-revm = { version = "12.0.0", default-features = false }
 tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
 tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
 tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
+tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
 tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "c96bc95" }
 
 ## alloy-evm
