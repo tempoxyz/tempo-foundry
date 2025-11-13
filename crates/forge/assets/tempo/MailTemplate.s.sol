@@ -12,8 +12,10 @@ contract MailScript is Script {
 
     function run() public {
         vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
+
         vm.startBroadcast();
 
+        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN_ADDRESS);
         ITIP20 token = ITIP20(
             StdPrecompiles.TIP20_FACTORY.createToken("testUSD", "tUSD", "USD", StdPrecompiles.LINKING_USD, msg.sender)
         );
