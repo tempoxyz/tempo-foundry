@@ -1,11 +1,11 @@
 use crate::{
-    CONTRACT_INHERITANCE_ID, CommentTag, Comments, CommentsRef, DEPLOYMENTS_ID, Document,
-    GIT_SOURCE_ID, INHERITDOC_ID, Markdown, PreprocessorOutput,
-    document::{DocumentContent, read_context},
+    document::{read_context, DocumentContent},
     helpers::function_signature,
     parser::ParseSource,
     solang_ext::SafeUnwrap,
     writer::BufWriter,
+    CommentTag, Comments, CommentsRef, Document, Markdown, PreprocessorOutput,
+    CONTRACT_INHERITANCE_ID, DEPLOYMENTS_ID, GIT_SOURCE_ID, INHERITDOC_ID,
 };
 use itertools::Itertools;
 use solang_parser::pt::{Base, FunctionDefinition};
@@ -152,7 +152,11 @@ impl AsDoc for Document {
                                     .as_ref()
                                     .and_then(|link| {
                                         link.get(base_ident).map(|path| {
-                                            let path = Path::new("/").join(path);
+                                            let path = if cfg!(windows) {
+                                                Path::new("\\").join(path)
+                                            } else {
+                                                Path::new("/").join(path)
+                                            };
                                             Markdown::Link(&base_doc, &path.display().to_string())
                                                 .as_doc()
                                         })

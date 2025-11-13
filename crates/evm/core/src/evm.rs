@@ -13,7 +13,7 @@ use foundry_fork_db::DatabaseError;
 use revm::{
     Context, Journal,
     context::{
-        ContextTr, CreateScheme, JournalTr, LocalContext, LocalContextTr,
+        CfgEnv, ContextTr, CreateScheme, JournalTr, LocalContext, LocalContextTr,
         result::{EVMError, ExecResultAndState, ExecutionResult, HaltReason, ResultAndState},
     },
     handler::{EthPrecompiles, EvmTr, FrameResult, FrameTr, Handler, ItemOrResult},
@@ -26,6 +26,7 @@ use revm::{
     precompile::{PrecompileSpecId, Precompiles},
     primitives::hardfork::SpecId,
 };
+use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
 use tempo_precompiles::extend_tempo_precompiles;
 use tempo_revm::{
@@ -42,7 +43,7 @@ pub fn new_evm_with_inspector<'db, I: InspectorExt>(
     let mut ctx = TempoContext {
         journaled_state: {
             let mut journal = Journal::new(db);
-            journal.set_spec_id(env.evm_env.cfg_env.spec);
+            journal.set_spec_id(env.evm_env.cfg_env.spec.into());
             journal
         },
         block: env.evm_env.block_env,
@@ -54,7 +55,8 @@ pub fn new_evm_with_inspector<'db, I: InspectorExt>(
     };
     ctx.cfg.tx_chain_id_check = true;
     let mut evm = FoundryEvm {
-        inner: TempoEvm::new(ctx, inspector).with_precompiles(get_precompiles(spec_id, chain_id)),
+        inner: TempoEvm::new(ctx, inspector)
+            .with_precompiles(get_precompiles(spec_id.into(), chain_id)),
     };
 
     evm.inspector().get_networks().inject_precompiles(evm.precompiles_mut());
@@ -68,7 +70,8 @@ pub fn new_evm_with_existing_context<'a>(
     let chain_id = ctx.cfg.chain_id;
     let spec_id = ctx.cfg.spec;
     let mut evm = FoundryEvm {
-        inner: TempoEvm::new(ctx, inspector).with_precompiles(get_precompiles(spec_id, chain_id)),
+        inner: TempoEvm::new(ctx, inspector)
+            .with_precompiles(get_precompiles(spec_id.into(), chain_id)),
     };
 
     evm.inspector().get_networks().inject_precompiles(evm.precompiles_mut());
@@ -86,7 +89,10 @@ fn get_precompiles(spec: SpecId, chain_id: u64) -> PrecompilesMap {
     );
 
     // TODO: hack for now because apparently tempo doesn't set precompiles on its own??
-    extend_tempo_precompiles(&mut precompiles, chain_id);
+    let mut cfg_env = CfgEnv::<TempoHardfork>::default();
+    cfg_env.chain_id = chain_id;
+    cfg_env.spec = spec.into();
+    extend_tempo_precompiles(&mut precompiles, &cfg_env);
 
     precompiles
 }
@@ -150,7 +156,7 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
     type DB = &'db mut dyn DatabaseExt;
     type Error = EVMError<DatabaseError, TempoInvalidTransaction>;
     type HaltReason = HaltReason;
-    type Spec = SpecId;
+    type Spec = TempoHardfork;
     type Tx = TempoTxEnv;
     type BlockEnv = TempoBlockEnv;
 
@@ -358,6 +364,8 @@ impl<'db, I: InspectorExt> FoundryHandler<'db, I> {
                             gas: Gas::new(gas_limit),
                         },
                         memory_offset: 0..0,
+                        was_precompile_called: false,
+                        precompile_call_logs: vec![],
                     })));
                 } else if code_hash != DEFAULT_CREATE2_DEPLOYER_CODEHASH {
                     return Ok(Some(FrameResult::Call(CallOutcome {
@@ -367,6 +375,8 @@ impl<'db, I: InspectorExt> FoundryHandler<'db, I> {
                             gas: Gas::new(gas_limit),
                         },
                         memory_offset: 0..0,
+                        was_precompile_called: false,
+                        precompile_call_logs: vec![],
                     })));
                 }
 

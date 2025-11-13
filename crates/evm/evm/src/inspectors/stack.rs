@@ -558,7 +558,7 @@ impl InspectorStack {
             SparsedTraceArena { arena, ignored }
         });
 
-        let mut labels = tempo_labels.labels.clone();
+        let mut labels = tempo_labels.labels;
         labels.extend(
             cheatcodes.as_ref().map(|cheatcodes| cheatcodes.labels.clone()).unwrap_or_default(),
         );
@@ -914,7 +914,7 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> 
     }
 
     #[allow(clippy::redundant_clone)]
-    fn log(
+    fn log_full(
         &mut self,
         interpreter: &mut Interpreter,
         ecx: &mut TempoContext<&mut dyn DatabaseExt>,
@@ -922,7 +922,7 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> 
     ) {
         call_inspectors!(
             [&mut self.tracer, &mut self.log_collector, &mut self.cheatcodes, &mut self.printer],
-            |inspector| inspector.log(interpreter, ecx, log.clone()),
+            |inspector| inspector.log_full(interpreter, ecx, log.clone()),
         );
     }
 
@@ -994,6 +994,8 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> 
                     return Some(CallOutcome {
                         result,
                         memory_offset: call.return_memory_offset.clone(),
+                        was_precompile_called: true,
+                        precompile_call_logs: vec![],
                     });
                 }
                 // Mark accounts and storage cold before STATICCALLs
@@ -1200,13 +1202,13 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStack {
         self.as_mut().initialize_interp(interpreter, ecx)
     }
 
-    fn log(
+    fn log_full(
         &mut self,
         interpreter: &mut Interpreter,
         ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         log: Log,
     ) {
-        self.as_mut().log(interpreter, ecx, log)
+        self.as_mut().log_full(interpreter, ecx, log)
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {

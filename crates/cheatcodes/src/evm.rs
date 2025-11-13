@@ -256,8 +256,12 @@ impl Cheatcode for loadCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { target, slot } = *self;
         ccx.ensure_not_precompile(&target)?;
-        ccx.ecx.journaled_state.load_account(target)?;
-        let mut val = ccx.ecx.journaled_state.sload(target, slot.into())?;
+
+        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+        journal.load_account(db, target)?;
+        let mut val = journal
+            .sload(db, target, slot.into(), false)
+            .map_err(|e| fmt_err!("failed to load storage slot: {:?}", e))?;
 
         if val.is_cold && val.data.is_zero() {
             if ccx.state.has_arbitrary_storage(&target) {
@@ -462,7 +466,7 @@ impl Cheatcode for difficultyCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newDifficulty } = self;
         ensure!(
-            ccx.ecx.cfg.spec < SpecId::MERGE,
+            ccx.ecx.cfg.spec < SpecId::MERGE.into(),
             "`difficulty` is not supported after the Paris hard fork, use `prevrandao` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -484,7 +488,7 @@ impl Cheatcode for prevrandao_0Call {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::MERGE,
+            ccx.ecx.cfg.spec >= SpecId::MERGE.into(),
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -497,7 +501,7 @@ impl Cheatcode for prevrandao_1Call {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::MERGE,
+            ccx.ecx.cfg.spec >= SpecId::MERGE.into(),
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -510,7 +514,7 @@ impl Cheatcode for blobhashesCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { hashes } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`blobhashes` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
@@ -525,7 +529,7 @@ impl Cheatcode for getBlobhashesCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self {} = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`getBlobhashes` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
@@ -576,14 +580,14 @@ impl Cheatcode for blobBaseFeeCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newBlobBaseFee } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
 
         ccx.ecx.block.set_blob_excess_gas_and_price(
             (*newBlobBaseFee).to(),
-            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec),
+            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec.into()),
         );
         Ok(Default::default())
     }
@@ -611,10 +615,11 @@ impl Cheatcode for etchCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { target, newRuntimeBytecode } = self;
         ccx.ensure_not_precompile(target)?;
-        ccx.ecx.journaled_state.load_account(*target)?;
+        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+        journal.load_account(db, *target)?;
         let bytecode = Bytecode::new_raw_checked(newRuntimeBytecode.clone())
             .map_err(|e| fmt_err!("failed to create bytecode: {e}"))?;
-        ccx.ecx.journaled_state.set_code(*target, bytecode);
+        journal.set_code(*target, bytecode);
         Ok(Default::default())
     }
 }
@@ -664,7 +669,10 @@ impl Cheatcode for storeCall {
         let Self { target, slot, value } = *self;
         ccx.ensure_not_precompile(&target)?;
         ensure_loaded_account(ccx.ecx, target)?;
-        ccx.ecx.journaled_state.sstore(target, slot.into(), value.into())?;
+        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+        journal
+            .sstore(db, target, slot.into(), value.into(), false)
+            .map_err(|e| fmt_err!("failed to store storage slot: {:?}", e))?;
         Ok(Default::default())
     }
 }
@@ -970,7 +978,8 @@ impl Cheatcode for getStorageSlotsCall {
         if storage_type.encoding == ENCODING_BYTES {
             // Try to check if it's a long bytes/string by reading the current storage
             // value
-            if let Ok(value) = ccx.ecx.journaled_state.sload(*target, slot) {
+            let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+            if let Ok(value) = journal.sload(db, *target, slot, false) {
                 let value_bytes = value.data.to_be_bytes::<32>();
                 let length_byte = value_bytes[31];
                 // Check if it's a long bytes/string (LSB is 1)
@@ -1124,7 +1133,8 @@ impl Cheatcode for getEvmVersionCall {
 }
 
 pub(super) fn get_nonce(ccx: &mut CheatsCtxt, address: &Address) -> Result {
-    let account = ccx.ecx.journaled_state.load_account(*address)?;
+    let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+    let account = journal.load_account(db, *address)?;
     Ok(account.info.nonce.abi_encode())
 }
 
@@ -1345,8 +1355,9 @@ pub(super) fn journaled_account<'a>(
 }
 
 pub(super) fn ensure_loaded_account(ecx: Ecx, addr: Address) -> Result<()> {
-    ecx.journaled_state.load_account(addr)?;
-    ecx.journaled_state.touch(addr);
+    let (db, journal, _) = ecx.as_db_env_and_journal();
+    journal.load_account(db, addr)?;
+    journal.touch(addr);
     Ok(())
 }
 
@@ -1497,7 +1508,7 @@ fn get_recorded_state_diffs(ccx: &mut CheatsCtxt) -> BTreeMap<Address, AccountSt
                             });
                         let layout = storage_layouts.get(&storage_access.account);
                         // Update state diff. Do not overwrite the initial value if already set.
-                        match account_diff.state_diff.entry(storage_access.slot) {
+                        let entry = match account_diff.state_diff.entry(storage_access.slot) {
                             Entry::Vacant(slot_state_diff) => {
                                 // Get storage layout info for this slot
                                 // Include mapping slots if available for the account
@@ -1509,9 +1520,8 @@ fn get_recorded_state_diffs(ccx: &mut CheatsCtxt) -> BTreeMap<Address, AccountSt
 
                                 let slot_info = layout.and_then(|layout| {
                                     let decoder = SlotIdentifier::new(layout.clone());
-                                    decoder
-                                        .identify(&storage_access.slot, mapping_slots)
-                                        .or_else(|| {
+                                    decoder.identify(&storage_access.slot, mapping_slots).or_else(
+                                        || {
                                             // Create a map of new values for bytes/string
                                             // identification. These values are used to determine
                                             // the length of the data which helps determine how many
@@ -1524,43 +1534,31 @@ fn get_recorded_state_diffs(ccx: &mut CheatsCtxt) -> BTreeMap<Address, AccountSt
                                                 &storage_access.slot,
                                                 &current_base_slot_values,
                                             )
-                                        })
-                                        .map(|mut info| {
-                                            // Always decode values first
-                                            info.decode_values(
-                                                storage_access.previousValue,
-                                                storage_access.newValue,
-                                            );
-
-                                            // Then handle long bytes/strings if applicable
-                                            if info.is_bytes_or_string() {
-                                                info.decode_bytes_or_string_values(
-                                                    &storage_access.slot,
-                                                    &raw_changes_by_slot,
-                                                );
-                                            }
-
-                                            info
-                                        })
+                                        },
+                                    )
                                 });
 
                                 slot_state_diff.insert(SlotStateDiff {
                                     previous_value: storage_access.previousValue,
                                     new_value: storage_access.newValue,
                                     slot_info,
-                                });
+                                })
                             }
-                            Entry::Occupied(mut slot_state_diff) => {
-                                let entry = slot_state_diff.get_mut();
+                            Entry::Occupied(slot_state_diff) => {
+                                let entry = slot_state_diff.into_mut();
                                 entry.new_value = storage_access.newValue;
+                                entry
+                            }
+                        };
 
-                                // Update decoded values if we have slot info
-                                if let Some(ref mut slot_info) = entry.slot_info {
-                                    slot_info.decode_values(
-                                        entry.previous_value,
-                                        storage_access.newValue,
-                                    );
-                                }
+                        // Update decoded values if we have slot info
+                        if let Some(slot_info) = &mut entry.slot_info {
+                            slot_info.decode_values(entry.previous_value, storage_access.newValue);
+                            if slot_info.is_bytes_or_string() {
+                                slot_info.decode_bytes_or_string_values(
+                                    &storage_access.slot,
+                                    &raw_changes_by_slot,
+                                );
                             }
                         }
                     }
@@ -1586,7 +1584,8 @@ fn get_contract_data<'a>(
     let artifacts = ccx.state.config.available_artifacts.as_ref()?;
 
     // Try to load the account and get its code
-    let account = ccx.ecx.journaled_state.load_account(address).ok()?;
+    let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+    let account = journal.load_account(db, address).ok()?;
     let code = account.info.code.as_ref()?;
 
     // Skip if code is empty
