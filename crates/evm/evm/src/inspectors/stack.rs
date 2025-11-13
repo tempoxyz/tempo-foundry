@@ -558,7 +558,7 @@ impl InspectorStack {
             SparsedTraceArena { arena, ignored }
         });
 
-        let mut labels = tempo_labels.labels.clone();
+        let mut labels = tempo_labels.labels;
         labels.extend(
             cheatcodes.as_ref().map(|cheatcodes| cheatcodes.labels.clone()).unwrap_or_default(),
         );

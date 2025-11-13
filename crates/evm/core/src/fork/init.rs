@@ -6,6 +6,7 @@ use alloy_rpc_types::BlockNumberOrTag;
 use foundry_common::NON_ARCHIVE_NODE_WARNING;
 use foundry_evm_networks::NetworkConfigs;
 use revm::context::{BlockEnv, CfgEnv, TxEnv};
+use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_revm::TempoTxEnv;
 
 /// Initializes a REVM block environment based on a forked
@@ -112,8 +113,8 @@ pub fn configure_env(
     memory_limit: u64,
     disable_block_gas_limit: bool,
     enable_tx_gas_limit: bool,
-) -> CfgEnv {
-    let mut cfg = CfgEnv::default();
+) -> CfgEnv<TempoHardfork> {
+    let mut cfg = CfgEnv::<TempoHardfork>::default();
     cfg.chain_id = chain_id;
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);

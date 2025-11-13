@@ -7,6 +7,7 @@ use alloy_rpc_types::Authorization;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
+use foundry_evm_core::ContextExt;
 use foundry_wallets::{WalletSigner, wallet_multi::MultiWallet};
 use parking_lot::Mutex;
 use revm::{
@@ -131,7 +132,8 @@ fn sign_delegation(
     let nonce = if let Some(nonce) = nonce {
         nonce
     } else {
-        let authority_acc = ccx.ecx.journaled_state.load_account(signer.address())?;
+        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+        let authority_acc = journal.load_account(db, signer.address())?;
         // Calculate next nonce considering existing active delegations
         next_delegation_nonce(
             &ccx.state.active_delegations,
@@ -191,7 +193,8 @@ fn next_delegation_nonce(
 
 fn write_delegation(ccx: &mut CheatsCtxt, auth: SignedAuthorization) -> Result<()> {
     let authority = auth.recover_authority().map_err(|e| format!("{e}"))?;
-    let authority_acc = ccx.ecx.journaled_state.load_account(authority)?;
+    let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+    let authority_acc = journal.load_account(db, authority)?;
 
     let expected_nonce = next_delegation_nonce(
         &ccx.state.active_delegations,
@@ -223,7 +226,7 @@ impl Cheatcode for attachBlobCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { blob } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`attachBlob` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );

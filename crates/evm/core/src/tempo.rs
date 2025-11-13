@@ -3,6 +3,7 @@ use revm::{
     Database,
     state::{AccountInfo, Bytecode},
 };
+use tempo_chainspec::hardfork::TempoHardfork;
 
 use crate::backend::Backend;
 
@@ -24,6 +25,10 @@ impl<'a> FoundryStorageProvider<'a> {
 }
 
 impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorageProvider<'a> {
+    fn spec(&self) -> TempoHardfork {
+        self.backend.spec_id().into()
+    }
+
     fn chain_id(&self) -> u64 {
         self.chain_id
     }

@@ -181,12 +181,12 @@ impl Executor {
 
     /// Returns the EVM spec ID.
     pub fn spec_id(&self) -> SpecId {
-        self.env.evm_env.cfg_env.spec
+        self.env.evm_env.cfg_env.spec.into()
     }
 
     /// Sets the EVM spec ID.
     pub fn set_spec_id(&mut self, spec_id: SpecId) {
-        self.env.evm_env.cfg_env.spec = spec_id;
+        self.env.evm_env.cfg_env.spec = spec_id.into();
     }
 
     /// Returns the gas limit for calls and deployments.
@@ -703,7 +703,7 @@ impl Executor {
             evm_env: EvmEnv {
                 cfg_env: {
                     let mut cfg = self.env().evm_env.cfg_env.clone();
-                    cfg.spec = self.spec_id();
+                    cfg.spec = self.spec_id().into();
                     cfg
                 },
                 // We always set the gas price to 0 so we can execute the transaction regardless of
@@ -1056,7 +1056,7 @@ fn convert_executed_result(
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
-        env.evm_env.cfg_env.spec,
+        env.evm_env.cfg_env.spec.into(),
         &env.tx.data,
         env.tx.kind.is_create(),
         env.tx.access_list.len().try_into()?,
