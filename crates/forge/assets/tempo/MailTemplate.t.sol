@@ -17,7 +17,7 @@ contract MailTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
 
-        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN);
+        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN_ADDRESS);
         token = ITIP20(
             StdPrecompiles.TIP20_FACTORY
                 .createToken("testUSD", "tUSD", "USD", StdPrecompiles.LINKING_USD, address(this))
