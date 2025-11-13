@@ -163,7 +163,7 @@ jobs:
           SVM_TARGET_PLATFORM: ${{ matrix.svm_target_platform }}
           PLATFORM_NAME: ${{ matrix.platform }}
           TARGET: ${{ matrix.target }}
-          OUT_DIR: target/${{ matrix.target }}/${{ env.RUST_PROFILE }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
         shell: bash
         run: |
           set -eo pipefail
@@ -198,7 +198,7 @@ jobs:
         id: artifacts
         env:
           PLATFORM_NAME: ${{ matrix.platform }}
-          OUT_DIR: target/${{ matrix.target }}/${{ env.RUST_PROFILE }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
           VERSION_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
           ARCH: ${{ matrix.arch }}
         shell: bash
@@ -229,7 +229,7 @@ jobs:
         id: man
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         env:
-          OUT_DIR: target/${{ matrix.target }}/${{ env.RUST_PROFILE }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
           VERSION_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
         shell: bash
         run: |
