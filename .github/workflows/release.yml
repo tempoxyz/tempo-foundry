@@ -163,7 +163,7 @@ jobs:
           SVM_TARGET_PLATFORM: ${{ matrix.svm_target_platform }}
           PLATFORM_NAME: ${{ matrix.platform }}
           TARGET: ${{ matrix.target }}
-          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.RUST_PROFILE }}
         shell: bash
         run: |
           set -eo pipefail
@@ -198,7 +198,7 @@ jobs:
         id: artifacts
         env:
           PLATFORM_NAME: ${{ matrix.platform }}
-          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.RUST_PROFILE }}
           VERSION_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
           ARCH: ${{ matrix.arch }}
         shell: bash
@@ -229,7 +229,7 @@ jobs:
         id: man
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         env:
-          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.RUST_PROFILE }}
           VERSION_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
         shell: bash
         run: |
@@ -243,7 +243,7 @@ jobs:
 
       # Creates the release for this specific version
       - name: Create release
-        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           name: ${{ needs.prepare.outputs.release_name }}
           tag_name: ${{ needs.prepare.outputs.tag_name }}
@@ -257,7 +257,7 @@ jobs:
       # tagged `nightly` for compatibility with `foundryup`
       - name: Update nightly release
         if: ${{ env.IS_NIGHTLY == 'true' }}
-        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           name: "Nightly"
           tag_name: "nightly"

@@ -4,37 +4,38 @@ use revm::{
     context::{CfgEnv, JournalInner},
     primitives::hardfork::SpecId,
 };
+use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
 use tempo_revm::{TempoTxEnv, evm::TempoContext};
 
 /// Helper container type for [`EvmEnv`] and [`TxEnv`].
 #[derive(Clone, Debug, Default)]
 pub struct Env {
-    pub evm_env: EvmEnv<SpecId, TempoBlockEnv>,
+    pub evm_env: EvmEnv<TempoHardfork, TempoBlockEnv>,
     pub tx: TempoTxEnv,
 }
 
 /// Helper container type for [`EvmEnv`] and [`TxEnv`].
 impl Env {
     pub fn default_with_spec_id(spec_id: SpecId) -> Self {
-        let mut cfg = CfgEnv::default();
-        cfg.spec = spec_id;
+        let mut cfg = CfgEnv::<TempoHardfork>::default();
+        cfg.spec = spec_id.into();
 
         Self::from(cfg, TempoBlockEnv::default(), TempoTxEnv::default())
     }
 
-    pub fn from(cfg: CfgEnv, block: TempoBlockEnv, tx: TempoTxEnv) -> Self {
+    pub fn from(cfg: CfgEnv<TempoHardfork>, block: TempoBlockEnv, tx: TempoTxEnv) -> Self {
         Self { evm_env: EvmEnv { cfg_env: cfg, block_env: block }, tx }
     }
 
     pub fn new_with_spec_id(
-        cfg: CfgEnv,
+        cfg: CfgEnv<TempoHardfork>,
         block: TempoBlockEnv,
         tx: TempoTxEnv,
         spec_id: SpecId,
     ) -> Self {
         let mut cfg = cfg;
-        cfg.spec = spec_id;
+        cfg.spec = spec_id.into();
 
         Self::from(cfg, block, tx)
     }
@@ -43,7 +44,7 @@ impl Env {
 /// Helper struct with mutable references to the block and cfg environments.
 pub struct EnvMut<'a> {
     pub block: &'a mut TempoBlockEnv,
-    pub cfg: &'a mut CfgEnv,
+    pub cfg: &'a mut CfgEnv<TempoHardfork>,
     pub tx: &'a mut TempoTxEnv,
 }
 

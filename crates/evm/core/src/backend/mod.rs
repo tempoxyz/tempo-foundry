@@ -602,6 +602,11 @@ impl Backend {
         self
     }
 
+    /// Returns the current spec id
+    pub fn spec_id(&self) -> SpecId {
+        self.inner.spec_id
+    }
+
     /// Sets the current spec id
     pub fn set_spec_id(&mut self, spec_id: SpecId) -> &mut Self {
         trace!(?spec_id, "setting spec ID");
@@ -745,7 +750,7 @@ impl Backend {
     /// We need to track these mainly to prevent issues when switching between different evms
     pub(crate) fn initialize(&mut self, env: &Env) {
         self.set_caller(env.tx.caller);
-        self.set_spec_id(env.evm_env.cfg_env.spec);
+        self.set_spec_id(env.evm_env.cfg_env.spec.into());
 
         let test_contract = match env.tx.kind {
             TxKind::Call(to) => to,
@@ -1954,7 +1959,7 @@ fn update_env_block(env: &mut EnvMut<'_>, block: &AnyRpcBlock) {
     if let Some(excess_blob_gas) = block.header.excess_blob_gas {
         env.block.blob_excess_gas_and_price = Some(BlobExcessGasAndPrice::new(
             excess_blob_gas,
-            get_blob_base_fee_update_fraction_by_spec_id(env.cfg.spec),
+            get_blob_base_fee_update_fraction_by_spec_id(env.cfg.spec.into()),
         ));
     }
 }
