@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else if let Some((_, rc_number)) = tag_name.split_once("rc") {
         format!("rc{rc_number}")
     } else {
-        tag_name.clone()
+        tag_name
     };
 
     let version_suffix = format!("{base_suffix}-tempo");
