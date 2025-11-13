@@ -11,6 +11,7 @@ contract MailScript is Script {
     function setUp() public {}
 
     function run() public {
+        vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
         vm.startBroadcast();
 
         ITIP20 token = ITIP20(

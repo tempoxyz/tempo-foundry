@@ -15,6 +15,7 @@ contract MailTest is Test {
     address public constant BOB = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
 
     function setUp() public {
+        vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
         token = ITIP20(
             StdPrecompiles.TIP20_FACTORY
             .createToken("testUSD", "tUSD", "USD", StdPrecompiles.LINKING_USD, address(this))

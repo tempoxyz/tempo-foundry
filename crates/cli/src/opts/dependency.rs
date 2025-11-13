@@ -87,6 +87,8 @@ impl FromStr for Dependency {
                     token.as_str(),
                     project.trim_end_matches(".git")
                 ))
+            } else if dependency.starts_with("git@") {
+                Some(format!("git@{brand}.{tld}:{}", project.trim_end_matches(".git")))
             } else {
                 Some(format!("https://{brand}.{tld}/{}", project.trim_end_matches(".git")))
             }
