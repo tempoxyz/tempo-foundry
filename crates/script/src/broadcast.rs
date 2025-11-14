@@ -1,7 +1,5 @@
-use crate::{
-    ScriptArgs, ScriptConfig, build::LinkedBuildData, progress::ScriptProgress,
-    sequence::ScriptSequenceKind, verify::BroadcastedState,
-};
+use std::{cmp::Ordering, sync::Arc, time::Duration};
+
 use alloy_chains::{Chain, NamedChain};
 use alloy_consensus::TxEnvelope;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
@@ -26,7 +24,11 @@ use foundry_common::{
 use foundry_config::Config;
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
-use std::{cmp::Ordering, sync::Arc, time::Duration};
+
+use crate::{
+    ScriptArgs, ScriptConfig, build::LinkedBuildData, progress::ScriptProgress,
+    sequence::ScriptSequenceKind, verify::BroadcastedState,
+};
 
 pub async fn estimate_gas<P: Provider<AnyNetwork>>(
     tx: &mut WithOtherFields<TransactionRequest>,
@@ -57,7 +59,7 @@ pub async fn next_nonce(
     Ok(provider.get_transaction_count(caller).block_id(block_id).await?)
 }
 
-/// How to send a single transaction
+/// Represents how to send a single transaction.
 #[derive(Clone)]
 pub enum SendTransactionKind<'a> {
     Unlocked(WithOtherFields<TransactionRequest>),
@@ -105,7 +107,7 @@ impl<'a> SendTransactionKind<'a> {
                             tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                         }
                         Ordering::Equal => {
-                            // Nonces are equal, we can proceed
+                            // Nonces are equal, we can proceed.
                             break;
                         }
                     }
@@ -441,22 +443,20 @@ impl BundledState {
                             },
                         );
 
-                        // we choose a reasonable concurrency buffer
                         let mut buffer = pending_transactions.collect::<FuturesUnordered<_>>();
 
                         'send: while let Some((res, kind, attempt, original_res)) =
                             buffer.next().await
                         {
                             if res.is_err() && attempt <= 3 {
-                                // try to resubmit the transaction
+                                // Try to resubmit the transaction
                                 let provider = provider.clone();
                                 let progress = seq_progress.inner.clone();
                                 buffer.push(Box::pin(async move {
                                     debug!(err=?res, ?attempt, "retrying transaction ");
                                     let attempt = attempt + 1;
                                     progress.write().set_status(&format!(
-                                        "retrying transaction {:?} (attempt {attempt})",
-                                        res
+                                        "retrying transaction {res:?} (attempt {attempt})"
                                     ));
                                     tokio::time::sleep(Duration::from_millis(1000 * attempt)).await;
                                     let r = kind.clone().send(provider).await;
@@ -466,12 +466,11 @@ impl BundledState {
                                 continue 'send;
                             }
 
-                            // we preserve the original error if any
+                            // Preserve the original error if any
                             let tx_hash = res.wrap_err_with(|| {
                                 if let Some(original_res) = original_res {
                                     format!(
-                                        "Failed to send transaction after {attempt} attempts {:?}",
-                                        original_res
+                                        "Failed to send transaction after {attempt} attempts {original_res:?}"
                                     )
                                 } else {
                                     "Failed to send transaction".to_string()
