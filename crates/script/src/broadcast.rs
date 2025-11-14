@@ -447,14 +447,14 @@ impl BundledState {
                         'send: while let Some((res, kind, attempt, original_res)) =
                             buffer.next().await
                         {
-                            if res.is_err() && attempt < 3 {
+                            if res.is_err() && attempt <= 3 {
                                 // try to resubmit the transaction
                                 let provider = provider.clone();
                                 buffer.push(Box::pin(async move {
                                     debug!(err=?res, ?attempt, "retrying transaction ");
                                     dbg!("retrying", &res, attempt);
                                     let attempt = attempt + 1;
-                                    tokio::time::sleep(Duration::from_millis(500 * attempt)).await;
+                                    tokio::time::sleep(Duration::from_millis(1000 * attempt)).await;
                                     let r = kind.clone().send(provider).await;
                                     (r, kind, attempt, original_res.or(Some(res)))
                                 }));
