@@ -419,7 +419,7 @@ impl BundledState {
                                 let provider = provider.clone();
                                 async move {
                                     if idx == 0 {
-                                        dbg!("sleeping on first");
+                                        debug!("sleeping on first");
                                         tokio::time::sleep(tokio::time::Duration::from_millis(
                                             1000,
                                         ))
@@ -450,10 +450,14 @@ impl BundledState {
                             if res.is_err() && attempt <= 3 {
                                 // try to resubmit the transaction
                                 let provider = provider.clone();
+                                let progress = seq_progress.inner.clone();
                                 buffer.push(Box::pin(async move {
                                     debug!(err=?res, ?attempt, "retrying transaction ");
-                                    dbg!("retrying", &res, attempt);
                                     let attempt = attempt + 1;
+                                    progress.write().set_status(&format!(
+                                        "retrying transaction {:?} (attempt {attempt})",
+                                        res
+                                    ));
                                     tokio::time::sleep(Duration::from_millis(1000 * attempt)).await;
                                     let r = kind.clone().send(provider).await;
                                     (r, kind, attempt, original_res.or(Some(res)))
