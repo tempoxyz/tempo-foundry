@@ -416,23 +416,16 @@ impl BundledState {
                     ));
 
                     if !batch.is_empty() {
-                        let pending_transactions = batch.iter().cloned().enumerate().map(
-                            |(idx, (kind, is_fixed_gas_limit))| {
+                        let pending_transactions =
+                            batch.iter().map(|(kind, is_fixed_gas_limit)| {
                                 let provider = provider.clone();
                                 async move {
-                                    if idx == 0 {
-                                        debug!("sleeping on first");
-                                        tokio::time::sleep(tokio::time::Duration::from_millis(
-                                            1000,
-                                        ))
-                                        .await;
-                                    }
                                     let res = kind
                                         .clone()
                                         .prepare_and_send(
                                             provider,
                                             sequential_broadcast,
-                                            is_fixed_gas_limit,
+                                            *is_fixed_gas_limit,
                                             estimate_via_rpc,
                                             self.args.gas_estimate_multiplier,
                                         )
@@ -440,8 +433,7 @@ impl BundledState {
                                     (res, kind, 0, None)
                                 }
                                 .boxed()
-                            },
-                        );
+                            });
 
                         let mut buffer = pending_transactions.collect::<FuturesUnordered<_>>();
 
