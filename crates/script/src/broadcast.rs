@@ -171,7 +171,7 @@ impl<'a> SendTransactionKind<'a> {
             estimate_via_rpc,
             estimate_multiplier,
         )
-            .await?;
+        .await?;
 
         self.send(provider).await
     }
@@ -414,13 +414,16 @@ impl BundledState {
                     ));
 
                     if !batch.is_empty() {
-                        let pending_transactions =
-                            batch.iter().cloned().enumerate().map(|(idx, (kind, is_fixed_gas_limit))| {
+                        let pending_transactions = batch.iter().cloned().enumerate().map(
+                            |(idx, (kind, is_fixed_gas_limit))| {
                                 let provider = provider.clone();
                                 async move {
                                     if idx == 0 {
                                         dbg!("sleeping on first");
-                                        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+                                        tokio::time::sleep(tokio::time::Duration::from_millis(
+                                            1000,
+                                        ))
+                                        .await;
                                     }
                                     let res = kind
                                         .clone()
@@ -434,8 +437,9 @@ impl BundledState {
                                         .await;
                                     (res, kind, 0, None)
                                 }
-                                    .boxed()
-                            });
+                                .boxed()
+                            },
+                        );
 
                         // we choose a reasonable concurrency buffer
                         let mut buffer = pending_transactions.collect::<FuturesUnordered<_>>();
@@ -448,7 +452,7 @@ impl BundledState {
                                 let provider = provider.clone();
                                 buffer.push(Box::pin(async move {
                                     debug!(err=?res, ?attempt, "retrying transaction ");
-                                    dbg!("retrying",&res, attempt);
+                                    dbg!("retrying", &res, attempt);
                                     let attempt = attempt + 1;
                                     tokio::time::sleep(Duration::from_millis(500 * attempt)).await;
                                     let r = kind.clone().send(provider).await;
@@ -539,10 +543,10 @@ impl BundledState {
         for sequence in self.sequence.sequences() {
             if self.args.verifier.verifier == VerificationProviderType::Etherscan
                 && self
-                .script_config
-                .config
-                .get_etherscan_api_key(Some(sequence.chain.into()))
-                .is_none()
+                    .script_config
+                    .config
+                    .get_etherscan_api_key(Some(sequence.chain.into()))
+                    .is_none()
             {
                 eyre::bail!("Missing etherscan key for chain {}", sequence.chain);
             }
