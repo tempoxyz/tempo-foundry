@@ -15,14 +15,17 @@ contract MailTest is Test {
     address public constant BOB = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
+        if (vm.envExists("TEMPO_RPC_URL")) {
+            vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
+            StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN_ADDRESS);
+        }
 
-        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN_ADDRESS);
         token = ITIP20(
             StdPrecompiles.TIP20_FACTORY
                 .createToken("testUSD", "tUSD", "USD", StdPrecompiles.LINKING_USD, address(this))
         );
         ITIP20RolesAuth(address(token)).grantRole(keccak256("ISSUER_ROLE"), address(this));
+
         mail = new Mail(token);
     }
 
