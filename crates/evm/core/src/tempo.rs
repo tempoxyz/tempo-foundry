@@ -4,6 +4,7 @@ use revm::{
     state::{AccountInfo, Bytecode},
 };
 use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_precompiles::error::TempoPrecompileError;
 
 use crate::backend::Backend;
 
@@ -37,11 +38,7 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         self.timestamp
     }
 
-    fn set_code(
-        &mut self,
-        address: Address,
-        code: Bytecode,
-    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    fn set_code(&mut self, address: Address, code: Bytecode) -> Result<(), TempoPrecompileError> {
         self.backend.insert_account_info(
             address,
             AccountInfo { code_hash: code.hash_slow(), code: Some(code), ..Default::default() },
@@ -52,9 +49,9 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
     fn get_account_info(
         &mut self,
         _address: Address,
-    ) -> Result<&AccountInfo, tempo_precompiles::error::TempoPrecompileError> {
+    ) -> Result<&AccountInfo, TempoPrecompileError> {
         // Not needed for test initialization
-        Err(tempo_precompiles::error::TempoPrecompileError::Fatal(
+        Err(TempoPrecompileError::Fatal(
             "get_account_info not supported in test initialization".to_string(),
         ))
     }
@@ -64,36 +61,42 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         address: Address,
         key: U256,
         value: U256,
-    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    ) -> Result<(), TempoPrecompileError> {
         self.backend
             .insert_account_storage(address, key, value)
-            .map_err(|e| tempo_precompiles::error::TempoPrecompileError::Fatal(e.to_string()))
+            .map_err(|e| TempoPrecompileError::Fatal(e.to_string()))
     }
 
-    fn sload(
+    fn sload(&mut self, address: Address, key: U256) -> Result<U256, TempoPrecompileError> {
+        self.backend.storage(address, key).map_err(|e| TempoPrecompileError::Fatal(e.to_string()))
+    }
+
+    fn tstore(
         &mut self,
-        address: Address,
-        key: U256,
-    ) -> Result<U256, tempo_precompiles::error::TempoPrecompileError> {
-        self.backend
-            .storage(address, key)
-            .map_err(|e| tempo_precompiles::error::TempoPrecompileError::Fatal(e.to_string()))
+        _address: Address,
+        _key: U256,
+        _value: U256,
+    ) -> Result<(), TempoPrecompileError> {
+        // This is a no-op during initialization as temporal storage is not persisted
+        Ok(())
+    }
+
+    fn tload(&mut self, _address: Address, _key: U256) -> Result<U256, TempoPrecompileError> {
+        // Temporal storage is empty during initialization
+        Ok(U256::ZERO)
     }
 
     fn emit_event(
         &mut self,
         _address: Address,
         _event: alloy_primitives::LogData,
-    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    ) -> Result<(), TempoPrecompileError> {
         // Events during initialization are not captured in test setup
         // This is acceptable as initialization events aren't tested
         Ok(())
     }
 
-    fn deduct_gas(
-        &mut self,
-        gas: u64,
-    ) -> Result<(), tempo_precompiles::error::TempoPrecompileError> {
+    fn deduct_gas(&mut self, gas: u64) -> Result<(), TempoPrecompileError> {
         // Track gas for accounting purposes, but don't enforce limits during init
         self.gas_used = self.gas_used.saturating_add(gas);
         Ok(())
