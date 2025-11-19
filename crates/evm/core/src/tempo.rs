@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use alloy_primitives::{Address, U256};
 use revm::{
     Database,
@@ -77,13 +79,13 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         _key: U256,
         _value: U256,
     ) -> Result<(), TempoPrecompileError> {
-        // This is a no-op during initialization as temporal storage is not persisted
-        Ok(())
+        // Temporary storage is not supported during test initialization
+        Err(TempoPrecompileError::Fatal("tstore not supported in test initialization".to_string()))
     }
 
     fn tload(&mut self, _address: Address, _key: U256) -> Result<U256, TempoPrecompileError> {
-        // Temporal storage is empty during initialization
-        Ok(U256::ZERO)
+        // Temporary storage is not supported during test initialization
+        Err(TempoPrecompileError::Fatal("tload not supported in test initialization".to_string()))
     }
 
     fn emit_event(
