@@ -1,4 +1,4 @@
-use std::f32::consts::E;
+use std::collections::HashMap;
 
 use alloy_primitives::{Address, U256};
 use revm::{
@@ -19,11 +19,12 @@ pub struct FoundryStorageProvider<'a> {
     chain_id: u64,
     timestamp: U256,
     gas_used: u64,
+    transient: HashMap<(Address, U256), U256>,
 }
 
 impl<'a> FoundryStorageProvider<'a> {
     pub fn new(backend: &'a mut Backend, chain_id: u64, timestamp: U256) -> Self {
-        Self { backend, chain_id, timestamp, gas_used: 0 }
+        Self { backend, chain_id, timestamp, gas_used: 0, transient: HashMap::new() }
     }
 }
 
@@ -75,17 +76,16 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
 
     fn tstore(
         &mut self,
-        _address: Address,
-        _key: U256,
-        _value: U256,
+        address: Address,
+        key: U256,
+        value: U256,
     ) -> Result<(), TempoPrecompileError> {
-        // Temporary storage is not supported during test initialization
-        Err(TempoPrecompileError::Fatal("tstore not supported in test initialization".to_string()))
+        self.transient.insert((address, key), value);
+        Ok(())
     }
 
-    fn tload(&mut self, _address: Address, _key: U256) -> Result<U256, TempoPrecompileError> {
-        // Temporary storage is not supported during test initialization
-        Err(TempoPrecompileError::Fatal("tload not supported in test initialization".to_string()))
+    fn tload(&mut self, address: Address, key: U256) -> Result<U256, TempoPrecompileError> {
+        Ok(self.transient.get(&(address, key)).copied().unwrap_or(U256::ZERO))
     }
 
     fn emit_event(
