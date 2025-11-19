@@ -30,7 +30,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "1.4.4"
+version = "1.5.0"
 edition = "2024"
 rust-version = "1.89"
 authors = ["Foundry Contributors"]
@@ -224,10 +224,11 @@ foundry-linking = { path = "crates/linking" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.22.0", default-features = false }
-foundry-compilers = { version = "0.19.5", default-features = false, features = [
+foundry-compilers = { version = "0.19.6", default-features = false, features = [
   "rustls",
   "svm-solc",
 ] }
+
 foundry-fork-db = "0.21"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
@@ -287,21 +288,21 @@ op-alloy-rpc-types = "0.22.0"
 op-alloy-flz = "0.13.1"
 
 ## revm
-revm = { version = "33.0.1", default-features = false }
+revm = { version = "33.1.0", default-features = false }
 revm-inspectors = { version = "0.33.0", features = ["serde"] }
-op-revm = { version = "14.0.1", default-features = false }
+op-revm = { version = "14.1.0", default-features = false }
 
 # tempo
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "8c55629" }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "8c55629" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "8c55629" }
-tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "8c55629" }
-tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "8c55629" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "8c55629" }
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "cf1d487" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "cf1d487" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "cf1d487" }
+tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "cf1d487" }
+tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "cf1d487" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "cf1d487" }
 
 ## alloy-evm
-alloy-evm = "0.24.1"
-alloy-op-evm = "0.24.1"
+alloy-evm = "0.24.2"
+alloy-op-evm = "0.24.2"
 
 ## cli
 anstream = "0.6"
@@ -449,7 +450,7 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 # alloy-evm = { git = "https://github.com/alloy-rs/evm.git", rev = "237d0a0" }
 # alloy-op-evm = { git = "https://github.com/alloy-rs/evm.git", rev = "237d0a0" }
 
-# revm
+## revm
 # revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
 # op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "7e59936" }
 # revm-inspectors = { git = "https://github.com/zerosnacks/revm-inspectors.git", rev = "0aaab71" }
