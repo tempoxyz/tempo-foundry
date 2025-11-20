@@ -302,14 +302,11 @@ impl ScriptRunner {
 
             address_to_token_id_unchecked(token_address)
         };
-
         let mut token = TIP20Token::new(token_id, &mut storage_provider);
         token.grant_role_internal(admin, *ISSUER_ROLE).expect("failed to grant issuer role");
-
         token
             .set_supply_cap(admin, ITIP20::setSupplyCapCall { newSupplyCap: U256::from(u128::MAX) })
             .expect("failed to set supply cap");
-
         token
             .mint(admin, ITIP20::mintCall { to: admin, amount: U256::from(u64::MAX) })
             .expect("Token minting failed");
