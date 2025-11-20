@@ -45,9 +45,9 @@ contract MailTest is Test {
         assertEq(token.balanceOf(ALICE), 100_000 * 10 ** token.decimals() - attachment.amount);
     }
 
-    function testFuzz_SendMail(uint256 mintAmount, uint256 sendAmount, string memory message, bytes32 memo) public {
-        mintAmount = bound(mintAmount, 0, type(uint256).max);
-        sendAmount = bound(sendAmount, 0, mintAmount);
+    function testFuzz_SendMail(uint128 mintAmount, uint128 sendAmount, string memory message, bytes32 memo) public {
+        mintAmount = uint128(bound(mintAmount, 0, type(uint128).max));
+        sendAmount = uint128(bound(sendAmount, 0, mintAmount));
 
         token.mint(ALICE, mintAmount);
 
