@@ -249,7 +249,6 @@ impl ScriptRunner {
         for precompile in [
             NONCE_PRECOMPILE_ADDRESS,
             STABLECOIN_EXCHANGE_ADDRESS,
-            TIP20_FACTORY_ADDRESS,
             TIP20_REWARDS_REGISTRY_ADDRESS,
             TIP403_REGISTRY_ADDRESS,
             TIP_ACCOUNT_REGISTRAR,
@@ -286,9 +285,9 @@ impl ScriptRunner {
 
         // Initialize the default TIP-20 token for default fee payments
         let token_id = {
-            let mut factory = TIP20Factory::new(&mut storage_provider);
-            factory.initialize().expect("Could not initialize tip20 factory");
-            let token_address = factory
+            let mut tip20_factory = TIP20Factory::new(&mut storage_provider);
+            tip20_factory.initialize().expect("Could not initialize tip20 factory");
+            let token_address = tip20_factory
                 .create_token(
                     admin,
                     ITIP20Factory::createTokenCall {
