@@ -45,6 +45,10 @@ use std::{
     sync::Arc,
     time::Instant,
 };
+use tempo_precompiles::{
+    tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
+    tip20_factory::{ITIP20Factory, TIP20Factory},
+};
 use tokio::signal;
 use tracing::Span;
 
@@ -256,6 +260,37 @@ impl<'a> ContractRunner<'a> {
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
         let mut linking_usd = linking_usd::LinkingUSD::new(&mut storage_provider);
         linking_usd.initialize(admin).expect("failed to initialize linking_usd");
+
+        // Initialize the default TIP-20 token for default fee payments
+        let token_id = {
+            let mut factory = TIP20Factory::new(&mut storage_provider);
+            factory.initialize().expect("Could not initialize tip20 factory");
+            let token_address = factory
+                .create_token(
+                    admin,
+                    ITIP20Factory::createTokenCall {
+                        name: "AlphaUSD".to_string(),
+                        symbol: "AlphaUSD".to_string(),
+                        currency: "USD".to_string(),
+                        quoteToken: LINKING_USD_ADDRESS,
+                        admin,
+                    },
+                )
+                .expect("Could not create token");
+
+            address_to_token_id_unchecked(token_address)
+        };
+
+        let mut token = TIP20Token::new(token_id, &mut storage_provider);
+        token.grant_role_internal(admin, *ISSUER_ROLE).expect("failed to grant issuer role");
+
+        token
+            .set_supply_cap(admin, ITIP20::setSupplyCapCall { newSupplyCap: U256::from(u128::MAX) })
+            .expect("failed to set supply cap");
+
+        token
+            .mint(admin, ITIP20::mintCall { to: admin, amount: U256::from(u64::MAX) })
+            .expect("Token minting failed");
     }
 
     fn initial_balance(&self) -> U256 {
