@@ -1,6 +1,8 @@
 #!/bin/bash
 export TEMPO_RPC_URL=https://eng:zealous-mayer@rpc.testnet.tempo.xyz
 export VERIFIER_URL=https://tempo:reverent-einstein-thirsty-edison@scout.tempo.xyz/api/
+tmp_dir=$(mktemp -d)
+cd "$tmp_dir"
 forge init -n tempo tempo-check
 cd tempo-check
 forge test
