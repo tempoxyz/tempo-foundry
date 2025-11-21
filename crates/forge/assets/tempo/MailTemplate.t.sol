@@ -25,7 +25,7 @@ contract MailTest is Test {
             StdPrecompiles.TIP20_FACTORY
                 .createToken("testUSD", "tUSD", "USD", StdPrecompiles.LINKING_USD, address(this))
         );
-        ITIP20RolesAuth(address(token)).grantRole(keccak256("ISSUER_ROLE"), address(this));
+        ITIP20RolesAuth(address(token)).grantRole(token.ISSUER_ROLE(), address(this));
 
         mail = new Mail(token);
     }
