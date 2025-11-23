@@ -44,6 +44,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
         with:
           toolchain: stable
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
+        run: |
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
       - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
@@ -73,6 +81,14 @@ jobs:
         with:
           toolchain: nightly
           components: clippy
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
+        run: |
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
       - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
@@ -107,6 +123,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
         with:
           toolchain: stable
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
+        run: |
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
       - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
@@ -126,6 +150,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
         with:
           toolchain: stable
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
+        run: |
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
       - uses: taiki-e/install-action@537c30d2b45cc3aa3fb35e2bbcfb61ef93fd6f02 # v2
         with:
