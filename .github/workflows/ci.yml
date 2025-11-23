@@ -167,9 +167,27 @@ jobs:
       - run: cargo hack check
 
   deny:
-    uses: ithacaxyz/ci/.github/workflows/deny.yml@9c8d0dc20e7ad02455d3fdab2378a05f29907630 # main
+    runs-on: depot-ubuntu-latest
     permissions:
       contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
+        with:
+          toolchain: nightly
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
+        run: |
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
+      - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad #
+      - uses: taiki-e/install-action@cargo-deny
+      - run: cargo deny --all-features check all
 
   codeql:
     name: analyze (${{ matrix.language }})

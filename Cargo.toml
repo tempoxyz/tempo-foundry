@@ -191,7 +191,7 @@ syn.opt-level = "z"
 trezor-client.opt-level = "z"
 
 [workspace.dependencies]
-anvil = { path = "crates/anvil" }
+#anvil = { path = "crates/anvil" }
 cast = { path = "crates/cast" }
 chisel = { path = "crates/chisel" }
 forge = { path = "crates/forge" }

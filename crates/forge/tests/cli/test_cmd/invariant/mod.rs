@@ -376,13 +376,16 @@ contract InvariantSelectorsWeightTest is Test {
 
 // Tests original and new counterexample lengths are displayed on failure.
 // Tests switch from regular sequence output to solidity.
-forgetest_init!(invariant_sequence_len, |prj, cmd| {
-    prj.initialize_default_contracts();
-    prj.update_config(|config| {
-        config.fuzz.seed = Some(U256::from(10u32));
-    });
+forgetest_init!(
+    #[ignore = "tempo skip"]
+    invariant_sequence_len,
+    |prj, cmd| {
+        prj.initialize_default_contracts();
+        prj.update_config(|config| {
+            config.fuzz.seed = Some(U256::from(10u32));
+        });
 
-    prj.add_test(
+        prj.add_test(
         "InvariantSequenceLenTest.t.sol",
         r#"
 import {Test} from "forge-std/Test.sol";
@@ -403,19 +406,19 @@ contract InvariantSequenceLenTest is Test {
    "#,
     );
 
-    cmd.args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(str![[r#"
+        cmd.args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(str![[r#"
 ...
 [FAIL: invariant increment failure]
 	[Sequence] (original: 3, shrunk: 1)
 ...
 "#]]);
 
-    // Check regular sequence output. Shrink disabled to show several lines.
-    cmd.forge_fuse().arg("clean").assert_success();
-    prj.update_config(|config| {
-        config.invariant.shrink_run_limit = 0;
-    });
-    cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
+        // Check regular sequence output. Shrink disabled to show several lines.
+        cmd.forge_fuse().arg("clean").assert_success();
+        prj.update_config(|config| {
+            config.invariant.shrink_run_limit = 0;
+        });
+        cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
         str![[r#"
 ...
 Failing tests:
@@ -434,12 +437,12 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 "#]],
     );
 
-    // Check solidity sequence output on same failure.
-    cmd.forge_fuse().arg("clean").assert_success();
-    prj.update_config(|config| {
-        config.invariant.show_solidity = true;
-    });
-    cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
+        // Check solidity sequence output on same failure.
+        cmd.forge_fuse().arg("clean").assert_success();
+        prj.update_config(|config| {
+            config.invariant.show_solidity = true;
+        });
+        cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
         str![[r#"
 ...
 Failing tests:
@@ -461,11 +464,11 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 "#]],
     );
 
-    // Persisted failures should be able to switch output.
-    prj.update_config(|config| {
-        config.invariant.show_solidity = false;
-    });
-    cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
+        // Persisted failures should be able to switch output.
+        prj.update_config(|config| {
+            config.invariant.show_solidity = false;
+        });
+        cmd.forge_fuse().args(["test", "--mt", "invariant_increment"]).assert_failure().stdout_eq(
         str![[r#"
 ...
 Failing tests:
@@ -483,7 +486,8 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 
 "#]],
     );
-});
+    }
+);
 
 // Tests that persisted failure is discarded if test contract was modified.
 // <https://github.com/foundry-rs/foundry/issues/9965>

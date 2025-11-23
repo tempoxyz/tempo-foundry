@@ -1,16 +1,11 @@
 //! Contains various tests for checking the `forge create` subcommand
 
-use crate::{
-    constants::*,
-    utils::{self, EnvExternalities},
-};
-use alloy_primitives::{Address, hex};
-use anvil::{NodeConfig, spawn};
-use foundry_compilers::artifacts::{BytecodeHash, remappings::Remapping};
+use crate::utils::{self, EnvExternalities};
+use alloy_primitives::Address;
+// use anvil::{NodeConfig, spawn};
+use foundry_compilers::artifacts::remappings::Remapping;
 use foundry_test_utils::{
-    forgetest, forgetest_async,
-    snapbox::IntoData,
-    str,
+    forgetest,
     util::{OutputExt, TestCommand, TestProject},
 };
 use std::str::FromStr;
@@ -125,374 +120,374 @@ forgetest!(can_create_oracle_on_amoy, |prj, cmd| {
     create_on_chain(EnvExternalities::amoy(), prj, cmd, setup_oracle);
 });
 
-// tests that we can deploy the template contract
-forgetest_async!(can_create_template_contract, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-    prj.initialize_default_contracts();
-
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let rpc = handle.http_endpoint();
-    let wallet = handle.dev_wallets().next().unwrap();
-    let pk = hex::encode(wallet.credential().to_bytes());
-
-    // explicitly byte code hash for consistent checks
-    prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
-
-    // Dry-run without the `--broadcast` flag
-    cmd.forge_fuse().args([
-        "create",
-        format!("./src/{TEMPLATE_CONTRACT}.sol:{TEMPLATE_CONTRACT}").as_str(),
-        "--rpc-url",
-        rpc.as_str(),
-        "--private-key",
-        pk.as_str(),
-    ]);
-
-    // Dry-run
-    cmd.assert().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-Contract: Counter
-Transaction: {
-  "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-  "to": null,
-  "maxFeePerGas": "0x77359401",
-  "maxPriorityFeePerGas": "0x1",
-  "gas": "0x241e7",
-  "input": "[..]",
-  "nonce": "0x0",
-  "chainId": "0x7a69"
-}
-ABI: [
-  {
-    "type": "function",
-    "name": "increment",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "number",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "setNumber",
-    "inputs": [
-      {
-        "name": "newNumber",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  }
-]
-
-
-"#]]);
-
-    // Dry-run with `--json` flag
-    cmd.arg("--json").assert().stdout_eq(
-        str![[r#"
-{
-  "contract": "Counter",
-  "transaction": {
-    "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-    "to": null,
-    "maxFeePerGas": "0x77359401",
-    "maxPriorityFeePerGas": "0x1",
-    "gas": "0x241e7",
-    "input": "[..]",
-    "nonce": "0x0",
-    "chainId": "0x7a69"
-  },
-  "abi": [
-    {
-      "type": "function",
-      "name": "increment",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "number",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "setNumber",
-      "inputs": [
-        {
-          "name": "newNumber",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    }
-  ]
-}
-
-"#]]
-        .is_json(),
-    );
-
-    cmd.forge_fuse().args([
-        "create",
-        format!("./src/{TEMPLATE_CONTRACT}.sol:{TEMPLATE_CONTRACT}").as_str(),
-        "--rpc-url",
-        rpc.as_str(),
-        "--private-key",
-        pk.as_str(),
-        "--broadcast",
-    ]);
-
-    cmd.assert().stdout_eq(str![[r#"
-No files changed, compilation skipped
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-[TX_HASH]
-
-"#]]);
-});
-
-// tests that we can deploy the template contract
-forgetest_async!(can_create_using_unlocked, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-    prj.initialize_default_contracts();
-
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let rpc = handle.http_endpoint();
-    let dev = handle.dev_accounts().next().unwrap();
-
-    // explicitly byte code hash for consistent checks
-    prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
-
-    cmd.forge_fuse().args([
-        "create",
-        format!("./src/{TEMPLATE_CONTRACT}.sol:{TEMPLATE_CONTRACT}").as_str(),
-        "--rpc-url",
-        rpc.as_str(),
-        "--from",
-        format!("{dev:?}").as_str(),
-        "--unlocked",
-        "--broadcast",
-    ]);
-
-    cmd.assert().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-[TX_HASH]
-
-"#]]);
-
-    cmd.assert().stdout_eq(str![[r#"
-No files changed, compilation skipped
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-[TX_HASH]
-
-"#]]);
-});
-
-// tests that we can deploy with constructor args
-forgetest_async!(can_create_with_constructor_args, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let rpc = handle.http_endpoint();
-    let wallet = handle.dev_wallets().next().unwrap();
-    let pk = hex::encode(wallet.credential().to_bytes());
-
-    // explicitly byte code hash for consistent checks
-    prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
-
-    prj.add_source(
-        "ConstructorContract",
-        r#"
-contract ConstructorContract {
-    string public name;
-
-    constructor(string memory _name) {
-        name = _name;
-    }
-}
-"#,
-    );
-
-    cmd.forge_fuse()
-        .args([
-            "create",
-            "./src/ConstructorContract.sol:ConstructorContract",
-            "--rpc-url",
-            rpc.as_str(),
-            "--private-key",
-            pk.as_str(),
-            "--broadcast",
-            "--constructor-args",
-            "My Constructor",
-        ])
-        .assert_success()
-        .stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-[TX_HASH]
-
-"#]]);
-
-    prj.add_source(
-        "TupleArrayConstructorContract",
-        r#"
-struct Point {
-    uint256 x;
-    uint256 y;
-}
-
-contract TupleArrayConstructorContract {
-    constructor(Point[] memory _points) {}
-}
-"#,
-    );
-
-    cmd.forge_fuse()
-        .args([
-            "create",
-            "./src/TupleArrayConstructorContract.sol:TupleArrayConstructorContract",
-            "--rpc-url",
-            rpc.as_str(),
-            "--private-key",
-            pk.as_str(),
-            "--broadcast",
-            "--constructor-args",
-            "[(1,2), (2,3), (3,4)]",
-        ])
-        .assert()
-        .stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-[TX_HASH]
-
-"#]]);
-});
-
-// <https://github.com/foundry-rs/foundry/issues/6332>
-forgetest_async!(can_create_and_call, |prj, cmd| {
-    foundry_test_utils::util::initialize(prj.root());
-
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let rpc = handle.http_endpoint();
-    let wallet = handle.dev_wallets().next().unwrap();
-    let pk = hex::encode(wallet.credential().to_bytes());
-
-    // explicitly byte code hash for consistent checks
-    prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
-
-    prj.add_source(
-        "UniswapV2Swap",
-        r#"
-contract UniswapV2Swap {
-
-    function pairInfo() public view returns (uint reserveA, uint reserveB, uint totalSupply) {
-       (reserveA, reserveB, totalSupply) = (0,0,0);
-    }
-
-}
-"#,
-    );
-
-    cmd.forge_fuse()
-        .args([
-            "create",
-            "./src/UniswapV2Swap.sol:UniswapV2Swap",
-            "--rpc-url",
-            rpc.as_str(),
-            "--private-key",
-            pk.as_str(),
-            "--broadcast",
-        ])
-        .assert_success()
-        .stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful with warnings:
-Warning (2018): Function state mutability can be restricted to pure
- [FILE]:6:5:
-  |
-6 |     function pairInfo() public view returns (uint reserveA, uint reserveB, uint totalSupply) {
-  |     ^ (Relevant source part starts here and spans across multiple lines).
-
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-[TX_HASH]
-
-"#]]);
-});
-
-// <https://github.com/foundry-rs/foundry/issues/10156>
-forgetest_async!(should_err_if_no_bytecode, |prj, cmd| {
-    let (_api, handle) = spawn(NodeConfig::test()).await;
-    let rpc = handle.http_endpoint();
-
-    prj.add_source(
-        "AbstractCounter.sol",
-        r#"
-abstract contract AbstractCounter {
-    uint256 public number;
-
-    function setNumberV1(uint256 newNumber) public {
-        number = newNumber;
-    }
-
-    function incrementV1() public {
-        number++;
-    }
-}
-    "#,
-    );
-
-    cmd.args([
-        "create",
-        "./src/AbstractCounter.sol:AbstractCounter",
-        "--rpc-url",
-        rpc.as_str(),
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "--broadcast",
-    ])
-    .assert_failure()
-    .stderr_eq(str![[r#"
-Error: no bytecode found in bin object for AbstractCounter
-
-"#]]);
-});
+// // tests that we can deploy the template contract
+// forgetest_async!(can_create_template_contract, |prj, cmd| {
+//     foundry_test_utils::util::initialize(prj.root());
+//     prj.initialize_default_contracts();
+//
+//     let (_api, handle) = spawn(NodeConfig::test()).await;
+//     let rpc = handle.http_endpoint();
+//     let wallet = handle.dev_wallets().next().unwrap();
+//     let pk = hex::encode(wallet.credential().to_bytes());
+//
+//     // explicitly byte code hash for consistent checks
+//     prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
+//
+//     // Dry-run without the `--broadcast` flag
+//     cmd.forge_fuse().args([
+//         "create",
+//         format!("./src/{TEMPLATE_CONTRACT}.sol:{TEMPLATE_CONTRACT}").as_str(),
+//         "--rpc-url",
+//         rpc.as_str(),
+//         "--private-key",
+//         pk.as_str(),
+//     ]);
+//
+//     // Dry-run
+//     cmd.assert().stdout_eq(str![[r#"
+// [COMPILING_FILES] with [SOLC_VERSION]
+// [SOLC_VERSION] [ELAPSED]
+// Compiler run successful!
+// Contract: Counter
+// Transaction: {
+//   "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+//   "to": null,
+//   "maxFeePerGas": "0x77359401",
+//   "maxPriorityFeePerGas": "0x1",
+//   "gas": "0x241e7",
+//   "input": "[..]",
+//   "nonce": "0x0",
+//   "chainId": "0x7a69"
+// }
+// ABI: [
+//   {
+//     "type": "function",
+//     "name": "increment",
+//     "inputs": [],
+//     "outputs": [],
+//     "stateMutability": "nonpayable"
+//   },
+//   {
+//     "type": "function",
+//     "name": "number",
+//     "inputs": [],
+//     "outputs": [
+//       {
+//         "name": "",
+//         "type": "uint256",
+//         "internalType": "uint256"
+//       }
+//     ],
+//     "stateMutability": "view"
+//   },
+//   {
+//     "type": "function",
+//     "name": "setNumber",
+//     "inputs": [
+//       {
+//         "name": "newNumber",
+//         "type": "uint256",
+//         "internalType": "uint256"
+//       }
+//     ],
+//     "outputs": [],
+//     "stateMutability": "nonpayable"
+//   }
+// ]
+//
+//
+// "#]]);
+//
+//     // Dry-run with `--json` flag
+//     cmd.arg("--json").assert().stdout_eq(
+//         str![[r#"
+// {
+//   "contract": "Counter",
+//   "transaction": {
+//     "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+//     "to": null,
+//     "maxFeePerGas": "0x77359401",
+//     "maxPriorityFeePerGas": "0x1",
+//     "gas": "0x241e7",
+//     "input": "[..]",
+//     "nonce": "0x0",
+//     "chainId": "0x7a69"
+//   },
+//   "abi": [
+//     {
+//       "type": "function",
+//       "name": "increment",
+//       "inputs": [],
+//       "outputs": [],
+//       "stateMutability": "nonpayable"
+//     },
+//     {
+//       "type": "function",
+//       "name": "number",
+//       "inputs": [],
+//       "outputs": [
+//         {
+//           "name": "",
+//           "type": "uint256",
+//           "internalType": "uint256"
+//         }
+//       ],
+//       "stateMutability": "view"
+//     },
+//     {
+//       "type": "function",
+//       "name": "setNumber",
+//       "inputs": [
+//         {
+//           "name": "newNumber",
+//           "type": "uint256",
+//           "internalType": "uint256"
+//         }
+//       ],
+//       "outputs": [],
+//       "stateMutability": "nonpayable"
+//     }
+//   ]
+// }
+//
+// "#]]
+//         .is_json(),
+//     );
+//
+//     cmd.forge_fuse().args([
+//         "create",
+//         format!("./src/{TEMPLATE_CONTRACT}.sol:{TEMPLATE_CONTRACT}").as_str(),
+//         "--rpc-url",
+//         rpc.as_str(),
+//         "--private-key",
+//         pk.as_str(),
+//         "--broadcast",
+//     ]);
+//
+//     cmd.assert().stdout_eq(str![[r#"
+// No files changed, compilation skipped
+// Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+// [TX_HASH]
+//
+// "#]]);
+// });
+//
+// // tests that we can deploy the template contract
+// forgetest_async!(can_create_using_unlocked, |prj, cmd| {
+//     foundry_test_utils::util::initialize(prj.root());
+//     prj.initialize_default_contracts();
+//
+//     let (_api, handle) = spawn(NodeConfig::test()).await;
+//     let rpc = handle.http_endpoint();
+//     let dev = handle.dev_accounts().next().unwrap();
+//
+//     // explicitly byte code hash for consistent checks
+//     prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
+//
+//     cmd.forge_fuse().args([
+//         "create",
+//         format!("./src/{TEMPLATE_CONTRACT}.sol:{TEMPLATE_CONTRACT}").as_str(),
+//         "--rpc-url",
+//         rpc.as_str(),
+//         "--from",
+//         format!("{dev:?}").as_str(),
+//         "--unlocked",
+//         "--broadcast",
+//     ]);
+//
+//     cmd.assert().stdout_eq(str![[r#"
+// [COMPILING_FILES] with [SOLC_VERSION]
+// [SOLC_VERSION] [ELAPSED]
+// Compiler run successful!
+// Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+// [TX_HASH]
+//
+// "#]]);
+//
+//     cmd.assert().stdout_eq(str![[r#"
+// No files changed, compilation skipped
+// Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+// [TX_HASH]
+//
+// "#]]);
+// });
+//
+// // tests that we can deploy with constructor args
+// forgetest_async!(can_create_with_constructor_args, |prj, cmd| {
+//     foundry_test_utils::util::initialize(prj.root());
+//
+//     let (_api, handle) = spawn(NodeConfig::test()).await;
+//     let rpc = handle.http_endpoint();
+//     let wallet = handle.dev_wallets().next().unwrap();
+//     let pk = hex::encode(wallet.credential().to_bytes());
+//
+//     // explicitly byte code hash for consistent checks
+//     prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
+//
+//     prj.add_source(
+//         "ConstructorContract",
+//         r#"
+// contract ConstructorContract {
+//     string public name;
+//
+//     constructor(string memory _name) {
+//         name = _name;
+//     }
+// }
+// "#,
+//     );
+//
+//     cmd.forge_fuse()
+//         .args([
+//             "create",
+//             "./src/ConstructorContract.sol:ConstructorContract",
+//             "--rpc-url",
+//             rpc.as_str(),
+//             "--private-key",
+//             pk.as_str(),
+//             "--broadcast",
+//             "--constructor-args",
+//             "My Constructor",
+//         ])
+//         .assert_success()
+//         .stdout_eq(str![[r#"
+// [COMPILING_FILES] with [SOLC_VERSION]
+// [SOLC_VERSION] [ELAPSED]
+// Compiler run successful!
+// Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+// [TX_HASH]
+//
+// "#]]);
+//
+//     prj.add_source(
+//         "TupleArrayConstructorContract",
+//         r#"
+// struct Point {
+//     uint256 x;
+//     uint256 y;
+// }
+//
+// contract TupleArrayConstructorContract {
+//     constructor(Point[] memory _points) {}
+// }
+// "#,
+//     );
+//
+//     cmd.forge_fuse()
+//         .args([
+//             "create",
+//             "./src/TupleArrayConstructorContract.sol:TupleArrayConstructorContract",
+//             "--rpc-url",
+//             rpc.as_str(),
+//             "--private-key",
+//             pk.as_str(),
+//             "--broadcast",
+//             "--constructor-args",
+//             "[(1,2), (2,3), (3,4)]",
+//         ])
+//         .assert()
+//         .stdout_eq(str![[r#"
+// [COMPILING_FILES] with [SOLC_VERSION]
+// [SOLC_VERSION] [ELAPSED]
+// Compiler run successful!
+// Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+// [TX_HASH]
+//
+// "#]]);
+// });
+//
+// // <https://github.com/foundry-rs/foundry/issues/6332>
+// forgetest_async!(can_create_and_call, |prj, cmd| {
+//     foundry_test_utils::util::initialize(prj.root());
+//
+//     let (_api, handle) = spawn(NodeConfig::test()).await;
+//     let rpc = handle.http_endpoint();
+//     let wallet = handle.dev_wallets().next().unwrap();
+//     let pk = hex::encode(wallet.credential().to_bytes());
+//
+//     // explicitly byte code hash for consistent checks
+//     prj.update_config(|c| c.bytecode_hash = BytecodeHash::None);
+//
+//     prj.add_source(
+//         "UniswapV2Swap",
+//         r#"
+// contract UniswapV2Swap {
+//
+//     function pairInfo() public view returns (uint reserveA, uint reserveB, uint totalSupply) {
+//        (reserveA, reserveB, totalSupply) = (0,0,0);
+//     }
+//
+// }
+// "#,
+//     );
+//
+//     cmd.forge_fuse()
+//         .args([
+//             "create",
+//             "./src/UniswapV2Swap.sol:UniswapV2Swap",
+//             "--rpc-url",
+//             rpc.as_str(),
+//             "--private-key",
+//             pk.as_str(),
+//             "--broadcast",
+//         ])
+//         .assert_success()
+//         .stdout_eq(str![[r#"
+// [COMPILING_FILES] with [SOLC_VERSION]
+// [SOLC_VERSION] [ELAPSED]
+// Compiler run successful with warnings:
+// Warning (2018): Function state mutability can be restricted to pure
+//  [FILE]:6:5:
+//   |
+// 6 |     function pairInfo() public view returns (uint reserveA, uint reserveB, uint totalSupply)
+// {   |     ^ (Relevant source part starts here and spans across multiple lines).
+//
+// Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+// [TX_HASH]
+//
+// "#]]);
+// });
+//
+// // <https://github.com/foundry-rs/foundry/issues/10156>
+// forgetest_async!(should_err_if_no_bytecode, |prj, cmd| {
+//     let (_api, handle) = spawn(NodeConfig::test()).await;
+//     let rpc = handle.http_endpoint();
+//
+//     prj.add_source(
+//         "AbstractCounter.sol",
+//         r#"
+// abstract contract AbstractCounter {
+//     uint256 public number;
+//
+//     function setNumberV1(uint256 newNumber) public {
+//         number = newNumber;
+//     }
+//
+//     function incrementV1() public {
+//         number++;
+//     }
+// }
+//     "#,
+//     );
+//
+//     cmd.args([
+//         "create",
+//         "./src/AbstractCounter.sol:AbstractCounter",
+//         "--rpc-url",
+//         rpc.as_str(),
+//         "--private-key",
+//         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+//         "--broadcast",
+//     ])
+//     .assert_failure()
+//     .stderr_eq(str![[r#"
+// Error: no bytecode found in bin object for AbstractCounter
+//
+// "#]]);
+// });

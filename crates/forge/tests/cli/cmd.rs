@@ -884,7 +884,7 @@ forgetest!(can_init_tempo_project, |prj, cmd| {
 Initializing [..]...
 Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag: None)
     Installed forge-std[..]
-Installing tempo-std in [..] (url: https://github.com/tempoxyz/tempo-std, tag: None)
+Installing tempo-std in [..] (url: git@github.com:tempoxyz/tempo-std, tag: None)
     Installed tempo-std[..]
     Initialized forge project
 

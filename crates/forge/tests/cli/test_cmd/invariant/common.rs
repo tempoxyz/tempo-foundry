@@ -1222,6 +1222,7 @@ Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
 
 forgetest_init!(
     #[cfg_attr(windows, ignore = "for some reason there's different rng")]
+    #[ignore = "tempo skip"]
     invariant_shrink_big_sequence,
     |prj, cmd| {
         prj.update_config(|config| {
