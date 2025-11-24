@@ -5,7 +5,10 @@ use foundry_cli::utils::Git;
 use foundry_common::fs;
 use foundry_compilers::artifacts::remappings::Remapping;
 use foundry_config::Config;
-use std::path::{Path, PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 use yansi::Paint;
 
 /// Supported networks for `forge init --network <NETWORK>`
@@ -263,7 +266,12 @@ impl InitArgs {
                         sh_warn!("\"lib/tempo-std\" already exists, skipping install...")?;
                         self.install.install(&mut config, vec![]).await?;
                     } else {
-                        let dep = "git@github.com:tempoxyz/tempo-std.git".parse()?;
+                        let token = env::var("TEMPO_TOKEN").unwrap_or_default();
+                        let dep = if token.is_empty() {
+                            "git@github.com:tempoxyz/tempo-std.git".parse()?
+                        } else {
+                            format!("https://{token}@github.com/tempoxyz/tempo-std").parse()?
+                        };
                         self.install.install(&mut config, vec![dep]).await?;
                     }
                 }

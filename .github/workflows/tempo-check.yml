@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Tempo check
         env:
-          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+          TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
         run: |
           chmod +x ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-check.sh "$RUNNER_TEMP"
+          ./.github/scripts/tempo-check.sh
