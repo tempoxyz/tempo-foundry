@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+
 permissions:
   contents: write   # This is the key step
 
@@ -30,12 +34,14 @@ jobs:
           echo "$authenticated_url"
           git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
 
+      - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
+      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
+
       # Build and install forge and cast
       - name: Build and install Forge and Cast
         run: |
           cargo install --path ./crates/forge --profile dev --force --locked
           cargo install --path ./crates/cast --profile dev --force --locked
-
 
       - name: Run Tempo check
         env:
