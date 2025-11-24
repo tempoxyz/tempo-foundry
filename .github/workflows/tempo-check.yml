@@ -1,4 +1,4 @@
-name: Run Tempo sanity check
+name: CI Tempo
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: write   # This is the key step
 
 jobs:
-  build:
+  sanity-check:
     runs-on: ubuntu-latest
 
     steps:
