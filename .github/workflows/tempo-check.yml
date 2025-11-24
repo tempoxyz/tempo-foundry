@@ -30,9 +30,12 @@ jobs:
           echo "$authenticated_url"
           git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
 
-      # Build and install forge
-      - name: Build and install Forge
-        run: cargo install --path ./crates/forge --profile dev --force --locked
+      # Build and install forge and cast
+      - name: Build and install Forge and Cast
+        run: |
+          cargo install --path ./crates/forge --profile dev --force --locked
+          cargo install --path ./crates/cast --profile dev --force --locked
+
 
       - name: Run Tempo check
         env:
