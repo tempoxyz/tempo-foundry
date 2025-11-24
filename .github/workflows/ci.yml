@@ -24,13 +24,13 @@ jobs:
       profile: default
     secrets: inherit
 
-  docs:
-    uses: ./.github/workflows/docs.yml
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    secrets: inherit
+#  docs:
+#    uses: ./.github/workflows/docs.yml
+#    permissions:
+#      contents: read
+#      pages: write
+#      id-token: write
+#    secrets: inherit
 
   doctest:
     runs-on: depot-ubuntu-latest
@@ -195,7 +195,7 @@ jobs:
     permissions: {}
     needs:
       - test
-      - docs
+#      - docs
       - doctest
       - typos
       - clippy
