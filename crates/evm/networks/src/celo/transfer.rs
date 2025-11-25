@@ -14,7 +14,7 @@
 use std::borrow::Cow;
 
 use alloy_evm::precompiles::{DynPrecompile, PrecompileInput};
-use alloy_primitives::{address, Address, U256};
+use alloy_primitives::{Address, U256, address};
 use revm::precompile::{PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult};
 
 /// Label of the Celo transfer precompile to display in traces.

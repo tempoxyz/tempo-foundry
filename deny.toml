@@ -97,12 +97,16 @@ unknown-registry = "warn"
 # in the allow list is encountered
 unknown-git = "deny"
 allow-git = [
+    # Foundry
     "https://github.com/alloy-rs/alloy",
     "https://github.com/foundry-rs/compilers",
     "https://github.com/foundry-rs/foundry-fork-db",
     "https://github.com/paradigmxyz/revm-inspectors",
     "https://github.com/paradigmxyz/solar",
     "https://github.com/bluealloy/revm",
+    # Tempo
+    "https://github.com/paradigmxyz/reth",
+    "ssh://git@github.com/tempoxyz/tempo",
     # Only for tests.
     "https://github.com/rust-cli/rexpect",
 ]

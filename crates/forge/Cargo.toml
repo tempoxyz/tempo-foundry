@@ -102,7 +102,7 @@ quick-junit = "0.5.1"
 
 [dev-dependencies]
 alloy-hardforks.workspace = true
-anvil.workspace = true
+#anvil.workspace = true
 forge-script-sequence.workspace = true
 foundry-test-utils.workspace = true
 futures.workspace = true

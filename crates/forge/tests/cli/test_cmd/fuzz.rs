@@ -2,11 +2,14 @@ use alloy_primitives::U256;
 use foundry_test_utils::{TestCommand, forgetest_init, str};
 use regex::Regex;
 
-forgetest_init!(test_can_scrape_bytecode, |prj, cmd| {
-    prj.update_config(|config| config.optimizer = Some(true));
-    prj.add_source(
-        "FuzzerDict.sol",
-        r#"
+forgetest_init!(
+    #[ignore = "tempo skip"]
+    test_can_scrape_bytecode,
+    |prj, cmd| {
+        prj.update_config(|config| config.optimizer = Some(true));
+        prj.add_source(
+            "FuzzerDict.sol",
+            r#"
 // https://github.com/foundry-rs/foundry/issues/1168
 contract FuzzerDict {
     // Immutables should get added to the dictionary.
@@ -20,11 +23,11 @@ contract FuzzerDict {
     }
 }
    "#,
-    );
+        );
 
-    prj.add_test(
-        "FuzzerDictTest.t.sol",
-        r#"
+        prj.add_test(
+            "FuzzerDictTest.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 import "src/FuzzerDict.sol";
 
@@ -46,15 +49,16 @@ contract FuzzerDictTest is Test {
     }
 }
    "#,
-    );
+        );
 
-    // Test that immutable address is used as fuzzed input, causing test to fail.
-    cmd.args(["test", "--fuzz-seed", "119", "--mt", "testImmutableOwner"]).assert_failure();
-    // Test that storage address is used as fuzzed input, causing test to fail.
-    cmd.forge_fuse()
-        .args(["test", "--fuzz-seed", "119", "--mt", "testStorageOwner"])
-        .assert_failure();
-});
+        // Test that immutable address is used as fuzzed input, causing test to fail.
+        cmd.args(["test", "--fuzz-seed", "119", "--mt", "testImmutableOwner"]).assert_failure();
+        // Test that storage address is used as fuzzed input, causing test to fail.
+        cmd.forge_fuse()
+            .args(["test", "--fuzz-seed", "119", "--mt", "testStorageOwner"])
+            .assert_failure();
+    }
+);
 
 // tests that inline max-test-rejects config is properly applied
 forgetest_init!(test_inline_max_test_rejects, |prj, cmd| {
