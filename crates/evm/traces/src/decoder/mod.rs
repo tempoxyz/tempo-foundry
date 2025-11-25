@@ -26,9 +26,9 @@ use itertools::Itertools;
 use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
 use std::{collections::BTreeMap, sync::OnceLock};
 use tempo_precompiles::{
-    LINKING_USD_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS,
-    TIP_ACCOUNT_REGISTRAR, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS,
-    TIP20_REWARDS_REGISTRY_ADDRESS, TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
+    NONCE_PRECOMPILE_ADDRESS, PATH_USD_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS, TIP_ACCOUNT_REGISTRAR,
+    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS,
+    TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
 };
 
 mod precompiles;
@@ -190,7 +190,7 @@ impl CallTraceDecoder {
                 (POINT_EVALUATION, "PointEvaluation".to_string()),
                 // Tempo
                 (TIP_FEE_MANAGER_ADDRESS, "TipFeeManager".to_string()),
-                (LINKING_USD_ADDRESS, "LinkingUSD".to_string()),
+                (PATH_USD_ADDRESS, "PathUSD".to_string()),
                 (TIP403_REGISTRY_ADDRESS, "TIP403Registry".to_string()),
                 (TIP20_FACTORY_ADDRESS, "TIP20Factory".to_string()),
                 (TIP20_REWARDS_REGISTRY_ADDRESS, "TIP20RewardsRegistry".to_string()),

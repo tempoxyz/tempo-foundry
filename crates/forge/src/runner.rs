@@ -1,13 +1,14 @@
 //! The Forge test runner.
 
-use crate::{
-    MultiContractRunner, TestFilter,
-    coverage::HitMaps,
-    fuzz::{BaseCounterExample, FuzzTestResult},
-    multi_runner::{TestContract, TestRunnerConfig},
-    progress::{TestsProgress, start_fuzz_progress},
-    result::{SuiteResult, TestResult, TestSetup},
+use std::{
+    borrow::Cow,
+    cmp::min,
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Instant,
 };
+
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Bytes, U256, address, map::HashMap};
@@ -37,16 +38,18 @@ use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
 use revm::state::{AccountInfo, Bytecode};
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Cow,
-    cmp::min,
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Instant,
-};
+use tempo_precompiles::path_usd::PathUSD;
 use tokio::signal;
 use tracing::Span;
+
+use crate::{
+    MultiContractRunner, TestFilter,
+    coverage::HitMaps,
+    fuzz::{BaseCounterExample, FuzzTestResult},
+    multi_runner::{TestContract, TestRunnerConfig},
+    progress::{TestsProgress, start_fuzz_progress},
+    result::{SuiteResult, TestResult, TestSetup},
+};
 
 /// When running tests, we deploy all external libraries present in the project. To avoid additional
 /// libraries affecting nonces of senders used in tests, we are using separate address to
@@ -217,7 +220,7 @@ impl<'a> ContractRunner<'a> {
 
         let admin = TEST_CONTRACT_ADDRESS;
 
-        // Set bytecode for all precompiles (except linking_usd which gets it via initialize)
+        // Set bytecode for all precompiles (except PathUSD which gets it via initialize)
         let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
         for precompile in [
             NONCE_PRECOMPILE_ADDRESS,
@@ -249,13 +252,13 @@ impl<'a> ContractRunner<'a> {
             )
             .expect("failed to initialize validator config state");
 
-        // Initialize linking_usd using canonical tempo initialization
+        // Initialize PathUSD using canonical tempo initialization
         let chain_id = self.executor.env().evm_env.cfg_env.chain_id;
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
         let mut storage_provider =
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
-        let mut linking_usd = linking_usd::LinkingUSD::new(&mut storage_provider);
-        linking_usd.initialize(admin).expect("failed to initialize linking_usd");
+        let mut path_usd = PathUSD::new(&mut storage_provider);
+        path_usd.initialize(admin).expect("failed to initialize path_usd");
     }
 
     fn initial_balance(&self) -> U256 {
