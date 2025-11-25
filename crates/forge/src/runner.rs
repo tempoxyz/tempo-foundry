@@ -1,13 +1,14 @@
 //! The Forge test runner.
 
-use crate::{
-    MultiContractRunner, TestFilter,
-    coverage::HitMaps,
-    fuzz::{BaseCounterExample, FuzzTestResult},
-    multi_runner::{TestContract, TestRunnerConfig},
-    progress::{TestsProgress, start_fuzz_progress},
-    result::{SuiteResult, TestResult, TestSetup},
+use std::{
+    borrow::Cow,
+    cmp::min,
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Instant,
 };
+
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Bytes, U256, address, map::HashMap};
@@ -37,17 +38,18 @@ use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
 use revm::state::{AccountInfo, Bytecode};
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Cow,
-    cmp::min,
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Instant,
-};
 use tempo_precompiles::path_usd::PathUSD;
 use tokio::signal;
 use tracing::Span;
+
+use crate::{
+    MultiContractRunner, TestFilter,
+    coverage::HitMaps,
+    fuzz::{BaseCounterExample, FuzzTestResult},
+    multi_runner::{TestContract, TestRunnerConfig},
+    progress::{TestsProgress, start_fuzz_progress},
+    result::{SuiteResult, TestResult, TestSetup},
+};
 
 /// When running tests, we deploy all external libraries present in the project. To avoid additional
 /// libraries affecting nonces of senders used in tests, we are using separate address to

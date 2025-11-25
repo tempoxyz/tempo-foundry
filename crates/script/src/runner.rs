@@ -1,5 +1,5 @@
-use super::{ScriptConfig, ScriptResult};
-use crate::build::ScriptPredeployLibraries;
+use std::collections::VecDeque;
+
 use alloy_eips::eip7702::SignedAuthorization;
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_rpc_types::TransactionRequest;
@@ -15,8 +15,10 @@ use foundry_evm::{
 };
 use foundry_evm_core::tempo::FoundryStorageProvider;
 use revm::state::{AccountInfo, Bytecode};
-use std::collections::VecDeque;
 use tempo_precompiles::path_usd::PathUSD;
+
+use super::{ScriptConfig, ScriptResult};
+use crate::build::ScriptPredeployLibraries;
 
 /// Drives script execution
 #[derive(Debug)]
