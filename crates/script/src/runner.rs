@@ -16,6 +16,7 @@ use foundry_evm::{
 use foundry_evm_core::tempo::FoundryStorageProvider;
 use revm::state::{AccountInfo, Bytecode};
 use std::collections::VecDeque;
+use tempo_precompiles::path_usd::PathUSD;
 
 /// Drives script execution
 #[derive(Debug)]
@@ -277,7 +278,7 @@ impl ScriptRunner {
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
         let mut storage_provider =
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
-        let mut path_usd = path_usd::PathUSD::new(&mut storage_provider);
+        let mut path_usd = PathUSD::new(&mut storage_provider);
         path_usd.initialize(admin).expect("failed to initialize path_usd");
     }
 
