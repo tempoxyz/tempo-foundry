@@ -240,7 +240,7 @@ impl ScriptRunner {
 
         let admin = TEST_CONTRACT_ADDRESS;
 
-        // Set bytecode for all precompiles (except linking_usd which gets it via initialize)
+        // Set bytecode for all precompiles (except PathUSD which gets it via initialize)
         let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
         for precompile in [
             NONCE_PRECOMPILE_ADDRESS,
@@ -272,13 +272,13 @@ impl ScriptRunner {
             )
             .expect("failed to initialize validator config state");
 
-        // Initialize linking_usd using canonical tempo initialization
+        // Initialize PathUSD using canonical tempo initialization
         let chain_id = self.executor.env().evm_env.cfg_env.chain_id;
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
         let mut storage_provider =
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
-        let mut linking_usd = linking_usd::LinkingUSD::new(&mut storage_provider);
-        linking_usd.initialize(admin).expect("failed to initialize linking_usd");
+        let mut path_usd = path_usd::PathUSD::new(&mut storage_provider);
+        path_usd.initialize(admin).expect("failed to initialize path_usd");
     }
 
     /// Executes the method that will collect all broadcastable transactions.
