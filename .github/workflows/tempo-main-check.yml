@@ -1,0 +1,57 @@
+# Daily CI job to update tempo version used by tempo-foundry
+
+name: bump-tempo-main
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Run daily at midnight UTC
+  workflow_dispatch: # Needed so we can run it manually
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+
+permissions:
+  contents: read
+
+jobs:
+  main-sanity-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
+        with:
+          toolchain: stable
+
+      - name: Configure Git to use GITHUB_TOKEN for GitHub
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        shell: bash
+        run: |
+          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
+          echo "$authenticated_url"
+          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
+
+      - name: Bump to Tempo main
+        run: |
+          chmod +x ./.github/scripts/tempo-main-bump.sh
+          ./.github/scripts/tempo-main-bump.sh
+
+      # Build and install forge and cast
+      - name: Build and install Forge and Cast
+        run: |
+          cargo install --path ./crates/forge --profile dev --force --locked
+          cargo install --path ./crates/cast --profile dev --force --locked
+
+      - name: Run Tempo check
+        env:
+          TEMPO_RPC_URL: ${{ secrets.TEMPO_RPC_URL }}
+          VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
+          TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
+        run: |
+          chmod +x ./.github/scripts/tempo-check.sh
+          ./.github/scripts/tempo-check.sh
