@@ -15,10 +15,7 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletSigner;
 
-use crate::{
-    Cast,
-    tx::{self, CastTxBuilder},
-};
+use crate::{Cast, tx::{self, CastTxBuilder}, CastSender};
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
@@ -240,7 +237,7 @@ async fn cast_send<P: Provider<AnyNetwork>>(
     confs: u64,
     timeout: u64,
 ) -> Result<()> {
-    let cast = Cast::new(&provider);
+    let cast = CastSender::new(&provider);
 
     if sync {
         // Send transaction and wait for receipt synchronously
