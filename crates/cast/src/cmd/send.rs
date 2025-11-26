@@ -153,7 +153,7 @@ impl SendTxArgs {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
-        let builder = CastTxBuilder::new(&provider, tx, &config)
+        let builder = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?

@@ -8,10 +8,7 @@ use crate::{
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, map::HashMap};
 use alloy_provider::Provider;
-use alloy_rpc_types::{
-    BlockId, BlockNumberOrTag, BlockOverrides,
-    state::{StateOverride, StateOverridesBuilder},
-};
+use alloy_rpc_types::{BlockId, BlockNumberOrTag, BlockOverrides, state::{StateOverride, StateOverridesBuilder}, TransactionRequest};
 use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
@@ -246,7 +243,7 @@ impl CallArgs {
             None
         };
 
-        let (tx, func) = CastTxBuilder::new(&provider, tx, &config)
+        let (tx, func) = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?

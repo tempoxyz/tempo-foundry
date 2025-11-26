@@ -11,6 +11,7 @@ use foundry_cli::{
     utils::{LoadConfig, get_provider},
 };
 use std::{path::PathBuf, str::FromStr};
+use alloy_rpc_types::TransactionRequest;
 
 /// CLI arguments for `cast mktx`.
 #[derive(Debug, Parser)]
@@ -98,7 +99,7 @@ impl MakeTxArgs {
 
         let provider = get_provider(&config)?;
 
-        let tx_builder = CastTxBuilder::new(&provider, tx.clone(), &config)
+        let tx_builder = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx.clone(), &config)
             .await?
             .with_to(to)
             .await?

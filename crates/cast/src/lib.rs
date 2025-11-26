@@ -54,6 +54,7 @@ pub use foundry_evm::*;
 
 pub mod args;
 pub mod cmd;
+pub mod tempo;
 pub mod opts;
 
 pub mod base;

@@ -27,133 +27,15 @@ use foundry_wallets::{WalletOpts, WalletSigner};
 use itertools::Itertools;
 use serde_json::value::RawValue;
 use std::fmt::Write;
+use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_primitives::transaction::TempoTypedTransaction;
+use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 
-/// Different sender kinds used by [`CastTxBuilder`].
-pub enum SenderKind<'a> {
-    /// An address without signer. Used for read-only calls and transactions sent through unlocked
-    /// accounts.
-    Address(Address),
-    /// A reference to a signer.
-    Signer(&'a WalletSigner),
-    /// An owned signer.
-    OwnedSigner(Box<WalletSigner>),
-}
-
-impl SenderKind<'_> {
-    /// Resolves the name to an Ethereum Address.
-    pub fn address(&self) -> Address {
-        match self {
-            Self::Address(addr) => *addr,
-            Self::Signer(signer) => signer.address(),
-            Self::OwnedSigner(signer) => signer.address(),
-        }
-    }
-
-    /// Resolves the sender from the wallet options.
-    ///
-    /// This function prefers the `from` field and may return a different address from the
-    /// configured signer
-    /// If from is specified, returns it
-    /// If from is not specified, but there is a signer configured, returns the signer's address
-    /// If from is not specified and there is no signer configured, returns zero address
-    pub async fn from_wallet_opts(opts: WalletOpts) -> Result<Self> {
-        if let Some(from) = opts.from {
-            Ok(from.into())
-        } else if let Ok(signer) = opts.signer().await {
-            Ok(Self::OwnedSigner(Box::new(signer)))
-        } else {
-            Ok(Address::ZERO.into())
-        }
-    }
-
-    /// Returns the signer if available.
-    pub fn as_signer(&self) -> Option<&WalletSigner> {
-        match self {
-            Self::Signer(signer) => Some(signer),
-            Self::OwnedSigner(signer) => Some(signer.as_ref()),
-            _ => None,
-        }
-    }
-}
-
-impl From<Address> for SenderKind<'_> {
-    fn from(addr: Address) -> Self {
-        Self::Address(addr)
-    }
-}
-
-impl<'a> From<&'a WalletSigner> for SenderKind<'a> {
-    fn from(signer: &'a WalletSigner) -> Self {
-        Self::Signer(signer)
-    }
-}
-
-impl From<WalletSigner> for SenderKind<'_> {
-    fn from(signer: WalletSigner) -> Self {
-        Self::OwnedSigner(Box::new(signer))
-    }
-}
-
-/// Prevents a misconfigured hwlib from sending a transaction that defies user-specified --from
-pub fn validate_from_address(
-    specified_from: Option<Address>,
-    signer_address: Address,
-) -> Result<()> {
-    if let Some(specified_from) = specified_from
-        && specified_from != signer_address
-    {
-        eyre::bail!(
-                "\
-The specified sender via CLI/env vars does not match the sender configured via
-the hardware wallet's HD Path.
-Please use the `--hd-path <PATH>` parameter to specify the BIP32 Path which
-corresponds to the sender, or let foundry automatically detect it by not specifying any sender address."
-            )
-    }
-    Ok(())
-}
-
-/// Initial state.
-#[derive(Debug)]
-pub struct InitState;
-
-/// State with known [TxKind].
-#[derive(Debug)]
-pub struct ToState {
-    pub(crate) to: Option<Address>,
-}
-
-/// State with known input for the transaction.
-#[derive(Debug)]
-pub struct InputState {
-    pub(crate) kind: TxKind,
-    pub(crate) input: Vec<u8>,
-    pub(crate) func: Option<Function>,
-}
-
-/// Builder type constructing [TransactionRequest] from cast send/mktx inputs.
-///
-/// It is implemented as a stateful builder with expected state transition of [InitState] ->
-/// [ToState] -> [InputState].
-#[derive(Debug)]
-pub struct CastTxBuilder<P, S, T> {
-    pub(crate) provider: P,
-    pub(crate) tx: WithOtherFields<T>,
-    /// Whether the transaction should be sent as a legacy transaction.
-    pub(crate) legacy: bool,
-    pub(crate) blob: bool,
-    pub(crate) auth: Option<CliAuthorizationList>,
-    pub(crate) chain: Chain,
-    pub(crate) etherscan_api_key: Option<String>,
-    pub(crate) access_list: Option<Option<AccessList>>,
-    pub(crate) state: S,
-}
-
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
     /// provided [TransactionOpts].
     pub async fn new(provider: P, tx_opts: TransactionOpts, config: &Config) -> Result<Self> {
-        let mut tx = WithOtherFields::<TransactionRequest>::default();
+        let mut tx = WithOtherFields::<TempoTransactionRequest>::default();
 
         let chain = utils::get_chain(config.chain, &provider).await?;
         let etherscan_api_key = config.get_etherscan_api_key(Some(chain));
@@ -180,10 +62,6 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
             tx.set_max_priority_fee_per_gas(priority_fee.to());
         }
 
-        if let Some(max_blob_fee) = tx_opts.blob_gas_price {
-            tx.set_max_fee_per_blob_gas(max_blob_fee.to())
-        }
-
         if let Some(nonce) = tx_opts.nonce {
             tx.set_nonce(nonce.to());
         }
@@ -202,7 +80,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
     }
 
     /// Sets [TxKind] for this builder and changes state to [ToState].
-    pub async fn with_to(self, to: Option<NameOrAddress>) -> Result<CastTxBuilder<P, ToState, TransactionRequest>> {
+    pub async fn with_to(self, to: Option<NameOrAddress>) -> Result<CastTxBuilder<P, ToState, TempoTransactionRequest>> {
         let to = if let Some(to) = to { Some(to.resolve(&self.provider).await?) } else { None };
         Ok(CastTxBuilder {
             provider: self.provider,
@@ -218,7 +96,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TempoTransactionRequest> {
     /// Accepts user-provided code, sig and args params and constructs calldata for the transaction.
     /// If code is present, input will be set to code + encoded constructor arguments. If no code is
     /// present, input is set to just provided arguments.
@@ -227,7 +105,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
         code: Option<String>,
         sig: Option<String>,
         args: Vec<String>,
-    ) -> Result<CastTxBuilder<P, InputState, TransactionRequest>> {
+    ) -> Result<CastTxBuilder<P, InputState, TempoTransactionRequest>> {
         let (mut args, func) = if let Some(sig) = sig {
             parse_function_args(
                 &sig,
@@ -237,7 +115,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
                 &self.provider,
                 self.etherscan_api_key.as_deref(),
             )
-            .await?
+                .await?
         } else {
             (Vec::new(), None)
         };
@@ -251,7 +129,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
         };
 
         if self.state.to.is_none() && code.is_none() {
-            let has_value = self.tx.value.is_some_and(|v| !v.is_zero());
+            let has_value = self.tx.value().is_some_and(|v| !v.is_zero());
             let has_auth = self.auth.is_some();
             // We only allow user to omit the recipient address if transaction is an EIP-7702 tx
             // without a value.
@@ -274,22 +152,22 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
-    /// Builds [TransactionRequest] and fills missing fields. Returns a transaction which is ready
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionRequest> {
+    /// Builds [TempoTransactionRequest] and fills missing fields. Returns a transaction which is ready
     /// to be broadcasted.
     pub async fn build(
         self,
         sender: impl Into<SenderKind<'_>>,
-    ) -> Result<(WithOtherFields<TransactionRequest>, Option<Function>)> {
+    ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         self._build(sender, true, false).await
     }
 
-    /// Builds [TransactionRequest] without filling missing fields. Used for read-only calls such as
+    /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls such as
     /// eth_call, eth_estimateGas, etc
     pub async fn build_raw(
         self,
         sender: impl Into<SenderKind<'_>>,
-    ) -> Result<(WithOtherFields<TransactionRequest>, Option<Function>)> {
+    ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         self._build(sender, false, false).await
     }
 
@@ -298,9 +176,9 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
     /// Returns the hex encoded string representation of the transaction.
     pub async fn build_unsigned_raw(self, from: Address) -> Result<String> {
         let (tx, _) = self._build(SenderKind::Address(from), true, true).await?;
-        let tx = tx.build_unsigned()?;
+        let tx = tx.inner.build_unsigned()?;
         match tx {
-            AnyTypedTransaction::Ethereum(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
+            TempoTypedTransaction::Legacy(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
             _ => eyre::bail!("Cannot generate unsigned transaction for non-Ethereum transactions"),
         }
     }
@@ -310,7 +188,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
         sender: impl Into<SenderKind<'_>>,
         fill: bool,
         unsigned: bool,
-    ) -> Result<(WithOtherFields<TransactionRequest>, Option<Function>)> {
+    ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         let sender = sender.into();
         let from = sender.address();
 
@@ -322,12 +200,12 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
         self.tx.set_from(from);
         self.tx.set_chain_id(self.chain.id());
 
-        let tx_nonce = if let Some(nonce) = self.tx.nonce {
+        let tx_nonce = if let Some(nonce) = self.tx.nonce() {
             nonce
         } else {
             let nonce = self.provider.get_transaction_count(from).await?;
             if fill {
-                self.tx.nonce = Some(nonce);
+                self.tx.set_nonce(nonce);
             }
             nonce
         };
@@ -341,13 +219,16 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
                 )
             };
 
-            self.tx.set_authorization_list(vec![signed_auth]);
+            self.tx.inner.inner.set_authorization_list(vec![signed_auth]);
         }
 
         if let Some(access_list) = match self.access_list.take() {
             None => None,
             // --access-list provided with no value, call the provider to create it
-            Some(None) => Some(self.provider.create_access_list(&self.tx).await?.access_list),
+            Some(None) => {
+                let tx = WithOtherFields::new(self.tx.inner.clone().inner);
+                Some(self.provider.create_access_list(&tx).await?.access_list)
+            },
             // Access list provided as a string, attempt to parse it
             Some(Some(access_list)) => Some(access_list),
         } {
@@ -358,29 +239,29 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
             return Ok((self.tx, self.state.func));
         }
 
-        if self.legacy && self.tx.gas_price.is_none() {
-            self.tx.gas_price = Some(self.provider.get_gas_price().await?);
+        if self.legacy && self.tx.gas_price().is_none() {
+            self.tx.set_gas_price(self.provider.get_gas_price().await?);
         }
 
-        if self.blob && self.tx.max_fee_per_blob_gas.is_none() {
-            self.tx.max_fee_per_blob_gas = Some(self.provider.get_blob_base_fee().await?)
+        if self.blob && self.tx.inner.inner.max_fee_per_blob_gas.is_none() {
+            self.tx.inner.inner.max_fee_per_blob_gas = Some(self.provider.get_blob_base_fee().await?)
         }
 
         if !self.legacy
-            && (self.tx.max_fee_per_gas.is_none() || self.tx.max_priority_fee_per_gas.is_none())
+            && (self.tx.max_fee_per_gas().is_none() || self.tx.max_priority_fee_per_gas().is_none())
         {
             let estimate = self.provider.estimate_eip1559_fees().await?;
 
-            if self.tx.max_fee_per_gas.is_none() {
-                self.tx.max_fee_per_gas = Some(estimate.max_fee_per_gas);
+            if self.tx.max_fee_per_gas().is_none() {
+                self.tx.set_max_fee_per_gas(estimate.max_fee_per_gas);
             }
 
-            if self.tx.max_priority_fee_per_gas.is_none() {
-                self.tx.max_priority_fee_per_gas = Some(estimate.max_priority_fee_per_gas);
+            if self.tx.max_priority_fee_per_gas().is_none() {
+                self.tx.set_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas);
             }
         }
 
-        if self.tx.gas.is_none() {
+        if self.tx.inner.inner.gas.is_none() {
             self.estimate_gas().await?;
         }
 
@@ -389,9 +270,10 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
 
     /// Estimate tx gas from provider call. Tries to decode custom error if execution reverted.
     async fn estimate_gas(&mut self) -> Result<()> {
-        match self.provider.estimate_gas(self.tx.clone()).await {
+        let tx = WithOtherFields::new(self.tx.inner.clone().inner);
+        match self.provider.estimate_gas(tx).await {
             Ok(estimated) => {
-                self.tx.gas = Some(estimated);
+                self.tx.inner.inner.gas = Some(estimated);
                 Ok(())
             }
             Err(err) => {
@@ -400,7 +282,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
                     // to decode custom errors and append it to the error message.
                     if payload.code == 3
                         && let Some(data) = &payload.data
-                        && let Ok(Some(decoded_error)) = decode_execution_revert(data).await
+                        && let Ok(Some(decoded_error)) = crate::tx::decode_execution_revert(data).await
                     {
                         eyre::bail!("Failed to estimate gas: {}: {}", err, decoded_error)
                     }
@@ -432,13 +314,13 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
             CliAuthorizationList::Signed(auth) => auth,
         };
 
-        self.tx.set_authorization_list(vec![auth]);
+        self.tx.inner.inner.set_authorization_list(vec![auth]);
 
         Ok(())
     }
 }
 
-impl<P, S> CastTxBuilder<P, S, TransactionRequest>
+impl<P, S> CastTxBuilder<P, S, TempoTransactionRequest>
 where
     P: Provider<AnyNetwork>,
 {
@@ -450,39 +332,9 @@ where
         coder.ingest(&blob_data);
         let sidecar = coder.build()?;
 
-        self.tx.set_blob_sidecar(sidecar);
-        self.tx.populate_blob_hashes();
+        self.tx.inner.inner.set_blob_sidecar(sidecar);
+        self.tx.inner.inner.populate_blob_hashes();
 
         Ok(self)
     }
-}
-
-/// Helper function that tries to decode custom error name and inputs from error payload data.
-pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<String>> {
-    let err_data = serde_json::from_str::<Bytes>(data.get())?;
-    let Some(selector) = err_data.get(..4) else { return Ok(None) };
-    if let Some(known_error) =
-        SignaturesIdentifier::new(false)?.identify_error(selector.try_into().unwrap()).await
-    {
-        let mut decoded_error = known_error.name.clone();
-        if !known_error.inputs.is_empty()
-            && let Ok(error) = known_error.decode_error(&err_data)
-        {
-            write!(decoded_error, "({})", format_tokens(&error.body).format(", "))?;
-        }
-        return Ok(Some(decoded_error));
-    }
-    Ok(None)
-}
-
-/// Creates a provider with wallet for signing transactions locally.
-pub async fn signing_provider(
-    wallet: WalletOpts,
-    provider: &RetryProvider,
-) -> eyre::Result<RetryProviderWithSigner> {
-    let wallet = alloy_network::EthereumWallet::from(wallet.signer().await?);
-    Ok(alloy_provider::ProviderBuilder::default()
-        .with_recommended_fillers()
-        .wallet(wallet)
-        .connect_provider(provider.clone()))
 }
