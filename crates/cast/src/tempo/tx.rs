@@ -158,8 +158,9 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionReque
     pub async fn build(
         self,
         sender: impl Into<SenderKind<'_>>,
+        fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, true, false).await
+        self._build(sender, true, false, fee_token).await
     }
 
     /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls such as
@@ -167,19 +168,25 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionReque
     pub async fn build_raw(
         self,
         sender: impl Into<SenderKind<'_>>,
+        fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, false, false).await
+        self._build(sender, false, false, fee_token).await
     }
 
     /// Builds an unsigned RLP-encoded raw transaction.
     ///
     /// Returns the hex encoded string representation of the transaction.
-    pub async fn build_unsigned_raw(self, from: Address) -> Result<String> {
-        let (tx, _) = self._build(SenderKind::Address(from), true, true).await?;
+    pub async fn build_unsigned_raw(self, from: Address, fee_token: Option<Address>) -> Result<String> {
+        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token).await?;
         let tx = tx.inner.build_unsigned()?;
+        /// TODO: check if this is right
         match tx {
             TempoTypedTransaction::Legacy(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
-            _ => eyre::bail!("Cannot generate unsigned transaction for non-Ethereum transactions"),
+            TempoTypedTransaction::Eip2930(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
+            TempoTypedTransaction::Eip1559(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
+            TempoTypedTransaction::Eip7702(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
+            TempoTypedTransaction::AA(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
+            TempoTypedTransaction::FeeToken(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
         }
     }
 
@@ -188,13 +195,15 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionReque
         sender: impl Into<SenderKind<'_>>,
         fill: bool,
         unsigned: bool,
+        fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         let sender = sender.into();
         let from = sender.address();
 
         self.tx.set_kind(self.state.kind);
+        self.tx.fee_token = fee_token;
 
-        // we set both fields to the same value because some nodes only accept the legacy `data` field: <https://github.com/foundry-rs/foundry/issues/7764#issuecomment-2210453249>
+            // we set both fields to the same value because some nodes only accept the legacy `data` field: <https://github.com/foundry-rs/foundry/issues/7764#issuecomment-2210453249>
         self.tx.set_input_kind(self.state.input.clone(), TransactionInputKind::Both);
 
         self.tx.set_from(from);

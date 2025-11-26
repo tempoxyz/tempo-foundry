@@ -14,6 +14,8 @@ use eyre::Result;
 use foundry_cli::opts::{EtherscanOpts, GlobalArgs, RpcOpts};
 use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
 use std::{path::PathBuf, str::FromStr};
+use crate::tempo::mktx::MakeTempoTxArgs;
+
 /// A Swiss Army knife for interacting with Ethereum applications from the command line.
 #[derive(Parser)]
 #[command(
@@ -485,7 +487,7 @@ pub enum CastSubcommand {
 
     /// Build and sign a transaction.
     #[command(name = "mktx", visible_alias = "m")]
-    MakeTx(MakeTxArgs),
+    MakeTx(MakeTempoTxArgs),
 
     /// Calculate the ENS namehash of a name.
     #[command(visible_aliases = &["na", "nh"])]
