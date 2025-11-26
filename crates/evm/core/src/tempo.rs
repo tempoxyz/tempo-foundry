@@ -113,4 +113,12 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         // address zero. during execution the evm will set this to an appropriate value.
         Address::ZERO
     }
+
+    fn refund_gas(&mut self, gas: i64) {
+        // Noop
+    }
+
+    fn gas_refunded(&self) -> i64 {
+        0
+    }
 }
