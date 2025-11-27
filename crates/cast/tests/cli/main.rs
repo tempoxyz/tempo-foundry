@@ -1,12 +1,7 @@
 //! Contains various tests for checking cast commands
 
 use alloy_chains::NamedChain;
-use alloy_hardforks::EthereumHardfork;
-use alloy_primitives::{B256, U256, address, b256, hex};
-use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_types::Authorization;
-use alloy_signer::Signer;
-use alloy_signer_local::PrivateKeySigner;
+use alloy_primitives::{B256, address, b256, hex};
 use foundry_test_utils::{
     rpc::{
         next_etherscan_api_key, next_http_archive_rpc_url, next_http_rpc_endpoint,
