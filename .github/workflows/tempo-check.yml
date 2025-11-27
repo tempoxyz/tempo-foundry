@@ -1,21 +1,25 @@
 name: CI Tempo
 
+permissions: {}
+
 on:
   push:
     branches: [ main ]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUSTC_WRAPPER: "sccache"
 
-permissions:
-  contents: write   # This is the key step
-
 jobs:
   sanity-check:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
       # Checkout the repository
       - uses: actions/checkout@v5
