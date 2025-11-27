@@ -38,7 +38,7 @@ impl<'a> FoundryStorageProvider<'a> {
 
 impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn spec(&self) -> TempoHardfork {
-        self.backend.spec_id().into()
+        TempoHardfork::Allegretto
     }
 
     fn chain_id(&self) -> u64 {

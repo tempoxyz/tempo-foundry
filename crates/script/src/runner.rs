@@ -16,8 +16,8 @@ use foundry_evm::{
 use foundry_evm_core::tempo::FoundryStorageProvider;
 use revm::state::{AccountInfo, Bytecode};
 use tempo_precompiles::{
-    path_usd::PathUSD,
-    tip20::{ISSUER_ROLE, ITIP20},
+    tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
+    tip20_factory::{ITIP20Factory, TIP20Factory},
 };
 
 use super::{ScriptConfig, ScriptResult};
@@ -244,6 +244,7 @@ impl ScriptRunner {
     fn initialize_tempo_precompiles(&mut self) {
         use tempo_precompiles::*;
 
+        let sender = CALLER;
         let admin = TEST_CONTRACT_ADDRESS;
 
         // Set bytecode for all precompiles (except PathUSD which gets it via initialize)
@@ -283,15 +284,31 @@ impl ScriptRunner {
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
         let mut storage_provider =
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
-        let mut path_usd = PathUSD::new(&mut storage_provider);
-        path_usd.initialize(admin).expect("PathUSD initialization should succeed");
+        let token_id = {
+            let mut tip20_factory = TIP20Factory::new(&mut storage_provider);
+            tip20_factory.initialize().expect("Could not initialize tip20 factory");
+            let token_address = tip20_factory
+                .create_token(
+                    admin,
+                    ITIP20Factory::createTokenCall {
+                        name: "PathUSD".to_string(),
+                        symbol: "PathUSD".to_string(),
+                        currency: "USD".to_string(),
+                        quoteToken: Address::ZERO,
+                        admin,
+                    },
+                )
+                .expect("Could not create token");
+
+            address_to_token_id_unchecked(token_address)
+        };
+        let mut path_usd = TIP20Token::new(token_id, &mut storage_provider);
         path_usd
-            .token
             .grant_role_internal(admin, *ISSUER_ROLE)
             .expect("failed to grant ISSUER_ROLE to admin");
         path_usd
-            .mint(admin, ITIP20::mintCall { to: admin, amount: U256::from(u64::MAX) })
-            .expect("failed to mint initial supply to admin");
+            .mint(admin, ITIP20::mintCall { to: sender, amount: U256::from(u64::MAX) })
+            .expect("failed to mint initial supply to sender");
     }
 
     /// Executes the method that will collect all broadcastable transactions.
