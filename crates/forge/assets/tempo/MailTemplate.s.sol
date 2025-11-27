@@ -11,6 +11,12 @@ contract MailScript is Script {
     function setUp() public {}
 
     function run() public {
+        if (vm.envExists("TEMPO_RPC_URL")) {
+            vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
+        }
+
+        vm.startBroadcast();
+
         ITIP20 token = ITIP20(
             StdPrecompiles.TIP20_FACTORY.createToken("testUSD", "tUSD", "USD", StdPrecompiles.PATH_USD, msg.sender)
         );
