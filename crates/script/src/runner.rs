@@ -247,7 +247,7 @@ impl ScriptRunner {
         let sender = CALLER;
         let admin = TEST_CONTRACT_ADDRESS;
 
-        // Set bytecode for all precompiles (except PathUSD which gets it via initialize)
+        // Set bytecode for all precompiles
         let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
         for precompile in [
             NONCE_PRECOMPILE_ADDRESS,
@@ -279,7 +279,7 @@ impl ScriptRunner {
             )
             .expect("failed to initialize validator config state");
 
-        // Initialize PathUSD using canonical tempo initialization
+        // Initialize PathUSD precompile using TIP20Factory
         let chain_id = self.executor.env().evm_env.cfg_env.chain_id;
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
         let mut storage_provider =
