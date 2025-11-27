@@ -13,10 +13,9 @@ use alloy_rpc_types::{AccessList, Authorization, TransactionInputKind, Transacti
 use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
-use eyre::Result;
+use eyre::{OptionExt, Result};
 use foundry_cli::{
     opts::{CliAuthorizationList, TransactionOpts},
-    utils::{self, parse_function_args},
 };
 use foundry_common::{
     fmt::format_tokens,
@@ -27,17 +26,20 @@ use foundry_wallets::{WalletOpts, WalletSigner};
 use itertools::Itertools;
 use serde_json::value::RawValue;
 use std::fmt::Write;
+use futures::future::join_all;
 use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_alloy::TempoNetwork;
 use tempo_primitives::transaction::TempoTypedTransaction;
+use foundry_common::abi::{encode_function_args, encode_function_args_raw, get_func, get_func_etherscan};
 use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequest> {
+impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
     /// provided [TransactionOpts].
     pub async fn new(provider: P, tx_opts: TransactionOpts, config: &Config) -> Result<Self> {
         let mut tx = WithOtherFields::<TempoTransactionRequest>::default();
 
-        let chain = utils::get_chain(config.chain, &provider).await?;
+        let chain = get_chain(config.chain, &provider).await?;
         let etherscan_api_key = config.get_etherscan_api_key(Some(chain));
         // mark it as legacy if requested or the chain is legacy and no 7702 is provided.
         let legacy = tx_opts.legacy || (chain.is_legacy() && tx_opts.auth.is_none());
@@ -96,7 +98,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TempoTransactionReques
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TempoTransactionRequest> {
+impl<P: Provider<TempoNetwork>> CastTxBuilder<P, ToState, TempoTransactionRequest> {
     /// Accepts user-provided code, sig and args params and constructs calldata for the transaction.
     /// If code is present, input will be set to code + encoded constructor arguments. If no code is
     /// present, input is set to just provided arguments.
@@ -152,7 +154,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TempoTransactionRequest>
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionRequest> {
+impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionRequest> {
     /// Builds [TempoTransactionRequest] and fills missing fields. Returns a transaction which is ready
     /// to be broadcasted.
     pub async fn build(
@@ -235,8 +237,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionReque
             None => None,
             // --access-list provided with no value, call the provider to create it
             Some(None) => {
-                let tx = WithOtherFields::new(self.tx.inner.clone().inner);
-                Some(self.provider.create_access_list(&tx).await?.access_list)
+                Some(self.provider.create_access_list(&self.tx.inner).await?.access_list)
             },
             // Access list provided as a string, attempt to parse it
             Some(Some(access_list)) => Some(access_list),
@@ -279,8 +280,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionReque
 
     /// Estimate tx gas from provider call. Tries to decode custom error if execution reverted.
     async fn estimate_gas(&mut self) -> Result<()> {
-        let tx = WithOtherFields::new(self.tx.inner.clone().inner);
-        match self.provider.estimate_gas(tx).await {
+        match self.provider.estimate_gas(self.tx.inner.clone()).await {
             Ok(estimated) => {
                 self.tx.inner.inner.gas = Some(estimated);
                 Ok(())
@@ -331,7 +331,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TempoTransactionReque
 
 impl<P, S> CastTxBuilder<P, S, TempoTransactionRequest>
 where
-    P: Provider<AnyNetwork>,
+    P: Provider<TempoNetwork>,
 {
     /// Populates the blob sidecar for the transaction if any blob data was provided.
     pub fn with_blob_data(mut self, blob_data: Option<Vec<u8>>) -> Result<Self> {
@@ -346,4 +346,69 @@ where
 
         Ok(self)
     }
+}
+
+pub async fn get_chain<P>(chain: Option<Chain>, provider: P) -> Result<Chain>
+where
+    P: Provider<TempoNetwork>,
+{
+    match chain {
+        Some(chain) => Ok(chain),
+        None => Ok(Chain::from_id(provider.get_chain_id().await?)),
+    }
+}
+
+pub async fn parse_function_args<P: Provider<TempoNetwork>>(
+    sig: &str,
+    args: Vec<String>,
+    to: Option<Address>,
+    chain: Chain,
+    provider: &P,
+    etherscan_api_key: Option<&str>,
+) -> Result<(Vec<u8>, Option<Function>)> {
+    if sig.trim().is_empty() {
+        eyre::bail!("Function signature or calldata must be provided.")
+    }
+
+    let args = resolve_name_args(&args, provider).await;
+
+    if let Ok(data) = hex::decode(sig) {
+        return Ok((data, None));
+    }
+
+    let func = if sig.contains('(') {
+        // a regular function signature with parentheses
+        get_func(sig)?
+    } else {
+        info!(
+            "function signature does not contain parentheses, fetching function data from Etherscan"
+        );
+        let etherscan_api_key = etherscan_api_key.ok_or_eyre(
+            "Function signature does not contain parentheses. If you wish to fetch function data from Etherscan, please provide an API key.",
+        )?;
+        let to = to.ok_or_eyre("A 'to' address must be provided to fetch function data.")?;
+        get_func_etherscan(sig, to, &args, chain, etherscan_api_key).await?
+    };
+
+    if to.is_none() {
+        // if this is a CREATE call we must exclude the (constructor) function selector: https://github.com/foundry-rs/foundry/issues/10947
+        Ok((encode_function_args_raw(&func, &args)?, Some(func)))
+    } else {
+        Ok((encode_function_args(&func, &args)?, Some(func)))
+    }
+}
+
+async fn resolve_name_args<P: Provider<TempoNetwork>>(args: &[String], provider: &P) -> Vec<String> {
+    join_all(args.iter().map(|arg| async {
+        if arg.contains('.') {
+            let addr = NameOrAddress::Name(arg.to_string()).resolve(provider).await;
+            match addr {
+                Ok(addr) => addr.to_string(),
+                Err(_) => arg.to_string(),
+            }
+        } else {
+            arg.to_string()
+        }
+    }))
+        .await
 }

@@ -8,12 +8,13 @@ use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig, get_provider},
+    utils::{LoadConfig},
 };
 use std::{path::PathBuf, str::FromStr};
 use alloy_rpc_types::TransactionRequest;
 use alloy_serde::WithOtherFields;
 use tempo_alloy::rpc::TempoTransactionRequest;
+use crate::tempo::provider::get_provider;
 
 /// CLI arguments for `cast mktx`.
 #[derive(Debug, Parser)]
@@ -136,8 +137,7 @@ impl MakeTempoTxArgs {
             // Use "eth_signTransaction" to sign the transaction only works if the node/RPC has
             // unlocked accounts.
             let (tx, _) = tx_builder.build(config.sender, fee_token).await?;
-            let tx = WithOtherFields::new(tx.inner.inner);
-            let signed_tx = provider.sign_transaction(tx).await?;
+            let signed_tx = provider.sign_transaction(tx.inner).await?;
 
             sh_println!("{signed_tx}")?;
             return Ok(());
