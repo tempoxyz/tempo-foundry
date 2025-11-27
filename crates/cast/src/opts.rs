@@ -3,7 +3,7 @@ use crate::cmd::{
     bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs, create2::Create2Args,
     creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs, erc20::Erc20Subcommand,
     estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs,
-    mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
+    rpc::RpcArgs, run::RunArgs, storage::StorageArgs,
     txpool::TxPoolSubcommands, wallet::WalletSubcommands,
 };
 use alloy_ens::NameOrAddress;
@@ -15,6 +15,7 @@ use foundry_cli::opts::{EtherscanOpts, GlobalArgs, RpcOpts};
 use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
 use std::{path::PathBuf, str::FromStr};
 use crate::tempo::mktx::MakeTempoTxArgs;
+use crate::tempo::send::SendTempoTxArgs;
 
 /// A Swiss Army knife for interacting with Ethereum applications from the command line.
 #[derive(Parser)]
@@ -546,7 +547,7 @@ pub enum CastSubcommand {
 
     /// Sign and publish a transaction.
     #[command(name = "send", visible_alias = "s")]
-    SendTx(SendTxArgs),
+    SendTx(SendTempoTxArgs),
 
     /// Publish a raw transaction to the network.
     #[command(name = "publish", visible_alias = "p")]

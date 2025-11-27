@@ -2605,7 +2605,6 @@ dependencies = [
  "alloy-signer-local",
  "alloy-sol-types",
  "alloy-transport",
- "alloy-transport-http",
  "chrono",
  "clap",
  "clap_complete",
@@ -2618,6 +2617,7 @@ dependencies = [
  "foundry-block-explorers",
  "foundry-cli",
  "foundry-common",
+ "foundry-common-fmt",
  "foundry-compilers",
  "foundry-config",
  "foundry-debugger",
@@ -4953,6 +4953,7 @@ dependencies = [
  "serde",
  "serde_json",
  "similar-asserts",
+ "tempo-alloy",
  "yansi",
 ]
 

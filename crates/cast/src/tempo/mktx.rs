@@ -11,8 +11,6 @@ use foundry_cli::{
     utils::{LoadConfig},
 };
 use std::{path::PathBuf, str::FromStr};
-use alloy_rpc_types::TransactionRequest;
-use alloy_serde::WithOtherFields;
 use tempo_alloy::rpc::TempoTransactionRequest;
 use crate::tempo::provider::get_provider;
 

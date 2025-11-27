@@ -2,9 +2,7 @@
 
 use alloy_chains::NamedChain;
 use alloy_provider::{
-    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
-    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
-    network::{AnyNetwork, EthereumWallet},
+    ProviderBuilder as AlloyProviderBuilder, RootProvider,
 };
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};

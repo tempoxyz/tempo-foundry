@@ -29,6 +29,7 @@ foundry-config.workspace = true
 foundry-debugger.workspace = true
 foundry-evm.workspace = true
 foundry-wallets.workspace = true
+foundry-common-fmt.workspace = true
 forge-fmt.workspace = true
 
 alloy-chains.workspace = true
@@ -57,10 +58,6 @@ alloy-transport.workspace = true
 alloy-ens = { workspace = true, features = ["provider"] }
 alloy-eips.workspace = true
 alloy-rpc-client.workspace = true
-alloy-transport-http = { workspace = true, features = [
-    "reqwest",
-    "reqwest-rustls-tls",
-] }
 
 op-alloy-flz.workspace = true
 op-alloy-consensus = { workspace = true, features = ["alloy-compat"] }

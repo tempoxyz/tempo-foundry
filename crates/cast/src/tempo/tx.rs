@@ -1,15 +1,13 @@
-use crate::traces::identifier::SignaturesIdentifier;
 use alloy_consensus::{SidecarBuilder, SignableTransaction, SimpleCoder};
-use alloy_dyn_abi::ErrorExt;
 use alloy_ens::NameOrAddress;
 use alloy_json_abi::Function;
 use alloy_network::{
-    AnyNetwork, AnyTypedTransaction, TransactionBuilder, TransactionBuilder4844,
+    TransactionBuilder, TransactionBuilder4844,
     TransactionBuilder7702,
 };
-use alloy_primitives::{Address, Bytes, TxKind, U256, hex};
+use alloy_primitives::{Address, U256, hex};
 use alloy_provider::Provider;
-use alloy_rpc_types::{AccessList, Authorization, TransactionInputKind, TransactionRequest};
+use alloy_rpc_types::{Authorization, TransactionInputKind};
 use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
@@ -17,15 +15,7 @@ use eyre::{OptionExt, Result};
 use foundry_cli::{
     opts::{CliAuthorizationList, TransactionOpts},
 };
-use foundry_common::{
-    fmt::format_tokens,
-    provider::{RetryProvider, RetryProviderWithSigner},
-};
 use foundry_config::{Chain, Config};
-use foundry_wallets::{WalletOpts, WalletSigner};
-use itertools::Itertools;
-use serde_json::value::RawValue;
-use std::fmt::Write;
 use futures::future::join_all;
 use tempo_alloy::rpc::TempoTransactionRequest;
 use tempo_alloy::TempoNetwork;
