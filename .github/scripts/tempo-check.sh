@@ -25,3 +25,5 @@ echo -e "\n=== CAST send with fee token ==="
 cast send --fee-token 0x20C0000000000000000000000000000000000001 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
 cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
 cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+echo -e "\n=== CAST mktx with fee token ==="
+cast mktx --fee-token 0x20c0000000000000000000000000000000000002 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
