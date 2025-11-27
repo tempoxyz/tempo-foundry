@@ -1,12 +1,19 @@
 //! Provider-related instantiation and usage utilities.
 
 use alloy_chains::NamedChain;
+use alloy_network::EthereumWallet;
 use alloy_provider::{
-    ProviderBuilder as AlloyProviderBuilder, RootProvider,
+    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
+    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
 };
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
 use eyre::{Result, WrapErr};
+use foundry_common::{
+    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT, provider::runtime_transport::RuntimeTransportBuilder,
+};
+use foundry_config::Config;
+use foundry_wallets::WalletSigner;
 use reqwest::Url;
 use std::{
     net::SocketAddr,
@@ -15,10 +22,7 @@ use std::{
     time::Duration,
 };
 use tempo_alloy::TempoNetwork;
-use foundry_common::{ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT};
-use foundry_common::provider::runtime_transport::RuntimeTransportBuilder;
 use url::ParseError;
-use foundry_config::Config;
 
 /// The assumed block time for unknown chains.
 /// We assume that these are chains have a faster block time.
@@ -30,10 +34,27 @@ const POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR: f32 = 0.6;
 /// Helper type alias for a retry provider
 pub type TempoRetryProvider<N = TempoNetwork> = RootProvider<N>;
 
+pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
+    JoinFill<
+        JoinFill<Identity, JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
+        WalletFiller<EthereumWallet>,
+    >,
+    RootProvider<N>,
+    N,
+>;
+
 /// Returns a [foundry_common::provider::RetryProvider] instantiated using [Config]'s
 /// RPC
 pub fn get_provider(config: &Config) -> Result<TempoRetryProvider> {
     get_provider_builder(config)?.build()
+}
+
+pub fn get_signer_provider(
+    config: &Config,
+    signer: WalletSigner,
+) -> Result<TempoRetryProviderWithSigner> {
+    let wallet = alloy_network::EthereumWallet::from(signer);
+    get_provider_builder(config)?.build_with_wallet(wallet)
 }
 
 pub fn get_provider_builder(config: &Config) -> Result<TempoProviderBuilder> {
@@ -300,6 +321,54 @@ impl TempoProviderBuilder {
         }
 
         let provider = AlloyProviderBuilder::<_, _, TempoNetwork>::default()
+            .connect_provider(RootProvider::new(client));
+
+        Ok(provider)
+    }
+
+    /// Constructs the `RetryProvider` with a wallet.
+    pub fn build_with_wallet(self, wallet: EthereumWallet) -> Result<TempoRetryProviderWithSigner> {
+        let Self {
+            url,
+            chain,
+            max_retry,
+            initial_backoff,
+            timeout,
+            compute_units_per_second,
+            jwt,
+            headers,
+            is_local,
+            accept_invalid_certs,
+        } = self;
+        let url = url?;
+
+        let retry_layer =
+            RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
+
+        let transport = RuntimeTransportBuilder::new(url)
+            .with_timeout(timeout)
+            .with_headers(headers)
+            .with_jwt(jwt)
+            .accept_invalid_certs(accept_invalid_certs)
+            .build();
+
+        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+        if !is_local {
+            client.set_poll_interval(
+                chain
+                    .average_blocktime_hint()
+                    // we cap the poll interval because if not provided, chain would default to
+                    // mainnet
+                    .map(|hint| hint.min(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME))
+                    .unwrap_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME)
+                    .mul_f32(POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR),
+            );
+        }
+
+        let provider = AlloyProviderBuilder::<_, _, TempoNetwork>::default()
+            .with_recommended_fillers()
+            .wallet(wallet)
             .connect_provider(RootProvider::new(client));
 
         Ok(provider)

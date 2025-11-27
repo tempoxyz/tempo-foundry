@@ -3,6 +3,7 @@ use alloy_ens::NameOrAddress;
 use alloy_network::{EthereumWallet, TransactionBuilder, eip2718::Encodable2718};
 use alloy_primitives::{Address, hex};
 use alloy_provider::Provider;
+use alloy_rpc_types::TransactionRequest;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::Result;
@@ -11,7 +12,6 @@ use foundry_cli::{
     utils::{LoadConfig, get_provider},
 };
 use std::{path::PathBuf, str::FromStr};
-use alloy_rpc_types::TransactionRequest;
 
 /// CLI arguments for `cast mktx`.
 #[derive(Debug, Parser)]
@@ -99,13 +99,14 @@ impl MakeTxArgs {
 
         let provider = get_provider(&config)?;
 
-        let tx_builder = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx.clone(), &config)
-            .await?
-            .with_to(to)
-            .await?
-            .with_code_sig_and_args(code, sig, args)
-            .await?
-            .with_blob_data(blob_data)?;
+        let tx_builder =
+            CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx.clone(), &config)
+                .await?
+                .with_to(to)
+                .await?
+                .with_code_sig_and_args(code, sig, args)
+                .await?
+                .with_blob_data(blob_data)?;
 
         if raw_unsigned {
             // Build unsigned raw tx

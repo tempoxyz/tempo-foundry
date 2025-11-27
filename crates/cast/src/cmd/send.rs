@@ -15,7 +15,10 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletSigner;
 
-use crate::{Cast, tx::{self, CastTxBuilder}, CastSender};
+use crate::{
+    Cast, CastSender,
+    tx::{self, CastTxBuilder},
+};
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]

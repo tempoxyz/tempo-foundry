@@ -7,13 +7,15 @@ use alloy_provider::{
     Provider,
     network::{ReceiptResponse, TransactionBuilder},
 };
-use alloy_rpc_types::{BlockId};
+use alloy_rpc_types::BlockId;
 use alloy_serde::WithOtherFields;
 use eyre::Result;
 use foundry_common_fmt::UIfmt;
 use serde::{Deserialize, Serialize};
-use tempo_alloy::rpc::{TempoTransactionReceipt, TempoTransactionRequest};
-use tempo_alloy::TempoNetwork;
+use tempo_alloy::{
+    TempoNetwork,
+    rpc::{TempoTransactionReceipt, TempoTransactionRequest},
+};
 use tempo_primitives::TempoTxEnvelope;
 
 /// Helper type to carry a transaction along with an optional revert reason
@@ -59,8 +61,7 @@ impl TempoTransactionReceiptWithRevertReason {
             .ok_or_else(|| eyre::eyre!("transaction not found"))?;
 
         if let Some(block_hash) = self.receipt.block_hash {
-            let mut call_request: TempoTransactionRequest =
-                transaction.inner.clone_inner().into();
+            let mut call_request: TempoTransactionRequest = transaction.inner.clone_inner().into();
             call_request.set_from(transaction.inner.signer());
             match provider.call(call_request).block(BlockId::Hash(block_hash.into())).await {
                 Err(e) => return Ok(extract_revert_reason(e.to_string())),
@@ -109,7 +110,6 @@ chainId              {}
 gasLimit             {}
 gasPrice             {}
 input                {}
-maxFeePerBlobGas     {}
 maxFeePerGas         {}
 maxPriorityFeePerGas {}
 nonce                {}
@@ -125,7 +125,6 @@ value                {}",
                 tx.gas_limit().unwrap_or_default(),
                 tx.gas_price().pretty(),
                 tx.input().pretty(),
-                tx.inner.inner.max_fee_per_blob_gas.pretty(),
                 tx.max_fee_per_gas().pretty(),
                 tx.max_priority_fee_per_gas().pretty(),
                 tx.nonce().pretty(),
@@ -164,14 +163,14 @@ pub fn get_pretty_tx_receipt_attr(
         "logs" => Some(receipt.receipt.inner.inner.receipt.logs.as_slice().pretty()),
         "logsBloom" | "logs_bloom" => Some(receipt.receipt.inner.inner.logs_bloom.pretty()),
         "root" | "stateRoot" | "state_root " => Some(receipt.receipt.state_root().pretty()),
-        "status" | "statusCode" | "status_code" => {
-            Some(receipt.receipt.inner.status().pretty())
-        }
+        "status" | "statusCode" | "status_code" => Some(receipt.receipt.inner.status().pretty()),
         "transactionHash" | "transaction_hash" => Some(receipt.receipt.transaction_hash.pretty()),
         "transactionIndex" | "transaction_index" => {
             Some(receipt.receipt.transaction_index.pretty())
         }
-        "type" | "transaction_type" => Some(receipt.receipt.inner.inner.receipt.tx_type.to_string()),
+        "type" | "transaction_type" => {
+            Some(receipt.receipt.inner.inner.receipt.tx_type.to_string())
+        }
         "revertReason" | "revert_reason" => Some(receipt.revert_reason.pretty()),
         _ => None,
     }
@@ -261,7 +260,9 @@ impl TempoTransactionMaybeSigned {
     pub fn authorization_list(&self) -> Option<Vec<SignedAuthorization>> {
         match self {
             Self::Signed { tx, .. } => tx.authorization_list().map(|auths| auths.to_vec()),
-            Self::Unsigned(tx) => tx.inner.inner.authorization_list.as_deref().map(|auths| auths.to_vec()),
+            Self::Unsigned(tx) => {
+                tx.inner.inner.authorization_list.as_deref().map(|auths| auths.to_vec())
+            }
         }
         .filter(|auths| !auths.is_empty())
     }

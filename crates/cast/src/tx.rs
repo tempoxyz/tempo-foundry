@@ -202,7 +202,10 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
     }
 
     /// Sets [TxKind] for this builder and changes state to [ToState].
-    pub async fn with_to(self, to: Option<NameOrAddress>) -> Result<CastTxBuilder<P, ToState, TransactionRequest>> {
+    pub async fn with_to(
+        self,
+        to: Option<NameOrAddress>,
+    ) -> Result<CastTxBuilder<P, ToState, TransactionRequest>> {
         let to = if let Some(to) = to { Some(to.resolve(&self.provider).await?) } else { None };
         Ok(CastTxBuilder {
             provider: self.provider,

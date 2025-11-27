@@ -54,8 +54,8 @@ pub use foundry_evm::*;
 
 pub mod args;
 pub mod cmd;
-pub mod tempo;
 pub mod opts;
+pub mod tempo;
 
 pub mod base;
 pub(crate) mod debug;
@@ -129,7 +129,7 @@ impl<P: Provider<AnyNetwork>> CastSender<P> {
                     }
                 }
             }
-                .into();
+            .into();
 
         // Allow to fail silently
         let _ = receipt.update_revert_reason(&self.provider).await;

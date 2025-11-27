@@ -1,4 +1,7 @@
-use crate::tx::{self, CastTxBuilder};
+use crate::{
+    tempo::provider::get_provider,
+    tx::{self, CastTxBuilder},
+};
 use alloy_ens::NameOrAddress;
 use alloy_network::{EthereumWallet, TransactionBuilder, eip2718::Encodable2718};
 use alloy_primitives::{Address, hex};
@@ -8,11 +11,10 @@ use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig},
+    utils::LoadConfig,
 };
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 use tempo_alloy::rpc::TempoTransactionRequest;
-use crate::tempo::provider::get_provider;
 
 /// CLI arguments for `cast mktx`.
 #[derive(Debug, Parser)]
@@ -35,16 +37,6 @@ pub struct MakeTempoTxArgs {
 
     #[command(flatten)]
     tx: TransactionOpts,
-
-    /// The path of blob data to be sent.
-    #[arg(
-        long,
-        value_name = "BLOB_DATA_PATH",
-        conflicts_with = "legacy",
-        requires = "blob",
-        help_heading = "Transaction options"
-    )]
-    path: Option<PathBuf>,
 
     #[command(flatten)]
     eth: EthereumOpts,
@@ -83,9 +75,8 @@ pub enum MakeTempoTxSubcommands {
 
 impl MakeTempoTxArgs {
     pub async fn run(self) -> Result<()> {
-        let Self { to, mut sig, mut args, command, tx, path, eth, raw_unsigned, ethsign, fee_token } = self;
-
-        let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
+        let Self { to, mut sig, mut args, command, tx, eth, raw_unsigned, ethsign, fee_token } =
+            self;
 
         let code = if let Some(MakeTempoTxSubcommands::Create {
             code,
@@ -104,13 +95,13 @@ impl MakeTempoTxArgs {
 
         let provider = get_provider(&config)?;
 
-        let tx_builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx.clone(), &config)
-            .await?
-            .with_to(to)
-            .await?
-            .with_code_sig_and_args(code, sig, args)
-            .await?
-            .with_blob_data(blob_data)?;
+        let tx_builder =
+            CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx.clone(), &config)
+                .await?
+                .with_to(to)
+                .await?
+                .with_code_sig_and_args(code, sig, args)
+                .await?;
 
         if raw_unsigned {
             // Build unsigned raw tx

@@ -1,10 +1,8 @@
+use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 use alloy_consensus::{SidecarBuilder, SignableTransaction, SimpleCoder};
 use alloy_ens::NameOrAddress;
 use alloy_json_abi::Function;
-use alloy_network::{
-    TransactionBuilder, TransactionBuilder4844,
-    TransactionBuilder7702,
-};
+use alloy_network::{TransactionBuilder, TransactionBuilder4844, TransactionBuilder7702};
 use alloy_primitives::{Address, U256, hex};
 use alloy_provider::Provider;
 use alloy_rpc_types::{Authorization, TransactionInputKind};
@@ -12,16 +10,14 @@ use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
 use eyre::{OptionExt, Result};
-use foundry_cli::{
-    opts::{CliAuthorizationList, TransactionOpts},
+use foundry_cli::opts::{CliAuthorizationList, TransactionOpts};
+use foundry_common::abi::{
+    encode_function_args, encode_function_args_raw, get_func, get_func_etherscan,
 };
 use foundry_config::{Chain, Config};
 use futures::future::join_all;
-use tempo_alloy::rpc::TempoTransactionRequest;
-use tempo_alloy::TempoNetwork;
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 use tempo_primitives::transaction::TempoTypedTransaction;
-use foundry_common::abi::{encode_function_args, encode_function_args_raw, get_func, get_func_etherscan};
-use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 
 impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
@@ -72,7 +68,10 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
     }
 
     /// Sets [TxKind] for this builder and changes state to [ToState].
-    pub async fn with_to(self, to: Option<NameOrAddress>) -> Result<CastTxBuilder<P, ToState, TempoTransactionRequest>> {
+    pub async fn with_to(
+        self,
+        to: Option<NameOrAddress>,
+    ) -> Result<CastTxBuilder<P, ToState, TempoTransactionRequest>> {
         let to = if let Some(to) = to { Some(to.resolve(&self.provider).await?) } else { None };
         Ok(CastTxBuilder {
             provider: self.provider,
@@ -107,7 +106,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, ToState, TempoTransactionReques
                 &self.provider,
                 self.etherscan_api_key.as_deref(),
             )
-                .await?
+            .await?
         } else {
             (Vec::new(), None)
         };
@@ -145,8 +144,8 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, ToState, TempoTransactionReques
 }
 
 impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionRequest> {
-    /// Builds [TempoTransactionRequest] and fills missing fields. Returns a transaction which is ready
-    /// to be broadcasted.
+    /// Builds [TempoTransactionRequest] and fills missing fields. Returns a transaction which is
+    /// ready to be broadcasted.
     pub async fn build(
         self,
         sender: impl Into<SenderKind<'_>>,
@@ -155,8 +154,8 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         self._build(sender, true, false, fee_token).await
     }
 
-    /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls such as
-    /// eth_call, eth_estimateGas, etc
+    /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls
+    /// such as eth_call, eth_estimateGas, etc
     pub async fn build_raw(
         self,
         sender: impl Into<SenderKind<'_>>,
@@ -168,7 +167,11 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
     /// Builds an unsigned RLP-encoded raw transaction.
     ///
     /// Returns the hex encoded string representation of the transaction.
-    pub async fn build_unsigned_raw(self, from: Address, fee_token: Option<Address>) -> Result<String> {
+    pub async fn build_unsigned_raw(
+        self,
+        from: Address,
+        fee_token: Option<Address>,
+    ) -> Result<String> {
         let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token).await?;
         let tx = tx.inner.build_unsigned()?;
         /// TODO: check if this is right
@@ -195,7 +198,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         self.tx.set_kind(self.state.kind);
         self.tx.fee_token = fee_token;
 
-            // we set both fields to the same value because some nodes only accept the legacy `data` field: <https://github.com/foundry-rs/foundry/issues/7764#issuecomment-2210453249>
+        // we set both fields to the same value because some nodes only accept the legacy `data` field: <https://github.com/foundry-rs/foundry/issues/7764#issuecomment-2210453249>
         self.tx.set_input_kind(self.state.input.clone(), TransactionInputKind::Both);
 
         self.tx.set_from(from);
@@ -226,9 +229,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         if let Some(access_list) = match self.access_list.take() {
             None => None,
             // --access-list provided with no value, call the provider to create it
-            Some(None) => {
-                Some(self.provider.create_access_list(&self.tx.inner).await?.access_list)
-            },
+            Some(None) => Some(self.provider.create_access_list(&self.tx.inner).await?.access_list),
             // Access list provided as a string, attempt to parse it
             Some(Some(access_list)) => Some(access_list),
         } {
@@ -244,7 +245,8 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         }
 
         if self.blob && self.tx.inner.inner.max_fee_per_blob_gas.is_none() {
-            self.tx.inner.inner.max_fee_per_blob_gas = Some(self.provider.get_blob_base_fee().await?)
+            self.tx.inner.inner.max_fee_per_blob_gas =
+                Some(self.provider.get_blob_base_fee().await?)
         }
 
         if !self.legacy
@@ -281,7 +283,8 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
                     // to decode custom errors and append it to the error message.
                     if payload.code == 3
                         && let Some(data) = &payload.data
-                        && let Ok(Some(decoded_error)) = crate::tx::decode_execution_revert(data).await
+                        && let Ok(Some(decoded_error)) =
+                            crate::tx::decode_execution_revert(data).await
                     {
                         eyre::bail!("Failed to estimate gas: {}: {}", err, decoded_error)
                     }
@@ -388,7 +391,10 @@ pub async fn parse_function_args<P: Provider<TempoNetwork>>(
     }
 }
 
-async fn resolve_name_args<P: Provider<TempoNetwork>>(args: &[String], provider: &P) -> Vec<String> {
+async fn resolve_name_args<P: Provider<TempoNetwork>>(
+    args: &[String],
+    provider: &P,
+) -> Vec<String> {
     join_all(args.iter().map(|arg| async {
         if arg.contains('.') {
             let addr = NameOrAddress::Name(arg.to_string()).resolve(provider).await;
@@ -400,5 +406,5 @@ async fn resolve_name_args<P: Provider<TempoNetwork>>(args: &[String], provider:
             arg.to_string()
         }
     }))
-        .await
+    .await
 }

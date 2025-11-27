@@ -8,7 +8,10 @@ use crate::{
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, map::HashMap};
 use alloy_provider::Provider;
-use alloy_rpc_types::{BlockId, BlockNumberOrTag, BlockOverrides, state::{StateOverride, StateOverridesBuilder}, TransactionRequest};
+use alloy_rpc_types::{
+    BlockId, BlockNumberOrTag, BlockOverrides, TransactionRequest,
+    state::{StateOverride, StateOverridesBuilder},
+};
 use clap::Parser;
 use eyre::Result;
 use foundry_cli::{

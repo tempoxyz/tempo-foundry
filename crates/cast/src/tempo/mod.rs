@@ -5,25 +5,25 @@
 //! implement `figment::Provider` which allows the subcommand to override the config's defaults, see
 //! [`foundry_config::Config`].
 
-use std::time::Duration;
-use alloy_primitives::{TxHash};
+use crate::tempo::transactions::{
+    TempoTransactionReceiptWithRevertReason, get_pretty_tx_receipt_attr,
+};
+use alloy_primitives::TxHash;
 use alloy_provider::{PendingTransactionBuilder, Provider};
 use alloy_serde::WithOtherFields;
-use tempo_alloy::rpc::TempoTransactionRequest;
-use tempo_alloy::TempoNetwork;
-use foundry_common::{shell};
-use crate::tempo::transactions::{get_pretty_tx_receipt_attr, TempoTransactionReceiptWithRevertReason};
+use foundry_common::shell;
 use foundry_common_fmt::UIfmt;
+use std::time::Duration;
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
-use std::{
-    str::FromStr,
-};
 use eyre::WrapErr;
+use std::str::FromStr;
 
-pub mod tx;
+pub mod erc20;
 pub mod mktx;
-pub mod send;
 pub mod provider;
+pub mod send;
+pub mod tx;
 
 pub mod transactions;
 
@@ -37,7 +37,10 @@ impl<P: Provider<TempoNetwork>> TempoCastSender<P> {
     }
 
     /// Sends a transaction and waits for receipt synchronously
-    pub async fn send_sync(&self, tx: WithOtherFields<TempoTransactionRequest>) -> eyre::Result<String> {
+    pub async fn send_sync(
+        &self,
+        tx: WithOtherFields<TempoTransactionRequest>,
+    ) -> eyre::Result<String> {
         let mut receipt: TempoTransactionReceiptWithRevertReason =
             self.provider.send_transaction_sync(tx.inner).await?.into();
 
@@ -83,7 +86,7 @@ impl<P: Provider<TempoNetwork>> TempoCastSender<P> {
                     }
                 }
             }
-                .into();
+            .into();
 
         // Allow to fail silently
         let _ = receipt.update_revert_reason(&self.provider).await;

@@ -96,7 +96,7 @@ impl EstimateArgs {
         } else {
             None
         };
-        
+
         let (tx, _) = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)

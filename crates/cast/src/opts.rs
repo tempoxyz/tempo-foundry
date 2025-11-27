@@ -1,10 +1,13 @@
-use crate::cmd::{
-    access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
-    bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs, create2::Create2Args,
-    creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs, erc20::Erc20Subcommand,
-    estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs,
-    rpc::RpcArgs, run::RunArgs, storage::StorageArgs,
-    txpool::TxPoolSubcommands, wallet::WalletSubcommands,
+use crate::{
+    cmd::{
+        access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
+        bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs,
+        create2::Create2Args, creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs,
+        estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs,
+        logs::LogsArgs, rpc::RpcArgs, run::RunArgs, storage::StorageArgs,
+        txpool::TxPoolSubcommands, wallet::WalletSubcommands,
+    },
+    tempo::{erc20::Erc20TempoSubcommand, mktx::MakeTempoTxArgs, send::SendTempoTxArgs},
 };
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Selector, U256};
@@ -14,8 +17,6 @@ use eyre::Result;
 use foundry_cli::opts::{EtherscanOpts, GlobalArgs, RpcOpts};
 use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
 use std::{path::PathBuf, str::FromStr};
-use crate::tempo::mktx::MakeTempoTxArgs;
-use crate::tempo::send::SendTempoTxArgs;
 
 /// A Swiss Army knife for interacting with Ethereum applications from the command line.
 #[derive(Parser)]
@@ -1147,7 +1148,7 @@ pub enum CastSubcommand {
     #[command(visible_alias = "erc20", aliases = ["tip20"])]
     Erc20Token {
         #[command(subcommand)]
-        command: Erc20Subcommand,
+        command: Erc20TempoSubcommand,
     },
 }
 

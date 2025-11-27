@@ -1,7 +1,9 @@
 //! Helper trait and functions to format Ethereum types.
 
-use alloy_consensus::{Eip658Value, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxEnvelope, TxReceipt, TxType, Typed2718};
-use alloy_consensus::transaction::TxHashRef;
+use alloy_consensus::{
+    Eip658Value, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxEnvelope, TxReceipt, TxType,
+    Typed2718, transaction::TxHashRef,
+};
 use alloy_network::{
     AnyHeader, AnyReceiptEnvelope, AnyRpcBlock, AnyRpcTransaction, AnyTransactionReceipt,
     AnyTxEnvelope, ReceiptResponse,
@@ -13,8 +15,7 @@ use alloy_rpc_types::{
 use alloy_serde::{OtherFields, WithOtherFields};
 use revm::context_interface::transaction::SignedAuthorization;
 use serde::Deserialize;
-use tempo_alloy::primitives::TempoTxEnvelope;
-use tempo_alloy::rpc::TempoTransactionReceipt;
+use tempo_alloy::{primitives::TempoTxEnvelope, rpc::TempoTransactionReceipt};
 
 /// length of the name column for pretty formatting `{:>20}{value}`
 const NAME_COLUMN_LEN: usize = 20usize;
@@ -239,26 +240,22 @@ impl UIfmt for TempoTransactionReceipt {
     fn pretty(&self) -> String {
         let Self {
             inner:
-            TransactionReceipt {
-                transaction_hash,
-                transaction_index,
-                block_hash,
-                block_number,
-                from,
-                to,
-                gas_used,
-                contract_address,
-                effective_gas_price,
-                inner:
-                ReceiptWithBloom {
-                    receipt,
-                    logs_bloom,
+                TransactionReceipt {
+                    transaction_hash,
+                    transaction_index,
+                    block_hash,
+                    block_number,
+                    from,
+                    to,
+                    gas_used,
+                    contract_address,
+                    effective_gas_price,
+                    inner: ReceiptWithBloom { receipt, logs_bloom },
+                    blob_gas_price: _blob_gas_price,
+                    blob_gas_used: _blob_gas_used,
                 },
-                blob_gas_price: _blob_gas_price,
-                blob_gas_used: _blob_gas_used,
-            },
             fee_token,
-            fee_payer
+            fee_payer,
         } = self;
 
         let mut pretty = format!(
