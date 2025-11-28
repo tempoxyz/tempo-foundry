@@ -23,6 +23,7 @@ use revm::{
     primitives::{HashMap as Map, hardfork::SpecId},
     state::{Account, AccountInfo},
 };
+use tempo_revm::TempoHaltReason;
 use std::{borrow::Cow, collections::BTreeMap};
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
@@ -68,7 +69,7 @@ impl<'a> CowBackend<'a> {
         &mut self,
         env: &mut Env,
         inspector: I,
-    ) -> eyre::Result<ResultAndState> {
+    ) -> eyre::Result<ResultAndState<TempoHaltReason>> {
         // this is a new call to inspect with a new env, so even if we've cloned the backend
         // already, we reset the initialized state
         self.is_initialized = false;

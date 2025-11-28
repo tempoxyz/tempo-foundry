@@ -14,7 +14,7 @@ use revm::{
     Context, Journal,
     context::{
         CfgEnv, ContextTr, CreateScheme, JournalTr, LocalContext, LocalContextTr,
-        result::{EVMError, ExecResultAndState, ExecutionResult, HaltReason, ResultAndState},
+        result::{EVMError, ExecResultAndState, ExecutionResult, ResultAndState},
     },
     handler::{EthPrecompiles, EvmTr, FrameResult, FrameTr, Handler, ItemOrResult},
     inspector::{InspectorEvmTr, InspectorHandler},
@@ -30,7 +30,8 @@ use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
 use tempo_precompiles::extend_tempo_precompiles;
 use tempo_revm::{
-    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, handler::TempoEvmHandler,
+    TempoEvm, TempoHaltReason, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext,
+    handler::TempoEvmHandler,
 };
 
 pub fn new_evm_with_inspector<'db, I: InspectorExt>(
@@ -155,7 +156,7 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
     type Inspector = I;
     type DB = &'db mut dyn DatabaseExt;
     type Error = EVMError<DatabaseError, TempoInvalidTransaction>;
-    type HaltReason = HaltReason;
+    type HaltReason = TempoHaltReason;
     type Spec = TempoHardfork;
     type Tx = TempoTxEnv;
     type BlockEnv = TempoBlockEnv;
@@ -225,7 +226,7 @@ impl<'db, I: InspectorExt> Evm for FoundryEvm<'db, I> {
         _caller: Address,
         _contract: Address,
         _data: Bytes,
-    ) -> Result<ExecResultAndState<ExecutionResult>, Self::Error> {
+    ) -> Result<ExecResultAndState<ExecutionResult<Self::HaltReason>>, Self::Error> {
         unimplemented!()
     }
 
@@ -270,7 +271,7 @@ impl<I: InspectorExt> Default for FoundryHandler<'_, I> {
 impl<'db, I: InspectorExt> Handler for FoundryHandler<'db, I> {
     type Evm = TempoEvm<&'db mut dyn DatabaseExt, I>;
     type Error = EVMError<DatabaseError, TempoInvalidTransaction>;
-    type HaltReason = HaltReason;
+    type HaltReason = TempoHaltReason;
 
     #[inline]
     fn run(

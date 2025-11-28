@@ -28,6 +28,7 @@ use revm::{
     primitives::{HashMap as Map, KECCAK_EMPTY, Log, hardfork::SpecId},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
 };
+use tempo_revm::TempoHaltReason;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -774,7 +775,7 @@ impl Backend {
         &mut self,
         env: &mut Env,
         inspector: I,
-    ) -> eyre::Result<ResultAndState> {
+    ) -> eyre::Result<ResultAndState<TempoHaltReason>> {
         self.initialize(env);
         let mut evm = crate::evm::new_evm_with_inspector(self, env.to_owned(), inspector);
 
