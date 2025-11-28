@@ -1,5 +1,10 @@
-//! Provider-related instantiation and usage utilities.
-
+use crate::{
+    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT,
+    provider::{
+        DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME, POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR, resolve_path,
+        runtime_transport::RuntimeTransportBuilder,
+    },
+};
 use alloy_chains::NamedChain;
 use alloy_network::EthereumWallet;
 use alloy_provider::{
@@ -8,30 +13,12 @@ use alloy_provider::{
 };
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
-use eyre::{Result, WrapErr};
-use foundry_common::{
-    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT, provider::runtime_transport::RuntimeTransportBuilder,
-};
-use foundry_config::Config;
-use foundry_wallets::WalletSigner;
-use reqwest::Url;
-use std::{
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    str::FromStr,
-    time::Duration,
-};
+use eyre::WrapErr;
+use std::{net::SocketAddr, path::Path, str::FromStr, time::Duration};
 use tempo_alloy::TempoNetwork;
-use url::ParseError;
+use url::{ParseError, Url};
 
-/// The assumed block time for unknown chains.
-/// We assume that these are chains have a faster block time.
-const DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME: Duration = Duration::from_secs(3);
-
-/// The factor to scale the block time by to get the poll interval.
-const POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR: f32 = 0.6;
-
-/// Helper type alias for a retry provider
+/// Helper type alias for a Tempo retry provider
 pub type TempoRetryProvider<N = TempoNetwork> = RootProvider<N>;
 
 pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
@@ -43,79 +30,11 @@ pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
     N,
 >;
 
-/// Returns a [foundry_common::provider::RetryProvider] instantiated using [Config]'s
-/// RPC
-pub fn get_provider(config: &Config) -> Result<TempoRetryProvider> {
-    get_provider_builder(config)?.build()
-}
-
-pub fn get_signer_provider(
-    config: &Config,
-    signer: WalletSigner,
-) -> Result<TempoRetryProviderWithSigner> {
-    let wallet = alloy_network::EthereumWallet::from(signer);
-    get_provider_builder(config)?.build_with_wallet(wallet)
-}
-
-pub fn get_provider_builder(config: &Config) -> Result<TempoProviderBuilder> {
-    let url = config.get_rpc_url_or_localhost_http()?;
-    let mut builder = TempoProviderBuilder::new(url.as_ref());
-
-    builder = builder.accept_invalid_certs(config.eth_rpc_accept_invalid_certs);
-
-    if let Ok(chain) = config.chain.unwrap_or_default().try_into() {
-        builder = builder.chain(chain);
-    }
-
-    if let Some(jwt) = config.get_rpc_jwt_secret()? {
-        builder = builder.jwt(jwt.as_ref());
-    }
-
-    if let Some(rpc_timeout) = config.eth_rpc_timeout {
-        builder = builder.timeout(Duration::from_secs(rpc_timeout));
-    }
-
-    if let Some(rpc_headers) = config.eth_rpc_headers.clone() {
-        builder = builder.headers(rpc_headers);
-    }
-
-    Ok(builder)
-}
-
-/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
-/// an anvil or other dev node) and with the default, or 7 second otherwise.
-///
-/// See [`try_get_http_provider`] for more details.
-///
-/// # Panics
-///
-/// Panics if the URL is invalid.
-///
-/// # Examples
-///
-/// ```
-/// use foundry_common::provider::get_http_provider;
-///
-/// let retry_provider = get_http_provider("http://localhost:8545");
-/// ```
-#[inline]
-#[track_caller]
-pub fn get_http_provider(builder: impl AsRef<str>) -> TempoRetryProvider {
-    try_get_http_provider(builder).unwrap()
-}
-
-/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
-/// an anvil or other dev node) and with the default, or 7 second otherwise.
-#[inline]
-pub fn try_get_http_provider(builder: impl AsRef<str>) -> Result<TempoRetryProvider> {
-    TempoProviderBuilder::new(builder.as_ref()).build()
-}
-
 /// Helper type to construct a `RetryProvider`
 #[derive(Debug)]
 pub struct TempoProviderBuilder {
     // Note: this is a result, so we can easily chain builder calls
-    url: Result<Url>,
+    url: eyre::Result<Url>,
     chain: NamedChain,
     max_retry: u32,
     initial_backoff: u64,
@@ -282,7 +201,7 @@ impl TempoProviderBuilder {
     }
 
     /// Constructs the `RetryProvider` taking all configs into account.
-    pub fn build(self) -> Result<TempoRetryProvider> {
+    pub fn build(self) -> eyre::Result<TempoRetryProvider> {
         let Self {
             url,
             chain,
@@ -327,7 +246,10 @@ impl TempoProviderBuilder {
     }
 
     /// Constructs the `RetryProvider` with a wallet.
-    pub fn build_with_wallet(self, wallet: EthereumWallet) -> Result<TempoRetryProviderWithSigner> {
+    pub fn build_with_wallet(
+        self,
+        wallet: EthereumWallet,
+    ) -> eyre::Result<TempoRetryProviderWithSigner> {
         let Self {
             url,
             chain,
@@ -373,23 +295,4 @@ impl TempoProviderBuilder {
 
         Ok(provider)
     }
-}
-
-#[cfg(not(windows))]
-fn resolve_path(path: &Path) -> Result<PathBuf, ()> {
-    if path.is_absolute() {
-        Ok(path.to_path_buf())
-    } else {
-        std::env::current_dir().map(|d| d.join(path)).map_err(drop)
-    }
-}
-
-#[cfg(windows)]
-fn resolve_path(path: &Path) -> Result<PathBuf, ()> {
-    if let Some(s) = path.to_str() {
-        if s.starts_with(r"\\.\pipe\") {
-            return Ok(path.to_path_buf());
-        }
-    }
-    Err(())
 }

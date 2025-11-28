@@ -1,7 +1,4 @@
-use crate::{
-    tempo::provider::get_provider,
-    tx::{self, CastTxBuilder},
-};
+use crate::tx::{self, CastTxBuilder};
 use alloy_ens::NameOrAddress;
 use alloy_network::{EthereumWallet, TransactionBuilder, eip2718::Encodable2718};
 use alloy_primitives::{Address, hex};
@@ -11,7 +8,7 @@ use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::LoadConfig,
+    utils::{LoadConfig, get_tempo_provider},
 };
 use std::str::FromStr;
 use tempo_alloy::rpc::TempoTransactionRequest;
@@ -93,7 +90,7 @@ impl MakeTempoTxArgs {
 
         let config = eth.load_config()?;
 
-        let provider = get_provider(&config)?;
+        let provider = get_tempo_provider(&config)?;
 
         let tx_builder =
             CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx.clone(), &config)

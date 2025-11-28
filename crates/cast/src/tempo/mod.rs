@@ -21,7 +21,6 @@ use std::str::FromStr;
 
 pub mod erc20;
 pub mod mktx;
-pub mod provider;
 pub mod send;
 pub mod tx;
 

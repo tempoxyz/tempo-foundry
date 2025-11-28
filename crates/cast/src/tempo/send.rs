@@ -1,5 +1,9 @@
 use std::{str::FromStr, time::Duration};
 
+use crate::{
+    tempo::TempoCastSender,
+    tx::{self, CastTxBuilder},
+};
 use alloy_ens::NameOrAddress;
 use alloy_network::EthereumWallet;
 use alloy_primitives::Address;
@@ -10,15 +14,10 @@ use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::LoadConfig,
+    utils::{LoadConfig, get_tempo_provider},
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
-
-use crate::{
-    tempo::{TempoCastSender, provider::get_provider},
-    tx::{self, CastTxBuilder},
-};
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
@@ -132,7 +131,7 @@ impl SendTempoTxArgs {
         };
 
         let config = eth.load_config()?;
-        let provider = get_provider(&config)?;
+        let provider = get_tempo_provider(&config)?;
 
         if let Some(interval) = poll_interval {
             provider.client().set_poll_interval(Duration::from_secs(interval))

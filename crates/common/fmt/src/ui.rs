@@ -291,7 +291,7 @@ type                 {}",
             receipt.status().pretty(),
             transaction_hash.pretty(),
             transaction_index.pretty(),
-            self.inner.inner.receipt.tx_type.to_string(),
+            self.inner.inner.receipt.tx_type,
         );
 
         if let Some(to) = to {

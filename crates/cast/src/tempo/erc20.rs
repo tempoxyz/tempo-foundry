@@ -1,4 +1,4 @@
-use crate::format_uint_exp;
+use crate::{format_uint_exp, tempo::send::cast_send};
 use alloy_eips::BlockId;
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, U256};
@@ -8,16 +8,12 @@ use alloy_sol_types::sol;
 use clap::{Args, Parser};
 use foundry_cli::{
     opts::{EthereumOpts, RpcOpts},
-    utils::LoadConfig,
+    utils::{LoadConfig, get_tempo_provider, get_tempo_signer_provider},
 };
-use std::{str::FromStr, time::Duration};
-
-use crate::tempo::{
-    provider::{TempoRetryProviderWithSigner, get_provider, get_signer_provider},
-    send::cast_send,
-};
+use foundry_common::provider::tempo::TempoRetryProviderWithSigner;
 #[doc(hidden)]
 pub use foundry_config::utils::*;
+use std::{str::FromStr, time::Duration};
 
 sol! {
     #[sol(rpc)]
@@ -260,7 +256,7 @@ impl Erc20TempoSubcommand {
 
     pub async fn run(self) -> eyre::Result<()> {
         let config = self.rpc().load_config()?;
-        let provider = get_provider(&config)?;
+        let provider = get_tempo_provider(&config)?;
 
         match self {
             // Read-only
@@ -413,12 +409,12 @@ async fn get_erc20_provider(
     tx_opts: &Erc20TempoTxOpts,
 ) -> eyre::Result<TempoRetryProviderWithSigner> {
     let config = tx_opts.eth.load_config()?;
-    let provider = get_provider(&config)?;
+    let provider = get_tempo_provider(&config)?;
     if let Some(interval) = tx_opts.poll_interval {
         provider.client().set_poll_interval(Duration::from_secs(interval))
     }
     let signer = tx_opts.eth.wallet.signer().await?;
-    let provider = get_signer_provider(&config, signer)?;
+    let provider = get_tempo_signer_provider(&config, signer)?;
 
     Ok(provider)
 }
