@@ -2616,7 +2616,6 @@ dependencies = [
  "foundry-block-explorers",
  "foundry-cli",
  "foundry-common",
- "foundry-common-fmt",
  "foundry-compilers",
  "foundry-config",
  "foundry-debugger",

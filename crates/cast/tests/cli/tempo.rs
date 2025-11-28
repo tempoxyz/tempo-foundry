@@ -5,7 +5,7 @@ fn get_tempo_rpc_url() -> String {
         .unwrap_or_else(|_| "https://eng:zealous-mayer@rpc.testnet.tempo.xyz".to_string())
 }
 
-casttest!(tempo_erc20_transfer_with_fee_token, |_prj, cmd| {
+casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
     let eth_rpc_url = get_tempo_rpc_url();
 
     cmd.args([
@@ -42,12 +42,8 @@ type                 FeeToken
 to                   0x20C0000000000000000000000000000000000001
 
 "#]]);
-});
 
-casttest!(tempo_erc20_approve_with_fee_token, |_prj, cmd| {
-    let eth_rpc_url = get_tempo_rpc_url();
-
-    cmd.args([
+    cmd.cast_fuse().args([
         "erc20",
         "approve",
         "--fee-token",
@@ -81,12 +77,8 @@ type                 FeeToken
 to                   0x20C0000000000000000000000000000000000001
 
 "#]]);
-});
 
-casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
-    let eth_rpc_url = get_tempo_rpc_url();
-
-    cmd.args([
+    cmd.cast_fuse().args([
         "send",
         "--fee-token",
         "0x20c0000000000000000000000000000000000003",
@@ -120,7 +112,7 @@ to                   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D
 "#]]);
 });
 
-casttest!(tempo_erc20_mktx_with_fee_token, |_prj, cmd| {
+casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
     let eth_rpc_url = get_tempo_rpc_url();
 
     cmd.args([
@@ -132,10 +124,10 @@ casttest!(tempo_erc20_mktx_with_fee_token, |_prj, cmd| {
         "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
         "increment()",
         "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
-0x77f88682a5bd820b37018504a817c80182534e9486a2ee8faf9a840f7a2c64ca3d51209f9a02081d8084d09de08ac0c09420c00000000000000000000000000000000000038080a075f84c48323e8f51fac0828e5400e3de93d2c136d13c14661ad7e2d9c7cd7866a06bfe57817d176b58865ffeb2e85be68937e6be47e76595858a4b5cf5c283d7a0
+0x77f88682a5bd820872018504a817c80182534e9486a2ee8faf9a840f7a2c64ca3d51209f9a02081d8084d09de08ac0c09420c00000000000000000000000000000000000038001a05bb197d523bf0fd32291e81f47d628940eb690fae03aa0897de447839e750508a016fb7bc2d2463035fd2847c0fa22fd9bf1fc36bb5c5e100680c643c2057e16f1
 
 "#]]);
 });

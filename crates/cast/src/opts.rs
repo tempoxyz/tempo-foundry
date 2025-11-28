@@ -4,10 +4,10 @@ use crate::{
         bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs,
         create2::Create2Args, creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs,
         estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs,
-        logs::LogsArgs, rpc::RpcArgs, run::RunArgs, storage::StorageArgs,
-        txpool::TxPoolSubcommands, wallet::WalletSubcommands,
+        logs::LogsArgs, mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs,
+        storage::StorageArgs, txpool::TxPoolSubcommands, wallet::WalletSubcommands,
     },
-    tempo::{erc20::Erc20TempoSubcommand, mktx::MakeTempoTxArgs, send::SendTempoTxArgs},
+    tempo::erc20::Erc20TempoSubcommand,
 };
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Selector, U256};
@@ -489,7 +489,7 @@ pub enum CastSubcommand {
 
     /// Build and sign a transaction.
     #[command(name = "mktx", visible_alias = "m")]
-    MakeTx(MakeTempoTxArgs),
+    MakeTx(MakeTxArgs),
 
     /// Calculate the ENS namehash of a name.
     #[command(visible_aliases = &["na", "nh"])]
@@ -548,7 +548,7 @@ pub enum CastSubcommand {
 
     /// Sign and publish a transaction.
     #[command(name = "send", visible_alias = "s")]
-    SendTx(SendTempoTxArgs),
+    SendTx(SendTxArgs),
 
     /// Publish a raw transaction to the network.
     #[command(name = "publish", visible_alias = "p")]

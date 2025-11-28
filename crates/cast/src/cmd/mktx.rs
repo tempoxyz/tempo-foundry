@@ -3,15 +3,15 @@ use alloy_ens::NameOrAddress;
 use alloy_network::{EthereumWallet, TransactionBuilder, eip2718::Encodable2718};
 use alloy_primitives::{Address, hex};
 use alloy_provider::Provider;
-use alloy_rpc_types::TransactionRequest;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig, get_provider},
+    utils::{LoadConfig, get_tempo_provider},
 };
 use std::{path::PathBuf, str::FromStr};
+use tempo_alloy::rpc::TempoTransactionRequest;
 
 /// CLI arguments for `cast mktx`.
 #[derive(Debug, Parser)]
@@ -57,6 +57,10 @@ pub struct MakeTxArgs {
     /// Call `eth_signTransaction` using the `--from` argument or $ETH_FROM as sender
     #[arg(long, requires = "from", conflicts_with = "raw_unsigned")]
     ethsign: bool,
+
+    /// Fee token to use for transaction.
+    #[arg(long)]
+    fee_token: Option<Address>,
 }
 
 #[derive(Debug, Parser)]
@@ -78,9 +82,9 @@ pub enum MakeTxSubcommands {
 
 impl MakeTxArgs {
     pub async fn run(self) -> Result<()> {
-        let Self { to, mut sig, mut args, command, tx, path, eth, raw_unsigned, ethsign } = self;
-
-        let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
+        let Self {
+            to, mut sig, mut args, command, tx, eth, raw_unsigned, ethsign, fee_token, ..
+        } = self;
 
         let code = if let Some(MakeTxSubcommands::Create {
             code,
@@ -97,16 +101,15 @@ impl MakeTxArgs {
 
         let config = eth.load_config()?;
 
-        let provider = get_provider(&config)?;
+        let provider = get_tempo_provider(&config)?;
 
         let tx_builder =
-            CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx.clone(), &config)
+            CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx.clone(), &config)
                 .await?
                 .with_to(to)
                 .await?
                 .with_code_sig_and_args(code, sig, args)
-                .await?
-                .with_blob_data(blob_data)?;
+                .await?;
 
         if raw_unsigned {
             // Build unsigned raw tx
@@ -121,7 +124,7 @@ impl MakeTxArgs {
             // Use zero address as placeholder for unsigned transactions
             let from = eth.wallet.from.unwrap_or(Address::ZERO);
 
-            let raw_tx = tx_builder.build_unsigned_raw(from).await?;
+            let raw_tx = tx_builder.build_unsigned_raw(from, fee_token).await?;
 
             sh_println!("{raw_tx}")?;
             return Ok(());
@@ -130,8 +133,8 @@ impl MakeTxArgs {
         if ethsign {
             // Use "eth_signTransaction" to sign the transaction only works if the node/RPC has
             // unlocked accounts.
-            let (tx, _) = tx_builder.build(config.sender).await?;
-            let signed_tx = provider.sign_transaction(tx).await?;
+            let (tx, _) = tx_builder.build(config.sender, fee_token).await?;
+            let signed_tx = provider.sign_transaction(tx.inner).await?;
 
             sh_println!("{signed_tx}")?;
             return Ok(());
@@ -144,9 +147,9 @@ impl MakeTxArgs {
 
         tx::validate_from_address(eth.wallet.from, from)?;
 
-        let (tx, _) = tx_builder.build(&signer).await?;
+        let (tx, _) = tx_builder.build(&signer, fee_token).await?;
 
-        let tx = tx.build(&EthereumWallet::new(signer)).await?;
+        let tx = tx.inner.build(&EthereumWallet::new(signer)).await?;
 
         let signed_tx = hex::encode(tx.encoded_2718());
         sh_println!("0x{signed_tx}")?;
