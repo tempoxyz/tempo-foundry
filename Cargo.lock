@@ -4926,6 +4926,7 @@ dependencies = [
  "serde_json",
  "solar-compiler",
  "tempo-alloy",
+ "tempo-primitives",
  "thiserror 2.0.17",
  "tokio",
  "tower",

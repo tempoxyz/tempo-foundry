@@ -46,6 +46,7 @@ alloy-network.workspace = true
 
 # tempo
 tempo-alloy.workspace = true
+tempo-primitives.workspace = true
 
 revm.workspace = true
 

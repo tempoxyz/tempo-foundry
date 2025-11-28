@@ -5,9 +5,6 @@
 //! implement `figment::Provider` which allows the subcommand to override the config's defaults, see
 //! [`foundry_config::Config`].
 
-use crate::tempo::transactions::{
-    TempoTransactionReceiptWithRevertReason, get_pretty_tx_receipt_attr,
-};
 use alloy_primitives::TxHash;
 use alloy_provider::{PendingTransactionBuilder, Provider};
 use alloy_serde::WithOtherFields;
@@ -17,14 +14,15 @@ use std::time::Duration;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 use eyre::WrapErr;
+use foundry_common::tempo_transactions::{
+    TempoTransactionReceiptWithRevertReason, get_pretty_tx_receipt_attr,
+};
 use std::str::FromStr;
 
 pub mod erc20;
 pub mod mktx;
 pub mod send;
 pub mod tx;
-
-pub mod transactions;
 
 pub struct TempoCastSender<P> {
     provider: P,
