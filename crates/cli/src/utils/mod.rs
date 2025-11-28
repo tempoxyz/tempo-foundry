@@ -32,7 +32,7 @@ pub use abi::*;
 
 mod allocator;
 mod tempo;
-pub use tempo::{get_tempo_provider, get_tempo_signer_provider};
+pub use tempo::{get_tempo_provider, get_tempo_provider_builder, get_tempo_signer_provider};
 
 pub use allocator::*;
 
