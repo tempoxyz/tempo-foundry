@@ -38,7 +38,7 @@ impl<'a> FoundryStorageProvider<'a> {
 
 impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn spec(&self) -> TempoHardfork {
-        // Note: in Foundry are currently using the Prague hardfork which is unmatched with Tempo
+        // Note: in Foundry we are currently using the Prague hardfork which is unmatched with Tempo
         // resulting in always returning the default Tempo hardfork (the oldest).
         //
         // Once Foundry is updated to default to Osaka this will need to be updated to return
