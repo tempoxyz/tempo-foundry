@@ -97,39 +97,6 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     }
 
     /// Sends a transaction to the specified address
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use cast::{Cast};
-    /// use alloy_primitives::{Address, U256, Bytes};
-    /// use alloy_serde::WithOtherFields;
-    /// use alloy_rpc_types::{TransactionRequest};
-    /// use alloy_provider::{RootProvider, ProviderBuilder, network::AnyNetwork};
-    /// use std::str::FromStr;
-    /// use alloy_sol_types::{sol, SolCall};
-    ///
-    /// sol!(
-    ///     function greet(string greeting) public;
-    /// );
-    ///
-    /// # async fn foo() -> eyre::Result<()> {
-    /// let provider = ProviderBuilder::<_,_, AnyNetwork>::default().connect("http://localhost:8545").await?;;
-    /// let from = Address::from_str("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")?;
-    /// let to = Address::from_str("0xB3C95ff08316fb2F2e3E52Ee82F8e7b605Aa1304")?;
-    /// let greeting = greetCall { greeting: "hello".to_string() }.abi_encode();
-    /// let bytes = Bytes::from_iter(greeting.iter());
-    /// let gas = U256::from_str("200000").unwrap();
-    /// let value = U256::from_str("1").unwrap();
-    /// let nonce = U256::from_str("1").unwrap();
-    /// let tx = TransactionRequest::default().to(to).input(bytes.into()).from(from);
-    /// let tx = WithOtherFields::new(tx);
-    /// let cast = Cast::new(provider);
-    /// let data = cast.send(tx).await?;
-    /// println!("{:#?}", data);
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn send(
         &self,
         tx: WithOtherFields<TempoTransactionRequest>,
@@ -139,22 +106,6 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         Ok(res)
     }
 
-    /// # Example
-    ///
-    /// ```
-    /// use alloy_provider::{ProviderBuilder, RootProvider, network::AnyNetwork};
-    /// use cast::Cast;
-    ///
-    /// # async fn foo() -> eyre::Result<()> {
-    /// let provider =
-    ///     ProviderBuilder::<_, _, AnyNetwork>::default().connect("http://localhost:8545").await?;
-    /// let cast = Cast::new(provider);
-    /// let tx_hash = "0xf8d1713ea15a81482958fb7ddf884baee8d3bcc478c5f2f604e008dc788ee4fc";
-    /// let receipt = cast.receipt(tx_hash.to_string(), None, 1, None, false).await?;
-    /// println!("{}", receipt);
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn receipt(
         &self,
         tx_hash: String,
