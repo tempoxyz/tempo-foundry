@@ -16,20 +16,21 @@ echo -e "\n=== FORGE SCRIPT deploy and verify ==="
 forge script script/Mail.s.sol --private-key $PK --broadcast --verify
 echo -e "\n=== FORGE SCRIPT deploy and verify with fee token ==="
 forge script --fee-token 0x20C0000000000000000000000000000000000002 script/Mail.s.sol --private-key $PK --broadcast --verify
-forge script --fee-token 0x20C0000000000000000000000000000000000003 script/Mail.s.sol --private-key $PK --broadcast --verify
+forge script --fee-token 3 script/Mail.s.sol --private-key $PK --broadcast --verify
 echo -e "\n=== FORGE CREATE and verify ==="
 forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
 echo -e "\n=== FORGE CREATE and verify with fee token ==="
 forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
-forge create --fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
+forge create --fee-token 3 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
 echo -e "\n=== CAST ERC20 transfer with fee token ==="
 cast erc20 transfer --fee-token 0x20c0000000000000000000000000000000000001 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
-cast erc20 transfer --fee-token 0x20c0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
+cast erc20 transfer --fee-token 2 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
 echo -e "\n=== CAST ERC20 approve with fee token ==="
 cast erc20 approve --fee-token 0x20c0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000001 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
 echo -e "\n=== CAST SEND with fee token ==="
 cast send --fee-token 0x20C0000000000000000000000000000000000001 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
-cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
-cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+cast send --fee-token 2 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+cast send --fee-token 3 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
 echo -e "\n=== CAST MKTX with fee token ==="
 cast mktx --fee-token 0x20c0000000000000000000000000000000000002 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+cast mktx --fee-token 3 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK

@@ -10,7 +10,7 @@ use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig, get_tempo_provider},
+    utils::{LoadConfig, get_tempo_provider, parse_fee_token_address},
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
@@ -71,7 +71,7 @@ pub struct SendTxArgs {
     eth: EthereumOpts,
 
     /// Fee token to use for transaction.
-    #[arg(long)]
+    #[arg(long, value_parser = parse_fee_token_address)]
     fee_token: Option<Address>,
 }
 

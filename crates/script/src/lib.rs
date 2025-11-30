@@ -27,7 +27,7 @@ use forge_script_sequence::{AdditionalContract, NestedValue};
 use forge_verify::{RetryArgs, VerifierArgs};
 use foundry_cli::{
     opts::{BuildOpts, EvmArgs, GlobalArgs},
-    utils::LoadConfig,
+    utils::{LoadConfig, parse_fee_token_address},
 };
 use foundry_common::{
     CONTRACT_MAX_SIZE, ContractsByArtifact, SELECTOR_LEN,
@@ -128,7 +128,7 @@ pub struct ScriptArgs {
     pub skip_simulation: bool,
 
     /// Fee token to use for transaction.
-    #[arg(long)]
+    #[arg(long, value_parser = parse_fee_token_address)]
     pub fee_token: Option<Address>,
 
     /// Relative percentage to multiply gas estimates by.

@@ -7,7 +7,7 @@ use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{self, LoadConfig, parse_ether_value},
+    utils::{self, LoadConfig, parse_ether_value, parse_fee_token_address},
 };
 use std::str::FromStr;
 use tempo_alloy::rpc::TempoTransactionRequest;
@@ -48,7 +48,7 @@ pub struct EstimateArgs {
     eth: EthereumOpts,
 
     /// Fee token to use for transaction.
-    #[arg(long)]
+    #[arg(long, value_parser = parse_fee_token_address)]
     fee_token: Option<Address>,
 }
 

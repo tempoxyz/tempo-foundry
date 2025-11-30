@@ -8,7 +8,7 @@ use alloy_sol_types::sol;
 use clap::{Args, Parser};
 use foundry_cli::{
     opts::{EthereumOpts, RpcOpts},
-    utils::{LoadConfig, get_tempo_provider, get_tempo_signer_provider},
+    utils::{LoadConfig, get_tempo_provider, get_tempo_signer_provider, parse_fee_token_address},
 };
 use foundry_common::provider::tempo::TempoRetryProviderWithSigner;
 #[doc(hidden)]
@@ -60,7 +60,7 @@ pub struct Erc20TempoTxOpts {
     pub poll_interval: Option<u64>,
 
     /// Fee token to use for transaction.
-    #[arg(long)]
+    #[arg(long, value_parser = parse_fee_token_address)]
     pub fee_token: Option<Address>,
 }
 

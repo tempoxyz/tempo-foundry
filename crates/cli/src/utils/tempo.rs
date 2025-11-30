@@ -1,9 +1,10 @@
+use alloy_primitives::Address;
 use foundry_common::provider::tempo::{
     TempoProviderBuilder, TempoRetryProvider, TempoRetryProviderWithSigner,
 };
 use foundry_config::Config;
 use foundry_wallets::WalletSigner;
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
 /// Returns a [foundry_common::provider::RetryProvider] instantiated using [Config]'s
 /// RPC
@@ -42,4 +43,14 @@ pub fn get_tempo_provider_builder(config: &Config) -> eyre::Result<TempoProvider
     }
 
     Ok(builder)
+}
+
+/// Parses a fee token address.
+pub fn parse_fee_token_address(address_or_suffix: &str) -> eyre::Result<Address> {
+    if let Ok(addr) = Address::from_str(address_or_suffix) {
+        return Ok(addr);
+    }
+
+    let zeros = "0".repeat(37 - address_or_suffix.len());
+    Ok(Address::from_str(format!("0x20C{zeros}{address_or_suffix}").as_str())?)
 }
