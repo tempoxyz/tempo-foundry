@@ -13,7 +13,7 @@ use alloy_evm::Evm;
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
 use alloy_primitives::{Address, B256, TxKind, U256, keccak256, uint};
-use alloy_rpc_types::{BlockNumberOrTag, Transaction, TransactionRequest};
+use alloy_rpc_types::{BlockNumberOrTag, Transaction};
 use eyre::Context;
 use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_known_system_sender};
 pub use foundry_fork_db::{BlockchainDb, SharedBackend, cache::BlockchainDbMeta};
@@ -33,6 +33,7 @@ use std::{
     fmt::Debug,
     time::Instant,
 };
+use tempo_alloy::rpc::TempoTransactionRequest;
 
 mod diagnostic;
 pub use diagnostic::RevertDiagnostic;
@@ -213,7 +214,7 @@ pub trait DatabaseExt: Database<Error = DatabaseError> + DatabaseCommit + Debug 
     /// Executes a given TransactionRequest, commits the new state to the DB
     fn transact_from_tx(
         &mut self,
-        transaction: &TransactionRequest,
+        transaction: &TempoTransactionRequest,
         env: Env,
         journaled_state: &mut JournaledState,
         inspector: &mut dyn InspectorExt,
@@ -1310,7 +1311,7 @@ impl DatabaseExt for Backend {
 
     fn transact_from_tx(
         &mut self,
-        tx: &TransactionRequest,
+        tx: &TempoTransactionRequest,
         mut env: Env,
         journaled_state: &mut JournaledState,
         inspector: &mut dyn InspectorExt,
@@ -1320,7 +1321,7 @@ impl DatabaseExt for Backend {
         self.commit(journaled_state.state.clone());
 
         let res = {
-            configure_tx_req_env(&mut env.as_env_mut(), tx, None)?;
+            configure_tx_req_env(&mut env.as_env_mut(), &tx.inner, None)?;
 
             let mut db = self.clone();
             let mut evm = new_evm_with_inspector(&mut db, env.to_owned(), inspector);

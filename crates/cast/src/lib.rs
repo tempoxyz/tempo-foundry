@@ -27,12 +27,12 @@ use chrono::DateTime;
 use eyre::{Context, ContextCompat, OptionExt, Result};
 use foundry_block_explorers::Client;
 use foundry_common::{
+    TransactionReceiptWithRevertReason,
     abi::{coerce_value, encode_function_args, encode_function_args_packed, get_event, get_func},
     compile::etherscan_project,
     flatten,
     fmt::*,
     fs, shell,
-    tempo_transactions::TempoTransactionReceiptWithRevertReason,
 };
 use foundry_config::Chain;
 use foundry_evm::core::bytecode::InstIter;
@@ -87,7 +87,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         &self,
         tx: WithOtherFields<TempoTransactionRequest>,
     ) -> eyre::Result<String> {
-        let mut receipt: TempoTransactionReceiptWithRevertReason =
+        let mut receipt: TransactionReceiptWithRevertReason =
             self.provider.send_transaction_sync(tx.inner).await?.into();
 
         // Allow to fail silently
@@ -116,7 +116,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     ) -> eyre::Result<String> {
         let tx_hash = TxHash::from_str(&tx_hash).wrap_err("invalid tx hash")?;
 
-        let mut receipt: TempoTransactionReceiptWithRevertReason =
+        let mut receipt: TransactionReceiptWithRevertReason =
             match self.provider.get_transaction_receipt(tx_hash).await? {
                 Some(r) => r,
                 None => {
@@ -144,11 +144,11 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     /// Helper method to format transaction receipts consistently
     fn format_receipt(
         &self,
-        receipt: TempoTransactionReceiptWithRevertReason,
+        receipt: TransactionReceiptWithRevertReason,
         field: Option<String>,
     ) -> eyre::Result<String> {
         Ok(if let Some(ref field) = field {
-            foundry_common::tempo_transactions::get_pretty_tx_receipt_attr(&receipt, field)
+            foundry_common::get_pretty_tx_receipt_attr(&receipt, field)
                 .ok_or_else(|| eyre::eyre!("invalid receipt field: {}", field))?
         } else if shell::is_json() {
             // to_value first to sort json object keys

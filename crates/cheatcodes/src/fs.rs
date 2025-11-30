@@ -4,7 +4,6 @@ use super::string::parse;
 use crate::{Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Result, Vm::*};
 use alloy_dyn_abi::DynSolType;
 use alloy_json_abi::ContractObject;
-use alloy_network::AnyTransactionReceipt;
 use alloy_primitives::{Bytes, U256, hex, map::Entry};
 use alloy_provider::network::ReceiptResponse;
 use alloy_sol_types::SolValue;
@@ -26,6 +25,7 @@ use std::{
     thread,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tempo_alloy::rpc::TempoTransactionReceipt;
 use walkdir::WalkDir;
 
 impl Cheatcode for existsCall {
@@ -838,7 +838,7 @@ fn map_broadcast_tx_type(tx_type: BroadcastTxType) -> CallKind {
 }
 
 fn parse_broadcast_results(
-    results: Vec<(TransactionWithMetadata, AnyTransactionReceipt)>,
+    results: Vec<(TransactionWithMetadata, TempoTransactionReceipt)>,
 ) -> Vec<BroadcastTxSummary> {
     results
         .into_iter()

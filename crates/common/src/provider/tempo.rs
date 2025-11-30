@@ -30,6 +30,19 @@ pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
     N,
 >;
 
+#[inline]
+#[track_caller]
+pub fn get_tempo_http_provider(builder: impl AsRef<str>) -> TempoRetryProvider {
+    try_get_tempo_http_provider(builder).unwrap()
+}
+
+/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
+/// an anvil or other dev node) and with the default, or 7 second otherwise.
+#[inline]
+pub fn try_get_tempo_http_provider(builder: impl AsRef<str>) -> eyre::Result<TempoRetryProvider> {
+    TempoProviderBuilder::new(builder.as_ref()).build()
+}
+
 /// Helper type to construct a `RetryProvider`
 #[derive(Debug)]
 pub struct TempoProviderBuilder {

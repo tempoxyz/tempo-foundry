@@ -1,10 +1,10 @@
 use alloy_chains::{Chain, NamedChain};
-use alloy_network::AnyTransactionReceipt;
 use alloy_primitives::{TxHash, U256, utils::format_units};
 use alloy_provider::{PendingTransactionBuilder, PendingTransactionError, Provider, WatchTxError};
 use eyre::{Result, eyre};
-use foundry_common::{provider::RetryProvider, retry, retry::RetryError, shell};
+use foundry_common::{provider::tempo::TempoRetryProvider, retry, retry::RetryError, shell};
 use std::time::Duration;
+use tempo_alloy::rpc::TempoTransactionReceipt;
 
 /// Marker error type for pending receipts
 #[derive(Debug, thiserror::Error)]
@@ -18,13 +18,13 @@ pub struct PendingReceiptError {
 /// Convenience enum for internal signalling of transaction status
 pub enum TxStatus {
     Dropped,
-    Success(AnyTransactionReceipt),
-    Revert(AnyTransactionReceipt),
+    Success(TempoTransactionReceipt),
+    Revert(TempoTransactionReceipt),
 }
 
-impl From<AnyTransactionReceipt> for TxStatus {
-    fn from(receipt: AnyTransactionReceipt) -> Self {
-        if !receipt.inner.inner.inner.receipt.status.coerce_status() {
+impl From<TempoTransactionReceipt> for TxStatus {
+    fn from(receipt: TempoTransactionReceipt) -> Self {
+        if !receipt.inner.inner.receipt.success {
             Self::Revert(receipt)
         } else {
             Self::Success(receipt)
@@ -35,7 +35,7 @@ impl From<AnyTransactionReceipt> for TxStatus {
 /// Checks the status of a txhash by first polling for a receipt, then for
 /// mempool inclusion. Returns the tx hash, and a status
 pub async fn check_tx_status(
-    provider: &RetryProvider,
+    provider: &TempoRetryProvider,
     hash: TxHash,
     timeout: u64,
 ) -> (TxHash, Result<TxStatus, eyre::Report>) {
@@ -89,11 +89,11 @@ pub async fn check_tx_status(
 }
 
 /// Prints parts of the receipt to stdout
-pub fn format_receipt(chain: Chain, receipt: &AnyTransactionReceipt) -> String {
+pub fn format_receipt(chain: Chain, receipt: &TempoTransactionReceipt) -> String {
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
     let block_number = receipt.block_number.unwrap_or_default();
-    let success = receipt.inner.inner.inner.receipt.status.coerce_status();
+    let success = receipt.inner.inner.receipt.success;
 
     if shell::is_json() {
         let _ = sh_println!(

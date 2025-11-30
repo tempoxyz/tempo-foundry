@@ -12,7 +12,6 @@ use crate::{
 use alloy_evm::Evm;
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
-use alloy_rpc_types::TransactionRequest;
 use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
 use revm::{
@@ -24,6 +23,7 @@ use revm::{
     state::{Account, AccountInfo},
 };
 use std::{borrow::Cow, collections::BTreeMap};
+use tempo_alloy::rpc::TempoTransactionRequest;
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
 ///
@@ -203,7 +203,7 @@ impl DatabaseExt for CowBackend<'_> {
 
     fn transact_from_tx(
         &mut self,
-        transaction: &TransactionRequest,
+        transaction: &TempoTransactionRequest,
         mut env: Env,
         journaled_state: &mut JournaledState,
         inspector: &mut dyn InspectorExt,

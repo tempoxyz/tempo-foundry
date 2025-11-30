@@ -4613,7 +4613,6 @@ name = "forge-script"
 version = "1.5.0"
 dependencies = [
  "alloy-chains",
- "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-eips",
  "alloy-json-abi",
@@ -4649,6 +4648,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tempo-alloy",
  "tempo-precompiles",
  "thiserror 2.0.17",
  "tokio",
@@ -4660,7 +4660,6 @@ dependencies = [
 name = "forge-script-sequence"
 version = "1.5.0"
 dependencies = [
- "alloy-network",
  "alloy-primitives",
  "eyre",
  "foundry-common",
@@ -4669,6 +4668,7 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
+ "tempo-alloy",
  "walkdir",
 ]
 
@@ -4811,6 +4811,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solar-compiler",
+ "tempo-alloy",
  "tempo-revm",
  "thiserror 2.0.17",
  "toml 0.9.8",
@@ -5197,6 +5198,7 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
+ "tempo-alloy",
  "tempo-chainspec",
  "tempo-evm",
  "tempo-precompiles",

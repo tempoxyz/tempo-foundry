@@ -1,25 +1,29 @@
 //! Wrappers for transactions.
 
-use alloy_consensus::{Transaction, TxEnvelope, transaction::SignerRecoverable};
+use alloy_consensus::{Transaction, transaction::SignerRecoverable};
 use alloy_eips::eip7702::SignedAuthorization;
-use alloy_network::AnyTransactionReceipt;
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_provider::{
     Provider,
-    network::{AnyNetwork, ReceiptResponse, TransactionBuilder},
+    network::{ReceiptResponse, TransactionBuilder},
 };
-use alloy_rpc_types::{BlockId, TransactionRequest};
+use alloy_rpc_types::BlockId;
 use alloy_serde::WithOtherFields;
 use eyre::Result;
 use foundry_common_fmt::UIfmt;
 use serde::{Deserialize, Serialize};
+use tempo_alloy::{
+    TempoNetwork,
+    rpc::{TempoTransactionReceipt, TempoTransactionRequest},
+};
+use tempo_primitives::TempoTxEnvelope;
 
 /// Helper type to carry a transaction along with an optional revert reason
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionReceiptWithRevertReason {
     /// The underlying transaction receipt
     #[serde(flatten)]
-    pub receipt: AnyTransactionReceipt,
+    pub receipt: TempoTransactionReceipt,
 
     /// The revert reason string if the transaction status is failed
     #[serde(skip_serializing_if = "Option::is_none", rename = "revertReason")]
@@ -29,12 +33,12 @@ pub struct TransactionReceiptWithRevertReason {
 impl TransactionReceiptWithRevertReason {
     /// Returns if the status of the transaction is 0 (failure)
     pub fn is_failure(&self) -> bool {
-        !self.receipt.inner.inner.inner.receipt.status.coerce_status()
+        !self.receipt.inner.inner.receipt.success
     }
 
     /// Updates the revert reason field using `eth_call` and returns an Err variant if the revert
     /// reason was not successfully updated
-    pub async fn update_revert_reason<P: Provider<AnyNetwork>>(
+    pub async fn update_revert_reason<P: Provider<TempoNetwork>>(
         &mut self,
         provider: &P,
     ) -> Result<()> {
@@ -42,7 +46,7 @@ impl TransactionReceiptWithRevertReason {
         Ok(())
     }
 
-    async fn fetch_revert_reason<P: Provider<AnyNetwork>>(
+    async fn fetch_revert_reason<P: Provider<TempoNetwork>>(
         &self,
         provider: &P,
     ) -> Result<Option<String>> {
@@ -57,9 +61,8 @@ impl TransactionReceiptWithRevertReason {
             .ok_or_else(|| eyre::eyre!("transaction not found"))?;
 
         if let Some(block_hash) = self.receipt.block_hash {
-            let mut call_request: WithOtherFields<TransactionRequest> =
-                transaction.inner.inner.clone_inner().into();
-            call_request.set_from(transaction.inner.inner.signer());
+            let mut call_request: TempoTransactionRequest = transaction.inner.clone_inner().into();
+            call_request.set_from(transaction.inner.signer());
             match provider.call(call_request).block(BlockId::Hash(block_hash.into())).await {
                 Err(e) => return Ok(extract_revert_reason(e.to_string())),
                 Ok(_) => eyre::bail!("no revert reason as transaction succeeded"),
@@ -69,13 +72,13 @@ impl TransactionReceiptWithRevertReason {
     }
 }
 
-impl From<AnyTransactionReceipt> for TransactionReceiptWithRevertReason {
-    fn from(receipt: AnyTransactionReceipt) -> Self {
+impl From<TempoTransactionReceipt> for TransactionReceiptWithRevertReason {
+    fn from(receipt: TempoTransactionReceipt) -> Self {
         Self { receipt, revert_reason: None }
     }
 }
 
-impl From<TransactionReceiptWithRevertReason> for AnyTransactionReceipt {
+impl From<TransactionReceiptWithRevertReason> for TempoTransactionReceipt {
     fn from(receipt_with_reason: TransactionReceiptWithRevertReason) -> Self {
         receipt_with_reason.receipt
     }
@@ -107,29 +110,27 @@ chainId              {}
 gasLimit             {}
 gasPrice             {}
 input                {}
-maxFeePerBlobGas     {}
 maxFeePerGas         {}
 maxPriorityFeePerGas {}
 nonce                {}
 to                   {}
 type                 {}
 value                {}",
-                tx.access_list
+                tx.access_list()
                     .as_ref()
                     .map(|a| a.iter().collect::<Vec<_>>())
                     .unwrap_or_default()
                     .pretty(),
-                tx.chain_id.pretty(),
+                tx.chain_id().pretty(),
                 tx.gas_limit().unwrap_or_default(),
-                tx.gas_price.pretty(),
-                tx.input.input.pretty(),
-                tx.max_fee_per_blob_gas.pretty(),
-                tx.max_fee_per_gas.pretty(),
-                tx.max_priority_fee_per_gas.pretty(),
-                tx.nonce.pretty(),
-                tx.to.as_ref().map(|a| a.to()).unwrap_or_default().pretty(),
-                tx.transaction_type.unwrap_or_default(),
-                tx.value.pretty(),
+                tx.gas_price().pretty(),
+                tx.input().pretty(),
+                tx.max_fee_per_gas().pretty(),
+                tx.max_priority_fee_per_gas().pretty(),
+                tx.nonce().pretty(),
+                tx.to().unwrap_or_default().pretty(),
+                tx.inner.inner.transaction_type.unwrap_or_default(),
+                tx.value().pretty(),
             ),
         }
     }
@@ -153,23 +154,23 @@ pub fn get_pretty_tx_receipt_attr(
         "blockNumber" | "block_number" => Some(receipt.receipt.block_number.pretty()),
         "contractAddress" | "contract_address" => Some(receipt.receipt.contract_address.pretty()),
         "cumulativeGasUsed" | "cumulative_gas_used" => {
-            Some(receipt.receipt.inner.inner.inner.receipt.cumulative_gas_used.pretty())
+            Some(receipt.receipt.inner.inner.receipt.cumulative_gas_used.pretty())
         }
         "effectiveGasPrice" | "effective_gas_price" => {
             Some(receipt.receipt.effective_gas_price.to_string())
         }
         "gasUsed" | "gas_used" => Some(receipt.receipt.gas_used.to_string()),
-        "logs" => Some(receipt.receipt.inner.inner.inner.receipt.logs.as_slice().pretty()),
-        "logsBloom" | "logs_bloom" => Some(receipt.receipt.inner.inner.inner.logs_bloom.pretty()),
+        "logs" => Some(receipt.receipt.inner.inner.receipt.logs.as_slice().pretty()),
+        "logsBloom" | "logs_bloom" => Some(receipt.receipt.inner.inner.logs_bloom.pretty()),
         "root" | "stateRoot" | "state_root " => Some(receipt.receipt.state_root().pretty()),
-        "status" | "statusCode" | "status_code" => {
-            Some(receipt.receipt.inner.inner.inner.receipt.status.pretty())
-        }
+        "status" | "statusCode" | "status_code" => Some(receipt.receipt.inner.status().pretty()),
         "transactionHash" | "transaction_hash" => Some(receipt.receipt.transaction_hash.pretty()),
         "transactionIndex" | "transaction_index" => {
             Some(receipt.receipt.transaction_index.pretty())
         }
-        "type" | "transaction_type" => Some(receipt.receipt.inner.inner.r#type.to_string()),
+        "type" | "transaction_type" => {
+            Some(receipt.receipt.inner.inner.receipt.tx_type.to_string())
+        }
         "revertReason" | "revert_reason" => Some(receipt.revert_reason.pretty()),
         _ => None,
     }
@@ -183,21 +184,21 @@ pub fn get_pretty_tx_receipt_attr(
 pub enum TransactionMaybeSigned {
     Signed {
         #[serde(flatten)]
-        tx: TxEnvelope,
+        tx: TempoTxEnvelope,
         from: Address,
     },
-    Unsigned(WithOtherFields<TransactionRequest>),
+    Unsigned(WithOtherFields<TempoTransactionRequest>),
 }
 
 impl TransactionMaybeSigned {
     /// Creates a new (unsigned) transaction for broadcast
-    pub fn new(tx: WithOtherFields<TransactionRequest>) -> Self {
+    pub fn new(tx: WithOtherFields<TempoTransactionRequest>) -> Self {
         Self::Unsigned(tx)
     }
 
     /// Creates a new signed transaction for broadcast.
     pub fn new_signed(
-        tx: TxEnvelope,
+        tx: TempoTxEnvelope,
     ) -> core::result::Result<Self, alloy_consensus::crypto::RecoveryError> {
         let from = tx.recover_signer()?;
         Ok(Self::Signed { tx, from })
@@ -207,7 +208,7 @@ impl TransactionMaybeSigned {
         matches!(self, Self::Unsigned(_))
     }
 
-    pub fn as_unsigned_mut(&mut self) -> Option<&mut WithOtherFields<TransactionRequest>> {
+    pub fn as_unsigned_mut(&mut self) -> Option<&mut WithOtherFields<TempoTransactionRequest>> {
         match self {
             Self::Unsigned(tx) => Some(tx),
             _ => None,
@@ -217,28 +218,28 @@ impl TransactionMaybeSigned {
     pub fn from(&self) -> Option<Address> {
         match self {
             Self::Signed { from, .. } => Some(*from),
-            Self::Unsigned(tx) => tx.from,
+            Self::Unsigned(tx) => tx.from(),
         }
     }
 
     pub fn input(&self) -> Option<&Bytes> {
         match self {
             Self::Signed { tx, .. } => Some(tx.input()),
-            Self::Unsigned(tx) => tx.input.input(),
+            Self::Unsigned(tx) => tx.input(),
         }
     }
 
     pub fn to(&self) -> Option<TxKind> {
         match self {
             Self::Signed { tx, .. } => Some(tx.kind()),
-            Self::Unsigned(tx) => tx.to,
+            Self::Unsigned(tx) => tx.kind(),
         }
     }
 
     pub fn value(&self) -> Option<U256> {
         match self {
             Self::Signed { tx, .. } => Some(tx.value()),
-            Self::Unsigned(tx) => tx.value,
+            Self::Unsigned(tx) => tx.value(),
         }
     }
 
@@ -252,29 +253,31 @@ impl TransactionMaybeSigned {
     pub fn nonce(&self) -> Option<u64> {
         match self {
             Self::Signed { tx, .. } => Some(tx.nonce()),
-            Self::Unsigned(tx) => tx.nonce,
+            Self::Unsigned(tx) => tx.nonce(),
         }
     }
 
     pub fn authorization_list(&self) -> Option<Vec<SignedAuthorization>> {
         match self {
             Self::Signed { tx, .. } => tx.authorization_list().map(|auths| auths.to_vec()),
-            Self::Unsigned(tx) => tx.authorization_list.as_deref().map(|auths| auths.to_vec()),
+            Self::Unsigned(tx) => {
+                tx.inner.inner.authorization_list.as_deref().map(|auths| auths.to_vec())
+            }
         }
         .filter(|auths| !auths.is_empty())
     }
 }
 
-impl From<TransactionRequest> for TransactionMaybeSigned {
-    fn from(tx: TransactionRequest) -> Self {
+impl From<TempoTransactionRequest> for TransactionMaybeSigned {
+    fn from(tx: TempoTransactionRequest) -> Self {
         Self::new(WithOtherFields::new(tx))
     }
 }
 
-impl TryFrom<TxEnvelope> for TransactionMaybeSigned {
+impl TryFrom<TempoTxEnvelope> for TransactionMaybeSigned {
     type Error = alloy_consensus::crypto::RecoveryError;
 
-    fn try_from(tx: TxEnvelope) -> core::result::Result<Self, Self::Error> {
+    fn try_from(tx: TempoTxEnvelope) -> core::result::Result<Self, Self::Error> {
         Self::new_signed(tx)
     }
 }

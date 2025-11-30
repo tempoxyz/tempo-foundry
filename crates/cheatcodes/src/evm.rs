@@ -5,7 +5,6 @@ use crate::{
     Vm::*,
     inspector::{Ecx, RecordDebugStepInfo},
 };
-use alloy_consensus::TxEnvelope;
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_network::eip2718::EIP4844_TX_TYPE_ID;
 use alloy_primitives::{
@@ -49,6 +48,7 @@ use foundry_common::fmt::format_token_raw;
 use foundry_config::evm_spec_id;
 use record_debug_step::{convert_call_trace_ctx_to_debug_step, flatten_call_trace};
 use serde::Serialize;
+use tempo_alloy::primitives::TempoTxEnvelope;
 
 mod fork;
 pub(crate) mod mapping;
@@ -1016,7 +1016,7 @@ impl Cheatcode for getStorageAccessesCall {
 
 impl Cheatcode for broadcastRawTransactionCall {
     fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
-        let tx = TxEnvelope::decode(&mut self.data.as_ref())
+        let tx = TempoTxEnvelope::decode(&mut self.data.as_ref())
             .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
 
         let (db, journal, env) = ccx.ecx.as_db_env_and_journal();

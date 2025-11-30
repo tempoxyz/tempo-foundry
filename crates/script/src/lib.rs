@@ -127,6 +127,10 @@ pub struct ScriptArgs {
     #[arg(long)]
     pub skip_simulation: bool,
 
+    /// Fee token to use for transaction.
+    #[arg(long)]
+    pub fee_token: Option<Address>,
+
     /// Relative percentage to multiply gas estimates by.
     #[arg(long, short, default_value = "130")]
     pub gas_estimate_multiplier: u64,
@@ -235,7 +239,7 @@ impl ScriptArgs {
             evm_opts.sender = sender;
         }
 
-        let script_config = ScriptConfig::new(config, evm_opts).await?;
+        let script_config = ScriptConfig::new(config, evm_opts, self.fee_token).await?;
 
         Ok(PreprocessedState { args: self, script_config, script_wallets })
     }
@@ -578,10 +582,15 @@ pub struct ScriptConfig {
     pub sender_nonce: u64,
     /// Maps a rpc url to a backend
     pub backends: HashMap<String, Backend>,
+    pub fee_token: Option<Address>,
 }
 
 impl ScriptConfig {
-    pub async fn new(config: Config, evm_opts: EvmOpts) -> Result<Self> {
+    pub async fn new(
+        config: Config,
+        evm_opts: EvmOpts,
+        fee_token: Option<Address>,
+    ) -> Result<Self> {
         let sender_nonce = if let Some(fork_url) = evm_opts.fork_url.as_ref() {
             next_nonce(evm_opts.sender, fork_url, evm_opts.fork_block_number).await?
         } else {
@@ -589,7 +598,7 @@ impl ScriptConfig {
             1
         };
 
-        Ok(Self { config, evm_opts, sender_nonce, backends: HashMap::default() })
+        Ok(Self { config, evm_opts, sender_nonce, backends: HashMap::default(), fee_token })
     }
 
     pub async fn update_sender(&mut self, sender: Address) -> Result<()> {
@@ -663,6 +672,7 @@ impl ScriptConfig {
                             self.evm_opts.clone(),
                             Some(known_contracts),
                             Some(target),
+                            self.fee_token,
                         )
                         .into(),
                     )

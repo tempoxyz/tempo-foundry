@@ -14,6 +14,9 @@ echo -e "\n=== CREATE AND FUND ADDRESS ==="
 read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"'); cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL"; printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
 echo -e "\n=== FORGE SCRIPT deploy and verify ==="
 forge script script/Mail.s.sol --private-key $PK --broadcast --verify
+echo -e "\n=== FORGE SCRIPT deploy and verify with fee token ==="
+forge script --fee-token 0x20C0000000000000000000000000000000000002 script/Mail.s.sol --private-key $PK --broadcast --verify
+forge script --fee-token 0x20C0000000000000000000000000000000000003 script/Mail.s.sol --private-key $PK --broadcast --verify
 echo -e "\n=== FORGE CREATE and verify ==="
 forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
 echo -e "\n=== FORGE CREATE and verify with fee token ==="
