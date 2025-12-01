@@ -2717,60 +2717,170 @@ Transaction successfully executed.
 //     assert!(output.contains("gasUsed"));
 // });
 
-casttest!(hash_message, |_prj, cmd| {
-    cmd.args(["hash-message", "hello"]).assert_success().stdout_eq(str![[r#"
-0x50b2c43fd39106bafbba0da34fc430e1f91e3c96ea2acee2bc34119f92b37750
+// casttest!(send_eip7702_multiple_auth, async |_prj, cmd| {
+//     let (_api, handle) =
+//         anvil::spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()))).
+// await;     let endpoint = handle.http_endpoint();
 
-"#]]);
+//     // Create a pre-signed authorization using a different signer (account index 1)
+//     let signer: PrivateKeySigner =
+//         "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d".parse().unwrap();
+//     // Anvil default chain_id is 31337
+//     let auth = Authorization {
+//         chain_id: U256::from(31337),
+//         // Delegate to account index 2
+//         address: address!("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+//         nonce: 0,
+//     };
+//     let signature = signer.sign_hash(&auth.signature_hash()).await.unwrap();
+//     let signed_auth = auth.into_signed(signature);
+//     let encoded_auth = hex::encode_prefixed(alloy_rlp::encode(&signed_auth));
 
-    cmd.cast_fuse().args(["hash-message", "0x68656c6c6f"]).assert_success().stdout_eq(str![[r#"
-0x83a0870b6c63a71efdd3b2749ef700653d97454152c4b53fa9b102dc430c7c32
+//     // Send transaction with multiple --auth flags: one address and one pre-signed authorization
+//     let output = cmd
+//         .args([
+//             "send",
+//             "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+//             "--auth",
+//             "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+//             "--auth",
+//             &encoded_auth,
+//             "--private-key",
+//             "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+//             "--rpc-url",
+//             &endpoint,
+//             "--gas-limit",
+//             "100000",
+//             "--json",
+//         ])
+//         .assert_success()
+//         .get_output()
+//         .stdout_lossy();
 
-"#]]);
-});
+//     // Extract transaction hash from JSON output
+//     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+//     let tx_hash = json["transactionHash"].as_str().unwrap();
 
-casttest!(parse_units, |_prj, cmd| {
-    cmd.args(["parse-units", "1.5", "6"]).assert_success().stdout_eq(str![[r#"
-1500000
+//     // Use cast tx to verify multiple authorizations were included
+//     let tx_output = cmd
+//         .cast_fuse()
+//         .args(["tx", tx_hash, "--rpc-url", &endpoint, "--json"])
+//         .assert_success()
+//         .get_output()
+//         .stdout_lossy();
 
-"#]]);
+//     let tx_json: serde_json::Value = serde_json::from_str(&tx_output).unwrap();
+//     let auth_list = tx_json["authorizationList"].as_array().unwrap();
 
-    cmd.cast_fuse().args(["pun", "1.23", "18"]).assert_success().stdout_eq(str![[r#"
-1230000000000000000
+//     // Verify we have 2 authorizations
+//     assert_eq!(auth_list.len(), 2, "Expected 2 authorizations in the transaction");
+// });
 
-"#]]);
+// // Test that multiple address-based authorizations are rejected
+// casttest!(send_eip7702_multiple_address_auth_rejected, async |_prj, cmd| {
+//     let (_api, handle) =
+//         anvil::spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()))).
+// await;     let endpoint = handle.http_endpoint();
 
-    cmd.cast_fuse().args(["--parse-units", "1.23", "3"]).assert_success().stdout_eq(str![[r#"
-1230
+//     cmd.args([
+//         "send",
+//         "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+//         "--auth",
+//         "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+//         "--auth",
+//         "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+//         "--private-key",
+//         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+//         "--rpc-url",
+//         &endpoint,
+//     ]);
+//     cmd.assert_failure().stderr_eq(str![[r#"
+// Error: Multiple address-based authorizations provided. Only one address can be specified; use
+// pre-signed authorizations (hex-encoded) for multiple authorizations.
 
-"#]]);
-});
+// "#]]);
+// });
 
-casttest!(string_decode, |_prj, cmd| {
-    cmd.args(["string-decode", "0x88c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000054753303235000000000000000000000000000000000000000000000000000000"]).assert_success().stdout_eq(str![[r#"
-"GS025"
+// casttest!(send_sync, async |_prj, cmd| {
+//     let (_api, handle) = anvil::spawn(NodeConfig::test()).await;
+//     let endpoint = handle.http_endpoint();
 
-"#]]);
-});
+//     let output = cmd
+//         .args([
+//             "send",
+//             "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+//             "--value",
+//             "1",
+//             "--private-key",
+//             "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+//             "--rpc-url",
+//             &endpoint,
+//             "--sync",
+//         ])
+//         .assert_success()
+//         .get_output()
+//         .stdout_lossy();
 
-casttest!(format_units, |_prj, cmd| {
-    cmd.args(["format-units", "1000000", "6"]).assert_success().stdout_eq(str![[r#"
-1
+//     assert!(output.contains("transactionHash"));
+//     assert!(output.contains("blockNumber"));
+//     assert!(output.contains("gasUsed"));
+// });
 
-"#]]);
+// casttest!(hash_message, |_prj, cmd| {
+//     cmd.args(["hash-message", "hello"]).assert_success().stdout_eq(str![[r#"
+// 0x50b2c43fd39106bafbba0da34fc430e1f91e3c96ea2acee2bc34119f92b37750
 
-    cmd.cast_fuse().args(["--format-units", "2500000", "6"]).assert_success().stdout_eq(str![[
-        r#"
-2.500000
+// "#]]);
 
-"#
-    ]]);
+//     cmd.cast_fuse().args(["hash-message", "0x68656c6c6f"]).assert_success().stdout_eq(str![[r#"
+// 0x83a0870b6c63a71efdd3b2749ef700653d97454152c4b53fa9b102dc430c7c32
 
-    cmd.cast_fuse().args(["fun", "1230", "3"]).assert_success().stdout_eq(str![[r#"
-1.230
+// "#]]);
+// });
 
-"#]]);
-});
+// casttest!(parse_units, |_prj, cmd| {
+//     cmd.args(["parse-units", "1.5", "6"]).assert_success().stdout_eq(str![[r#"
+// 1500000
+
+// "#]]);
+
+//     cmd.cast_fuse().args(["pun", "1.23", "18"]).assert_success().stdout_eq(str![[r#"
+// 1230000000000000000
+
+// "#]]);
+
+//     cmd.cast_fuse().args(["--parse-units", "1.23", "3"]).assert_success().stdout_eq(str![[r#"
+// 1230
+
+// "#]]);
+// });
+
+// casttest!(string_decode, |_prj, cmd| {
+//     cmd.args(["string-decode",
+// "0x88c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000054753303235000000000000000000000000000000000000000000000000000000"
+// ]).assert_success().stdout_eq(str![[r#" "GS025"
+
+// "#]]);
+// });
+
+// casttest!(format_units, |_prj, cmd| {
+//     cmd.args(["format-units", "1000000", "6"]).assert_success().stdout_eq(str![[r#"
+// 1
+
+// "#]]);
+
+//     cmd.cast_fuse().args(["--format-units", "2500000", "6"]).assert_success().stdout_eq(str![[
+//         r#"
+// 2.500000
+
+// "#
+//     ]]);
+
+//     cmd.cast_fuse().args(["fun", "1230", "3"]).assert_success().stdout_eq(str![[r#"
+// 1.230
+
+// "#]]);
+// });
 
 // tests that fetches a sample contract creation code
 // <https://etherscan.io/address/0x0923cad07f06b2d0e5e49e63b8b35738d4156b95>

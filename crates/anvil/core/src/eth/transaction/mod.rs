@@ -189,8 +189,14 @@ pub fn has_optimism_fields(other: &OtherFields) -> bool {
 /// [TypedTransaction::impersonated_hash] can be created.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MaybeImpersonatedTransaction {
-    pub transaction: TypedTransaction,
-    pub impersonated_sender: Option<Address>,
+    transaction: TypedTransaction,
+    impersonated_sender: Option<Address>,
+}
+
+impl Typed2718 for MaybeImpersonatedTransaction {
+    fn ty(&self) -> u8 {
+        self.transaction.ty()
+    }
 }
 
 impl Typed2718 for MaybeImpersonatedTransaction {

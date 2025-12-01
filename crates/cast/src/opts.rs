@@ -1,13 +1,10 @@
-use crate::{
-    cmd::{
-        access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
-        bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs,
-        create2::Create2Args, creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs,
-        estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs,
-        logs::LogsArgs, mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs,
-        storage::StorageArgs, txpool::TxPoolSubcommands, wallet::WalletSubcommands,
-    },
-    tempo::erc20::Erc20TempoSubcommand,
+use crate::cmd::{
+    access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
+    bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs, create2::Create2Args,
+    creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs, erc20::Erc20Subcommand,
+    estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs,
+    mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
+    txpool::TxPoolSubcommands, wallet::WalletSubcommands,
 };
 use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Selector, U256};
@@ -1148,7 +1145,7 @@ pub enum CastSubcommand {
     #[command(visible_alias = "erc20", aliases = ["tip20"])]
     Erc20Token {
         #[command(subcommand)]
-        command: Erc20TempoSubcommand,
+        command: Erc20Subcommand,
     },
 }
 

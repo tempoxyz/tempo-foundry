@@ -2,22 +2,21 @@ use std::{str::FromStr, time::Duration};
 
 use alloy_ens::NameOrAddress;
 use alloy_network::EthereumWallet;
-use alloy_primitives::Address;
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
-    opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig, get_tempo_provider, parse_fee_token_address},
+    opts::TransactionOpts,
+    utils::{LoadConfig, get_tempo_provider},
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 use crate::{
     CastTxSender,
-    tx::{self, CastTxBuilder},
+    tx::{self, CastTxBuilder, SendTxOpts},
 };
 
 /// CLI arguments for `cast send`.
@@ -36,22 +35,8 @@ pub struct SendTxArgs {
     #[arg(allow_negative_numbers = true)]
     args: Vec<String>,
 
-    /// Only print the transaction hash and exit immediately.
-    #[arg(id = "async", long = "async", alias = "cast-async", env = "CAST_ASYNC")]
-    cast_async: bool,
-
-    /// Wait for transaction receipt synchronously instead of polling.
-    /// Note: uses `eth_sendTransactionSync` which may not be supported by all clients.
-    #[arg(long, conflicts_with = "async")]
-    sync: bool,
-
-    /// The number of confirmations until the receipt is fetched.
-    #[arg(long, default_value = "1")]
-    confirmations: u64,
-
-    /// Polling interval for transaction receipts (in seconds).
-    #[arg(long, alias = "poll-interval", env = "ETH_POLL_INTERVAL")]
-    poll_interval: Option<u64>,
+    #[command(flatten)]
+    send_tx: SendTxOpts,
 
     #[command(subcommand)]
     command: Option<SendTxSubcommands>,
@@ -60,19 +45,8 @@ pub struct SendTxArgs {
     #[arg(long, requires = "from")]
     unlocked: bool,
 
-    /// Timeout for sending the transaction.
-    #[arg(long, env = "ETH_TIMEOUT")]
-    pub timeout: Option<u64>,
-
     #[command(flatten)]
     tx: TransactionOpts,
-
-    #[command(flatten)]
-    eth: EthereumOpts,
-
-    /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
-    fee_token: Option<Address>,
 }
 
 #[derive(Debug, Parser)]
@@ -94,21 +68,7 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
-        let Self {
-            eth,
-            to,
-            mut sig,
-            cast_async,
-            sync,
-            mut args,
-            tx,
-            confirmations,
-            command,
-            unlocked,
-            timeout,
-            poll_interval,
-            fee_token,
-        } = self;
+        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked } = self;
 
         let code = if let Some(SendTxSubcommands::Create {
             code,
@@ -131,10 +91,10 @@ impl SendTxArgs {
             None
         };
 
-        let config = eth.load_config()?;
+        let config = send_tx.eth.load_config()?;
         let provider = get_tempo_provider(&config)?;
 
-        if let Some(interval) = poll_interval {
+        if let Some(interval) = send_tx.poll_interval {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
@@ -145,13 +105,13 @@ impl SendTxArgs {
             .with_code_sig_and_args(code, sig, args)
             .await?;
 
-        let timeout = timeout.unwrap_or(config.transaction_timeout);
+        let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
 
         // Case 1:
         // Default to sending via eth_sendTransaction if the --unlocked flag is passed.
         // This should be the only way this RPC method is used as it requires a local node
         // or remote RPC with unlocked accounts.
-        if unlocked && !eth.wallet.browser {
+        if unlocked && !send_tx.eth.wallet.browser {
             // only check current chain id if it was specified in the config
             if let Some(config_chain) = config.chain {
                 let current_chain_id = provider.get_chain_id().await?;
@@ -171,33 +131,47 @@ impl SendTxArgs {
                 }
             }
 
-            let (tx, _) = builder.build(config.sender, fee_token).await?;
+            let (tx, _) = builder.build(config.sender, send_tx.fee_token).await?;
 
-            cast_send(provider, tx, cast_async, sync, confirmations, timeout).await
+            cast_send(
+                provider,
+                tx,
+                send_tx.cast_async,
+                send_tx.sync,
+                send_tx.confirmations,
+                timeout,
+            )
+            .await
         // Case 2:
         // An option to use a local signer was provided.
         // If we cannot successfully instantiate a local signer, then we will assume we don't have
         // enough information to sign and we must bail.
         } else {
             // Retrieve the signer, and bail if it can't be constructed.
-            let signer = eth.wallet.signer().await?;
+            let signer = send_tx.eth.wallet.signer().await?;
             let from = signer.address();
 
-            tx::validate_from_address(eth.wallet.from, from)?;
+            tx::validate_from_address(send_tx.eth.wallet.from, from)?;
 
             // Browser wallets work differently as they sign and send the transaction in one step.
-            if eth.wallet.browser
+            if send_tx.eth.wallet.browser
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
-                let (tx_request, _) = builder.build(from, fee_token).await?;
+                let (tx_request, _) = builder.build(from, send_tx.fee_token).await?;
                 let tx_hash =
                     browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
 
-                if cast_async {
+                if send_tx.cast_async {
                     sh_println!("{tx_hash:#x}")?;
                 } else {
                     let receipt = CastTxSender::new(&provider)
-                        .receipt(format!("{tx_hash:#x}"), None, confirmations, Some(timeout), false)
+                        .receipt(
+                            format!("{tx_hash:#x}"),
+                            None,
+                            send_tx.confirmations,
+                            Some(timeout),
+                            false,
+                        )
                         .await?;
                     sh_println!("{receipt}")?;
                 }
@@ -205,19 +179,27 @@ impl SendTxArgs {
                 return Ok(());
             }
 
-            let (tx_request, _) = builder.build(&signer, fee_token).await?;
+            let (tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
 
             let wallet = EthereumWallet::from(signer);
             let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
                 .wallet(wallet)
                 .connect_provider(&provider);
 
-            cast_send(provider, tx_request, cast_async, sync, confirmations, timeout).await
+            cast_send(
+                provider,
+                tx_request,
+                send_tx.cast_async,
+                send_tx.sync,
+                send_tx.confirmations,
+                timeout,
+            )
+            .await
         }
     }
 }
 
-pub async fn cast_send<P: Provider<TempoNetwork>>(
+pub(crate) async fn cast_send<P: Provider<TempoNetwork>>(
     provider: P,
     tx: WithOtherFields<TempoTransactionRequest>,
     cast_async: bool,
