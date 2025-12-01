@@ -51,6 +51,11 @@ pub fn parse_fee_token_address(address_or_suffix: &str) -> eyre::Result<Address>
         return Ok(addr);
     }
 
-    let zeros = "0".repeat(37 - address_or_suffix.len());
-    Ok(Address::from_str(format!("0x20C{zeros}{address_or_suffix}").as_str())?)
+    Ok(Address::from_str(
+        format!(
+            "0x20C{}{address_or_suffix}",
+            "0".repeat(37usize.saturating_sub(address_or_suffix.len()))
+        )
+        .as_str(),
+    )?)
 }
