@@ -1,5 +1,3 @@
-use std::env;
-
 const TESTNET_URL: &str = "https://eng:zealous-mayer@rpc.testnet.tempo.xyz";
 
 casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
