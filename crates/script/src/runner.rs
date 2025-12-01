@@ -284,7 +284,9 @@ impl ScriptRunner {
         let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
         let mut storage_provider =
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
-        let token_id = {
+
+        // Create PathUSD token
+        let (path_usd_token_address, path_usd_token_id) = {
             let mut tip20_factory = TIP20Factory::new(&mut storage_provider);
             tip20_factory.initialize().expect("Could not initialize tip20 factory");
             let token_address = tip20_factory
@@ -300,13 +302,41 @@ impl ScriptRunner {
                 )
                 .expect("Could not create token");
 
-            address_to_token_id_unchecked(token_address)
+            (token_address, address_to_token_id_unchecked(token_address))
         };
-        let mut path_usd = TIP20Token::new(token_id, &mut storage_provider);
+
+        let mut path_usd = TIP20Token::new(path_usd_token_id, &mut storage_provider);
         path_usd
             .grant_role_internal(admin, *ISSUER_ROLE)
             .expect("failed to grant ISSUER_ROLE to admin");
         path_usd
+            .mint(admin, ITIP20::mintCall { to: sender, amount: U256::from(u64::MAX) })
+            .expect("failed to mint initial supply to sender");
+
+        // Create AlphaUSD token
+        let (_alpha_usd_token_address, alpha_usd_token_id) = {
+            let mut tip20_factory = TIP20Factory::new(&mut storage_provider);
+            let token_address = tip20_factory
+                .create_token(
+                    admin,
+                    ITIP20Factory::createTokenCall {
+                        name: "AlphaUSD".to_string(),
+                        symbol: "AlphaUSD".to_string(),
+                        currency: "USD".to_string(),
+                        quoteToken: path_usd_token_address,
+                        admin,
+                    },
+                )
+                .expect("Could not create token");
+
+            (token_address, address_to_token_id_unchecked(token_address))
+        };
+
+        let mut alpha_usd = TIP20Token::new(alpha_usd_token_id, &mut storage_provider);
+        alpha_usd
+            .grant_role_internal(admin, *ISSUER_ROLE)
+            .expect("failed to grant ISSUER_ROLE to admin");
+        alpha_usd
             .mint(admin, ITIP20::mintCall { to: sender, amount: U256::from(u64::MAX) })
             .expect("failed to mint initial supply to sender");
     }

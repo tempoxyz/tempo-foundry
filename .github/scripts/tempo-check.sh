@@ -25,13 +25,13 @@ echo -e "\n=== FORGE SCRIPT (FORK) ==="
 forge script script/Mail.s.sol
 
 # echo -e "\n=== CREATE AND FUND ADDRESS ==="
-# read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"'); cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL"; printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
+read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"'); cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL"; printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
 
 # echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
-# sleep 5
+sleep 5
 
-# echo -e "\n=== FORGE SCRIPT DEPLOY AND VERIFY ==="
-# forge script script/Mail.s.sol --private-key $PK --broadcast --verify
+# echo -e "\n=== FORGE SCRIPT DEPLOY ==="
+forge script script/Mail.s.sol --private-key $PK --broadcast
 
-# echo -e "\n=== FORGE CREATE DEPLOY AND VERIFY ==="
-# forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
+# echo -e "\n=== FORGE CREATE DEPLOY ==="
+forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --constructor-args 0x20c0000000000000000000000000000000000000

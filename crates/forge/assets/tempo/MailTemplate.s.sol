@@ -13,6 +13,9 @@ contract MailScript is Script {
     function run() public {
         if (vm.envExists("TEMPO_RPC_URL")) {
             vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
+
+            vm.broadcast();
+            StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN_ADDRESS);
         }
 
         vm.startBroadcast();
