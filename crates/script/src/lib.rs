@@ -18,6 +18,7 @@ use alloy_primitives::{
     map::{AddressHashMap, HashMap},
 };
 use alloy_signer::Signer;
+use alloy_sol_types::sol;
 use broadcast::next_nonce;
 use build::PreprocessedState;
 use clap::{Parser, ValueHint};
@@ -32,6 +33,7 @@ use foundry_cli::{
 use foundry_common::{
     CONTRACT_MAX_SIZE, ContractsByArtifact, SELECTOR_LEN,
     abi::{encode_function_args, get_func},
+    provider::tempo::TempoRetryProvider,
     shell,
 };
 use foundry_compilers::ArtifactId;
@@ -72,6 +74,27 @@ mod verify;
 
 // Loads project's figment and merges the build cli arguments into it
 foundry_config::merge_impl_figment_convert!(ScriptArgs, build, evm);
+
+const DEFAULT_FEE_TOKEN_SYMBOL: &str = "AlphaUSD";
+
+sol! {
+    #[sol(rpc)]
+    interface IERC20 {
+        function symbol() external view returns (string);
+    }
+}
+
+/// Get Tempo fee token symbol.
+async fn get_fee_token_symbol(provider: &TempoRetryProvider, fee_token: Option<Address>) -> String {
+    match fee_token {
+        Some(addr) => IERC20::new(addr, &provider)
+            .symbol()
+            .call()
+            .await
+            .unwrap_or_else(|_| DEFAULT_FEE_TOKEN_SYMBOL.to_string()),
+        None => DEFAULT_FEE_TOKEN_SYMBOL.to_string(),
+    }
+}
 
 /// CLI arguments for `forge script`.
 #[derive(Clone, Debug, Default, Parser)]

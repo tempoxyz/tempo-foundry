@@ -1,4 +1,4 @@
-use alloy_chains::{Chain, NamedChain};
+use alloy_chains::Chain;
 use alloy_primitives::{TxHash, U256, utils::format_units};
 use alloy_provider::{PendingTransactionBuilder, PendingTransactionError, Provider, WatchTxError};
 use eyre::{Result, eyre};
@@ -89,7 +89,11 @@ pub async fn check_tx_status(
 }
 
 /// Prints parts of the receipt to stdout
-pub fn format_receipt(chain: Chain, receipt: &TempoTransactionReceipt) -> String {
+pub fn format_receipt(
+    chain: Chain,
+    receipt: &TempoTransactionReceipt,
+    fee_token_symbol: String,
+) -> String {
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
     let block_number = receipt.block_number.unwrap_or_default();
@@ -131,14 +135,10 @@ pub fn format_receipt(chain: Chain, receipt: &TempoTransactionReceipt) -> String
                     .unwrap_or_else(|_| "N/A".into());
                 let gas_price =
                     format_units(U256::from(gas_price), 9).unwrap_or_else(|_| "N/A".into());
-                let token_symbol = NamedChain::try_from(chain)
-                    .unwrap_or_default()
-                    .native_currency_symbol()
-                    .unwrap_or("ETH");
                 format!(
                     "Paid: {} {} ({gas_used} gas * {} gwei)",
                     paid.trim_end_matches('0'),
-                    token_symbol,
+                    fee_token_symbol,
                     gas_price.trim_end_matches('0').trim_end_matches('.')
                 )
             },

@@ -1,10 +1,10 @@
 use std::{cmp::Ordering, sync::Arc, time::Duration};
 
 use crate::{
-    ScriptArgs, ScriptConfig, build::LinkedBuildData, progress::ScriptProgress,
-    sequence::ScriptSequenceKind, verify::BroadcastedState,
+    ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
+    progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
 };
-use alloy_chains::{Chain, NamedChain};
+use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
 use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
@@ -236,12 +236,15 @@ impl BundledState {
             .map(|(sequence_idx, sequence)| async move {
                 let rpc_url = sequence.rpc_url();
                 let provider = Arc::new(get_tempo_http_provider(rpc_url));
+                let fee_token_symbol =
+                    get_fee_token_symbol(&provider, self.script_config.fee_token).await;
                 progress_ref
                     .wait_for_pending(
                         sequence_idx,
                         sequence,
                         &provider,
                         self.script_config.config.transaction_timeout,
+                        fee_token_symbol,
                     )
                     .await
             })
@@ -312,6 +315,8 @@ impl BundledState {
             let mut sequence = self.sequence.sequences_mut().get_mut(i).unwrap();
 
             let provider = Arc::new(try_get_tempo_http_provider(sequence.rpc_url())?);
+            let fee_token_symbol =
+                get_fee_token_symbol(&provider, self.script_config.fee_token).await;
             let already_broadcasted = sequence.receipts.len();
 
             let seq_progress = progress.get_sequence_progress(i, sequence);
@@ -487,6 +492,7 @@ impl BundledState {
                                 sequence,
                                 &provider,
                                 self.script_config.config.transaction_timeout,
+                                fee_token_symbol.clone(),
                             )
                             .await?
                     }
@@ -506,14 +512,10 @@ impl BundledState {
             let avg_gas_price = format_units(total_gas_price / sequence.receipts.len() as u64, 9)
                 .unwrap_or_else(|_| "N/A".to_string());
 
-            let token_symbol = NamedChain::try_from(sequence.chain)
-                .unwrap_or_default()
-                .native_currency_symbol()
-                .unwrap_or("ETH");
             seq_progress.inner.write().set_status(&format!(
                 "Total Paid: {} {} ({} gas * avg {} gwei)\n",
                 paid.trim_end_matches('0'),
-                token_symbol,
+                fee_token_symbol.clone(),
                 total_gas,
                 avg_gas_price.trim_end_matches('0').trim_end_matches('.')
             ));
