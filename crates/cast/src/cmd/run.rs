@@ -16,7 +16,7 @@ use foundry_cli::{
     opts::{EtherscanOpts, RpcOpts},
     utils::{TraceResult, init_progress},
 };
-use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_known_system_sender, shell};
+use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_impersonated_tx, is_known_system_sender, shell};
 use foundry_compilers::artifacts::EvmVersion;
 use foundry_config::{
     Config,
@@ -285,6 +285,9 @@ impl RunArgs {
             executor.set_trace_printer(self.trace_printer);
 
             configure_tempo_tx_req_env(&mut env, &tx)?;
+            if is_impersonated_tx(tx.inner.inner()) {
+                env.evm_env.cfg_env.disable_balance_check = true;
+            }
 
             if let Some(to) = Transaction::to(&tx) {
                 trace!(tx=?tx.tx_hash(), to=?to, "executing call transaction");
