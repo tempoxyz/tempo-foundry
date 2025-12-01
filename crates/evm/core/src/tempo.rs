@@ -19,12 +19,20 @@ pub struct FoundryStorageProvider<'a> {
     chain_id: u64,
     timestamp: U256,
     gas_used: u64,
+    gas_refunded: i64,
     transient: HashMap<(Address, U256), U256>,
 }
 
 impl<'a> FoundryStorageProvider<'a> {
     pub fn new(backend: &'a mut Backend, chain_id: u64, timestamp: U256) -> Self {
-        Self { backend, chain_id, timestamp, gas_used: 0, transient: HashMap::new() }
+        Self {
+            backend,
+            chain_id,
+            timestamp,
+            gas_used: 0,
+            gas_refunded: 0,
+            transient: HashMap::new(),
+        }
     }
 }
 
@@ -106,6 +114,14 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
 
     fn gas_used(&self) -> u64 {
         self.gas_used
+    }
+
+    fn gas_refunded(&self) -> i64 {
+        self.gas_refunded
+    }
+
+    fn refund_gas(&mut self, gas: i64) {
+        self.gas_refunded = self.gas_refunded.saturating_add(gas);
     }
 
     fn beneficiary(&self) -> Address {

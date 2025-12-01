@@ -34,6 +34,7 @@ use std::{
     time::Instant,
 };
 use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_revm::TempoHaltReason;
 
 mod diagnostic;
 pub use diagnostic::RevertDiagnostic;
@@ -775,7 +776,7 @@ impl Backend {
         &mut self,
         env: &mut Env,
         inspector: I,
-    ) -> eyre::Result<ResultAndState> {
+    ) -> eyre::Result<ResultAndState<TempoHaltReason>> {
         self.initialize(env);
         let mut evm = crate::evm::new_evm_with_inspector(self, env.to_owned(), inspector);
 
