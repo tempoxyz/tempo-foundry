@@ -32,16 +32,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Prepare artifact directory
+      - name: Set Isolated Artifact Directory
         id: paths
         run: |
           set -euo pipefail
-          ARTIFACT_DIR="$RUNNER_TEMP/foundry_artifacts"
+          printf 'artifact_dir=%s\n' "$RUNNER_TEMP/foundry_artifacts" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Isolated Artifact Directory
+        env:
+          ARTIFACT_DIR: ${{ steps.paths.outputs.artifact_dir }}
+        run: |
           mkdir -p "$ARTIFACT_DIR"
-          printf 'artifact_dir=%s\n' "$ARTIFACT_DIR" >> "$GITHUB_OUTPUT"
           ls -la "$ARTIFACT_DIR" || true
 
-      - name: Download release artifacts from run_id
+      - name: Download Release Assets
         uses: actions/download-artifact@v6
         with:
             merge-multiple: true
