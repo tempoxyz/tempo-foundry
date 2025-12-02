@@ -15,7 +15,10 @@ use foundry_evm::{
 };
 use foundry_evm_core::tempo::FoundryStorageProvider;
 use revm::state::{AccountInfo, Bytecode};
-use tempo_precompiles::path_usd::PathUSD;
+use tempo_precompiles::{
+    path_usd::PathUSD,
+    tip20::{ISSUER_ROLE, ITIP20},
+};
 
 use super::{ScriptConfig, ScriptResult};
 use crate::build::ScriptPredeployLibraries;
@@ -281,7 +284,14 @@ impl ScriptRunner {
         let mut storage_provider =
             FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
         let mut path_usd = PathUSD::new(&mut storage_provider);
-        path_usd.initialize(admin).expect("failed to initialize path_usd");
+        path_usd.initialize(admin).expect("PathUSD initialization should succeed");
+        path_usd
+            .token
+            .grant_role_internal(admin, *ISSUER_ROLE)
+            .expect("failed to grant ISSUER_ROLE to admin");
+        path_usd
+            .mint(admin, ITIP20::mintCall { to: admin, amount: U256::from(u64::MAX) })
+            .expect("failed to mint initial supply to admin");
     }
 
     /// Executes the method that will collect all broadcastable transactions.
