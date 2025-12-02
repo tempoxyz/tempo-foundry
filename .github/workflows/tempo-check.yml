@@ -49,7 +49,7 @@ jobs:
 
       - name: Run Tempo check
         env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_RPC_URL }}
+          _TEMPO_RPC_URL: ${{ secrets.TEMPO_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
           TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
         run: |
