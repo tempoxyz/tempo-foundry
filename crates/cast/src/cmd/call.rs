@@ -365,6 +365,7 @@ impl CallArgs {
                 debug,
                 decode_internal,
                 disable_labels,
+                None,
             )
             .await?;
 
