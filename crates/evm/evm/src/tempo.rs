@@ -55,60 +55,15 @@ pub fn initialize_tempo_precompiles_and_contracts(
     }
 
     // Set bytecode for all contracts
-    let bytecode = Bytecode::new_legacy(Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
-    executor.backend_mut().insert_account_info(
-        MULTICALL_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    let bytecode = Bytecode::new_legacy(Bytes::from_static(&CreateX::DEPLOYED_BYTECODE));
-    executor.backend_mut().insert_account_info(
-        CREATEX_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    let bytecode = Bytecode::new_legacy(Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE));
-    executor.backend_mut().insert_account_info(
+    insert_contract(executor, MULTICALL_ADDRESS, Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
+    insert_contract(executor, CREATEX_ADDRESS, Bytes::from_static(&CreateX::DEPLOYED_BYTECODE));
+    insert_contract(
+        executor,
         SAFE_DEPLOYER_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
+        Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE),
     );
-
-    let bytecode = Bytecode::new_legacy(Bytes::from_static(&Permit2::DEPLOYED_BYTECODE));
-    executor.backend_mut().insert_account_info(
-        PERMIT2_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    let bytecode = Bytecode::new_legacy(ARACHNID_CREATE2_FACTORY_BYTECODE);
-    executor.backend_mut().insert_account_info(
-        ARACHNID_CREATE2_FACTORY_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
+    insert_contract(executor, PERMIT2_ADDRESS, Bytes::from_static(&Permit2::DEPLOYED_BYTECODE));
+    insert_contract(executor, ARACHNID_CREATE2_FACTORY_ADDRESS, ARACHNID_CREATE2_FACTORY_BYTECODE);
 
     // Initialize validator config
     executor
@@ -150,6 +105,20 @@ pub fn initialize_tempo_precompiles_and_contracts(
     )?;
 
     Ok(())
+}
+
+/// Helper function to insert a contract's bytecode into the executor's state.
+fn insert_contract(executor: &mut Executor, addr: Address, bytes: Bytes) {
+    let bytecode = Bytecode::new_legacy(bytes);
+    executor.backend_mut().insert_account_info(
+        addr,
+        AccountInfo {
+            code_hash: bytecode.hash_slow(),
+            code: Some(bytecode),
+            nonce: 1,
+            ..Default::default()
+        },
+    );
 }
 
 /// Helper function to create and mint a TIP20 token.
