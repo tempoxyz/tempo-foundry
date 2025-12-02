@@ -4,6 +4,11 @@ use foundry_evm_core::{
     tempo::FoundryStorageProvider,
 };
 use revm::state::{AccountInfo, Bytecode};
+use tempo_contracts::{
+    ARACHNID_CREATE2_FACTORY_ADDRESS, CREATEX_ADDRESS, CreateX, MULTICALL_ADDRESS, Multicall,
+    PERMIT2_ADDRESS, Permit2, SAFE_DEPLOYER_ADDRESS, SafeDeployer,
+    contracts::ARACHNID_CREATE2_FACTORY_BYTECODE,
+};
 use tempo_precompiles::{
     NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS, TIP_ACCOUNT_REGISTRAR,
     TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS,
@@ -11,7 +16,6 @@ use tempo_precompiles::{
     error::TempoPrecompileError,
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
     tip20_factory::{ITIP20Factory, TIP20Factory},
-    tip403_registry::TIP403Registry,
     validator_config,
 };
 
@@ -47,6 +51,62 @@ pub fn initialize_tempo_precompiles(executor: &mut Executor) -> Result<(), Tempo
             },
         );
     }
+
+    // Set bytecode for all contracts
+    let bytecode = Bytecode::new_legacy(Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
+    executor.backend_mut().insert_account_info(
+        MULTICALL_ADDRESS,
+        AccountInfo {
+            code_hash: bytecode.hash_slow(),
+            code: Some(bytecode),
+            nonce: 1,
+            ..Default::default()
+        },
+    );
+
+    let bytecode = Bytecode::new_legacy(Bytes::from_static(&CreateX::DEPLOYED_BYTECODE));
+    executor.backend_mut().insert_account_info(
+        CREATEX_ADDRESS,
+        AccountInfo {
+            code_hash: bytecode.hash_slow(),
+            code: Some(bytecode),
+            nonce: 1,
+            ..Default::default()
+        },
+    );
+
+    let bytecode = Bytecode::new_legacy(Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE));
+    executor.backend_mut().insert_account_info(
+        SAFE_DEPLOYER_ADDRESS,
+        AccountInfo {
+            code_hash: bytecode.hash_slow(),
+            code: Some(bytecode),
+            nonce: 1,
+            ..Default::default()
+        },
+    );
+
+    let bytecode = Bytecode::new_legacy(Bytes::from_static(&Permit2::DEPLOYED_BYTECODE));
+    executor.backend_mut().insert_account_info(
+        PERMIT2_ADDRESS,
+        AccountInfo {
+            code_hash: bytecode.hash_slow(),
+            code: Some(bytecode),
+            nonce: 1,
+            ..Default::default()
+        },
+    );
+
+    let bytecode = Bytecode::new_legacy(ARACHNID_CREATE2_FACTORY_BYTECODE);
+    executor.backend_mut().insert_account_info(
+        ARACHNID_CREATE2_FACTORY_ADDRESS,
+        AccountInfo {
+            code_hash: bytecode.hash_slow(),
+            code: Some(bytecode),
+            nonce: 1,
+            ..Default::default()
+        },
+    );
 
     // Initialize validator config
     executor
