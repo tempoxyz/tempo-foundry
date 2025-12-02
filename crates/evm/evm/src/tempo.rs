@@ -147,30 +147,6 @@ pub fn initialize_tempo_precompiles(executor: &mut Executor) -> Result<(), Tempo
         U256::from(u64::MAX),
     )?;
 
-    // Create BetaUSD token
-    let _beta_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
-        "BetaUSD",
-        "BetaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
-
-    // Create ThetaUSD token
-    let _theta_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
-        "ThetaUSD",
-        "ThetaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
-
     Ok(())
 }
 
