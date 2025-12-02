@@ -19,7 +19,6 @@ foundry-cli.workspace = true
 foundry-config.workspace = true
 foundry-common.workspace = true
 foundry-evm.workspace = true
-foundry-evm-core.workspace = true
 foundry-debugger.workspace = true
 foundry-cheatcodes.workspace = true
 foundry-wallets.workspace = true
@@ -56,9 +55,6 @@ alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-consensus.workspace = true
 thiserror.workspace = true
-
-tempo-precompiles.workspace = true
-revm.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
