@@ -223,13 +223,12 @@ foundry-wallets = { path = "crates/wallets" }
 foundry-linking = { path = "crates/linking" }
 foundry-primitives = { path = "crates/primitives" }
 
+# solc & compilation utilities
+foundry-block-explorers = { version = "0.22.0", default-features = false }
 foundry-compilers = { version = "0.19.6", default-features = false, features = [
   "rustls",
   "svm-solc",
 ] }
-
-# solc & compilation utilities
-foundry-block-explorers = { version = "0.22.0", default-features = false }
 foundry-fork-db = "0.21"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
@@ -264,8 +263,8 @@ alloy-transport = { version = "1.1.2", default-features = false }
 alloy-transport-http = { version = "1.1.2", default-features = false }
 alloy-transport-ipc = { version = "1.1.2", default-features = false }
 alloy-transport-ws = { version = "1.1.2", default-features = false }
-alloy-op-hardforks = { version = "0.4.4", default-features = false }
 alloy-hardforks = { version = "0.4.4", default-features = false }
+alloy-op-hardforks = { version = "0.4.4", default-features = false }
 
 ## alloy-core
 alloy-dyn-abi = "1.4.1"
