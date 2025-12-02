@@ -1,0 +1,88 @@
+name: upload
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        type: string
+        required: true
+        description: The run id of the release workflow to publish
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  upload-r2:
+    name: Upload binaries to R2
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare artifact directory
+        id: paths
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$RUNNER_TEMP/foundry_artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+          printf 'artifact_dir=%s\n' "$ARTIFACT_DIR" >> "$GITHUB_OUTPUT"
+          ls -la "$ARTIFACT_DIR" || true
+
+      - name: Download release artifacts from run_id
+        uses: actions/download-artifact@v6
+        with:
+            merge-multiple: true
+            # Download all foundry artifacts from the triggering release run
+            pattern: "foundry_*"
+            # Extract artifacts into an isolated temp directory, not the workspace
+            path: ${{ steps.paths.outputs.artifact_dir }}
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
+
+      - name: Organize binaries
+        env:
+          ARTIFACT_DIR: ${{ steps.paths.outputs.artifact_dir }}
+        run: |
+          set -euo pipefail
+          mkdir -p binaries/foundry
+
+          # Move all platform archives into the foundry directory
+          find "$ARTIFACT_DIR" \
+            \( -name "foundry_*.tar.gz" -o -name "foundry_*.zip" \) \
+            -print -exec mv {} binaries/foundry/ \;
+
+          echo "Contents of binaries/foundry:"
+          ls -la binaries/foundry/
+
+      - name: Upload binaries to R2
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.R2_BINARIES_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.R2_BINARIES_SECRET_KEY }}
+          aws_bucket: ${{ secrets.R2_BINARIES_BUCKET }}
+          endpoint: ${{ secrets.R2_BINARIES_ENDPOINT }}
+          source_dir: "binaries/foundry"
+          destination_dir: "binaries/foundry"
+
+      - name: Upload foundryup scripts to R2
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.R2_BINARIES_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.R2_BINARIES_SECRET_KEY }}
+          aws_bucket: ${{ secrets.R2_BINARIES_BUCKET }}
+          endpoint: ${{ secrets.R2_BINARIES_ENDPOINT }}
+          source_dir: "foundryup"
+          destination_dir: "foundryup"
