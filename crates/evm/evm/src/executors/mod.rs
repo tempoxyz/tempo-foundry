@@ -50,7 +50,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tempo_revm::{TempoBlockEnv, TempoTxEnv};
+use tempo_revm::{TempoBlockEnv, TempoHaltReason, TempoTxEnv};
 
 mod builder;
 pub use builder::ExecutorBuilder;
@@ -1040,7 +1040,7 @@ impl std::ops::DerefMut for CallResult {
 fn convert_executed_result(
     env: Env,
     inspector: InspectorStack,
-    ResultAndState { result, state: state_changeset }: ResultAndState,
+    ResultAndState { result, state: state_changeset }: ResultAndState<TempoHaltReason>,
     has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
@@ -1052,7 +1052,11 @@ fn convert_executed_result(
             (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
         }
         ExecutionResult::Halt { reason, gas_used } => {
-            (reason.into(), 0_u64, gas_used, None, vec![])
+            let instruction_result = match reason {
+                TempoHaltReason::Ethereum(halt) => halt.into(),
+                TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
+            };
+            (instruction_result, 0_u64, gas_used, None, vec![])
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(

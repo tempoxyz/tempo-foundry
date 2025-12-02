@@ -35,7 +35,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
-use tempo_revm::{TempoBlockEnv, evm::TempoContext};
+use tempo_revm::{TempoBlockEnv, TempoHaltReason, evm::TempoContext};
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
@@ -767,7 +767,11 @@ impl InspectorStackRefMut<'_> {
             }
             ExecutionResult::Halt { reason, gas_used } => {
                 let _ = gas.record_cost(gas_used);
-                (reason.into(), None, Bytes::new())
+                let instruction_result = match reason {
+                    TempoHaltReason::Ethereum(halt) => halt.into(),
+                    TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
+                };
+                (instruction_result, None, Bytes::new())
             }
             ExecutionResult::Revert { gas_used, output } => {
                 let _ = gas.record_cost(gas_used);

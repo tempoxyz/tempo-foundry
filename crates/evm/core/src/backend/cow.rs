@@ -24,6 +24,7 @@ use revm::{
     state::{Account, AccountInfo},
 };
 use std::{borrow::Cow, collections::BTreeMap};
+use tempo_evm::TempoHaltReason;
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
 ///
@@ -68,7 +69,7 @@ impl<'a> CowBackend<'a> {
         &mut self,
         env: &mut Env,
         inspector: I,
-    ) -> eyre::Result<ResultAndState> {
+    ) -> eyre::Result<ResultAndState<TempoHaltReason>> {
         // this is a new call to inspect with a new env, so even if we've cloned the backend
         // already, we reset the initialized state
         self.is_initialized = false;
