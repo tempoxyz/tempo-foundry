@@ -11,6 +11,7 @@ use tempo_precompiles::{
     error::TempoPrecompileError,
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
     tip20_factory::{ITIP20Factory, TIP20Factory},
+    tip403_registry::TIP403Registry,
     validator_config,
 };
 
@@ -19,6 +20,8 @@ use crate::executors::Executor;
 /// Initialize Tempo precompiles for the given executor.
 /// This initialization should be kept aligned with Tempo's genesis file to ensure
 /// executor environments accurately reflect production behavior.
+///
+/// Ref: <https://github.com/tempoxyz/tempo/blob/main/xtask/src/genesis_args.rs>
 pub fn initialize_tempo_precompiles(executor: &mut Executor) -> Result<(), TempoPrecompileError> {
     let sender = CALLER;
     let admin = TEST_CONTRACT_ADDRESS;
@@ -45,6 +48,7 @@ pub fn initialize_tempo_precompiles(executor: &mut Executor) -> Result<(), Tempo
         );
     }
 
+    // Initialize validator config
     executor
         .backend_mut()
         .insert_account_storage(
@@ -60,58 +64,83 @@ pub fn initialize_tempo_precompiles(executor: &mut Executor) -> Result<(), Tempo
         FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp);
 
     // Create PathUSD token
-    let (path_usd_token_address, path_usd_token_id) = {
-        let mut tip20_factory = TIP20Factory::new(&mut storage_provider);
-        let token_address = tip20_factory
-            .create_token(
-                admin,
-                ITIP20Factory::createTokenCall {
-                    name: "PathUSD".to_string(),
-                    symbol: "PathUSD".to_string(),
-                    currency: "USD".to_string(),
-                    quoteToken: Address::ZERO,
-                    admin,
-                },
-            )
-            .expect("Could not create token");
-
-        (token_address, address_to_token_id_unchecked(token_address))
-    };
-
-    let mut path_usd = TIP20Token::new(path_usd_token_id, &mut storage_provider);
-    path_usd
-        .grant_role_internal(admin, *ISSUER_ROLE)
-        .expect("failed to grant ISSUER_ROLE to admin");
-    path_usd
-        .mint(admin, ITIP20::mintCall { to: sender, amount: U256::from(u64::MAX) })
-        .expect("failed to mint initial supply to sender");
+    let path_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "PathUSD",
+        "PathUSD",
+        "USD",
+        Address::ZERO,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
 
     // Create AlphaUSD token
-    let (_alpha_usd_token_address, alpha_usd_token_id) = {
-        let mut tip20_factory = TIP20Factory::new(&mut storage_provider);
-        let token_address = tip20_factory
-            .create_token(
-                admin,
-                ITIP20Factory::createTokenCall {
-                    name: "AlphaUSD".to_string(),
-                    symbol: "AlphaUSD".to_string(),
-                    currency: "USD".to_string(),
-                    quoteToken: path_usd_token_address,
-                    admin,
-                },
-            )
-            .expect("Could not create token");
+    let _alpha_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "AlphaUSD",
+        "AlphaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
 
-        (token_address, address_to_token_id_unchecked(token_address))
-    };
+    // Create BetaUSD token
+    let _beta_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "BetaUSD",
+        "BetaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
 
-    let mut alpha_usd = TIP20Token::new(alpha_usd_token_id, &mut storage_provider);
-    alpha_usd
-        .grant_role_internal(admin, *ISSUER_ROLE)
-        .expect("failed to grant ISSUER_ROLE to admin");
-    alpha_usd
-        .mint(admin, ITIP20::mintCall { to: sender, amount: U256::from(u64::MAX) })
-        .expect("failed to mint initial supply to sender");
+    // Create ThetaUSD token
+    let _theta_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "ThetaUSD",
+        "ThetaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
 
     Ok(())
+}
+
+/// Helper function to create and mint a TIP20 token.
+#[expect(clippy::too_many_arguments)]
+fn create_and_mint_token(
+    storage_provider: &mut FoundryStorageProvider<'_>,
+    symbol: &str,
+    name: &str,
+    currency: &str,
+    quote_token: Address,
+    admin: Address,
+    recipient: Address,
+    mint_amount: U256,
+) -> Result<Address, TempoPrecompileError> {
+    let mut tip20_factory = TIP20Factory::new(storage_provider);
+    let token_address = tip20_factory.create_token(
+        admin,
+        ITIP20Factory::createTokenCall {
+            name: name.to_string(),
+            symbol: symbol.to_string(),
+            currency: currency.to_string(),
+            quoteToken: quote_token,
+            admin,
+        },
+    )?;
+    let token_id = address_to_token_id_unchecked(token_address);
+    let mut token = TIP20Token::new(token_id, storage_provider);
+    token.grant_role_internal(admin, *ISSUER_ROLE)?;
+    token.mint(admin, ITIP20::mintCall { to: recipient, amount: mint_amount })?;
+
+    Ok(token_address)
 }
