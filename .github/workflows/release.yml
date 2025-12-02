@@ -271,6 +271,8 @@ jobs:
     name: Upload binaries to R2
     runs-on: ubuntu-latest
     needs: [prepare, release]
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
