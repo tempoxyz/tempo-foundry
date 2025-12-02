@@ -294,6 +294,7 @@ revm-inspectors = { version = "0.33.0", features = ["serde"] }
 op-revm = { version = "14.1.0", default-features = false }
 
 # tempo
+tempo-alloy = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
 tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
 tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
 tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }

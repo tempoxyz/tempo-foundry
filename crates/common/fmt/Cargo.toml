@@ -19,6 +19,7 @@ alloy-dyn-abi = { workspace = true, features = ["eip712"] }
 eyre.workspace = true
 
 # ui
+tempo-alloy.workspace = true
 alloy-consensus.workspace = true
 alloy-network.workspace = true
 alloy-rpc-types = { workspace = true, features = ["eth"] }

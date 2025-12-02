@@ -1,5 +1,5 @@
 use crate::{
-    Cast, SimpleCast,
+    Cast, CastTxSender, SimpleCast,
     cmd::erc20::IERC20,
     opts::{Cast as CastArgs, CastSubcommand, ToBaseArgs},
     traces::identifier::SignaturesIdentifier,
@@ -523,10 +523,10 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
         }
         CastSubcommand::Receipt { tx_hash, field, cast_async, confirmations, rpc } => {
             let config = rpc.load_config()?;
-            let provider = utils::get_provider(&config)?;
+            let provider = utils::get_tempo_provider(&config)?;
             sh_println!(
                 "{}",
-                Cast::new(provider)
+                CastTxSender::new(provider)
                     .receipt(tx_hash, field, confirmations, None, cast_async)
                     .await?
             )?

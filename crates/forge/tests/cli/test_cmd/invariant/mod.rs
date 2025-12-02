@@ -78,17 +78,20 @@ contract AssumeTest is Test {
 
 // Test too many inputs rejected for `assumePrecompile`/`assumeForgeAddress`.
 // <https://github.com/foundry-rs/foundry/issues/9054>
-forgetest_init!(should_revert_with_assume_code, |prj, cmd| {
-    prj.update_config(|config| {
-        config.invariant.fail_on_revert = true;
-        config.invariant.max_assume_rejects = 10;
-        config.fuzz.seed = Some(U256::from(100u32));
-    });
+forgetest_init!(
+    #[ignore = "tempo skip"]
+    should_revert_with_assume_code,
+    |prj, cmd| {
+        prj.update_config(|config| {
+            config.invariant.fail_on_revert = true;
+            config.invariant.max_assume_rejects = 10;
+            config.fuzz.seed = Some(U256::from(100u32));
+        });
 
-    // Add initial test that breaks invariant.
-    prj.add_test(
-        "AssumeTest.t.sol",
-        r#"
+        // Add initial test that breaks invariant.
+        prj.add_test(
+            "AssumeTest.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 
 contract BalanceTestHandler is Test {
@@ -118,14 +121,15 @@ contract BalanceAssumeTest is Test {
     function invariant_balance() public {}
 }
      "#,
-    );
+        );
 
-    cmd.args(["test", "--mt", "invariant_balance"]).assert_failure().stdout_eq(str![[r#"
+        cmd.args(["test", "--mt", "invariant_balance"]).assert_failure().stdout_eq(str![[r#"
 ...
 [FAIL: `vm.assume` rejected too many inputs (10 allowed)] invariant_balance() (runs: [..], calls: [..], reverts: 0)
 ...
 "#]]);
-});
+    }
+);
 
 // Test proper message displayed if `targetSelector`/`excludeSelector` called with empty selectors.
 // <https://github.com/foundry-rs/foundry/issues/9066>

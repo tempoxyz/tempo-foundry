@@ -31,6 +31,9 @@ mod abi;
 pub use abi::*;
 
 mod allocator;
+mod tempo;
+pub use tempo::*;
+
 pub use allocator::*;
 
 // reexport all `foundry_config::utils`

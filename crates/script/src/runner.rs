@@ -1,10 +1,14 @@
 use std::collections::VecDeque;
 
+use super::{ScriptConfig, ScriptResult};
+use crate::build::ScriptPredeployLibraries;
 use alloy_eips::eip7702::SignedAuthorization;
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_rpc_types::TransactionRequest;
+use alloy_serde::WithOtherFields;
 use eyre::Result;
 use foundry_cheatcodes::BroadcastableTransaction;
+use foundry_common::TransactionMaybeSigned;
 use foundry_config::Config;
 use foundry_evm::{
     constants::CALLER,
@@ -14,9 +18,7 @@ use foundry_evm::{
     tempo::initialize_tempo_precompiles_and_contracts,
     traces::{TraceKind, Traces},
 };
-
-use super::{ScriptConfig, ScriptResult};
-use crate::build::ScriptPredeployLibraries;
+use tempo_alloy::rpc::TempoTransactionRequest;
 
 /// Drives script execution
 #[derive(Debug)]
@@ -79,13 +81,17 @@ impl ScriptRunner {
 
                 library_transactions.push_back(BroadcastableTransaction {
                     rpc: self.evm_opts.fork_url.clone(),
-                    transaction: TransactionRequest {
-                        from: Some(self.evm_opts.sender),
-                        input: code.clone().into(),
-                        nonce: Some(sender_nonce + library_transactions.len() as u64),
-                        ..Default::default()
-                    }
-                    .into(),
+                    transaction: TransactionMaybeSigned::new(WithOtherFields::new(
+                        TempoTransactionRequest {
+                            inner: TransactionRequest {
+                                from: Some(self.evm_opts.sender),
+                                input: code.clone().into(),
+                                nonce: Some(sender_nonce + library_transactions.len() as u64),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                    )),
                 })
             }),
             ScriptPredeployLibraries::Create2(libraries, salt) => {
@@ -113,14 +119,18 @@ impl ScriptRunner {
 
                     library_transactions.push_back(BroadcastableTransaction {
                         rpc: self.evm_opts.fork_url.clone(),
-                        transaction: TransactionRequest {
-                            from: Some(self.evm_opts.sender),
-                            input: calldata.into(),
-                            nonce: Some(sender_nonce + library_transactions.len() as u64),
-                            to: Some(TxKind::Call(create2_deployer)),
-                            ..Default::default()
-                        }
-                        .into(),
+                        transaction: TransactionMaybeSigned::new(WithOtherFields::new(
+                            TempoTransactionRequest {
+                                inner: TransactionRequest {
+                                    from: Some(self.evm_opts.sender),
+                                    input: calldata.into(),
+                                    nonce: Some(sender_nonce + library_transactions.len() as u64),
+                                    to: Some(TxKind::Call(create2_deployer)),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            },
+                        )),
                     });
                 }
 

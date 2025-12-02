@@ -2,7 +2,7 @@ use crate::cmd::install;
 use alloy_chains::Chain;
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt, Specifier};
 use alloy_json_abi::{Constructor, JsonAbi};
-use alloy_network::{AnyNetwork, AnyTransactionReceipt, EthereumWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, Bytes, hex};
 use alloy_provider::{PendingTransactionError, Provider, ProviderBuilder};
 use alloy_rpc_types::TransactionRequest;
@@ -14,7 +14,10 @@ use eyre::{Context, Result};
 use forge_verify::{RetryArgs, VerifierArgs, VerifyArgs};
 use foundry_cli::{
     opts::{BuildOpts, EthereumOpts, EtherscanOpts, TransactionOpts},
-    utils::{self, LoadConfig, find_contract_artifacts, read_constructor_args_file},
+    utils::{
+        self, LoadConfig, find_contract_artifacts, parse_fee_token_address,
+        read_constructor_args_file,
+    },
 };
 use foundry_common::{
     compile::{self},
@@ -34,6 +37,10 @@ use foundry_config::{
 };
 use serde_json::json;
 use std::{borrow::Borrow, marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
+use tempo_alloy::{
+    TempoNetwork,
+    rpc::{TempoTransactionReceipt, TempoTransactionRequest},
+};
 
 merge_impl_figment_convert!(CreateArgs, build, eth);
 
@@ -98,6 +105,10 @@ pub struct CreateArgs {
 
     #[command(flatten)]
     retry: RetryArgs,
+
+    /// Fee token to use for transaction.
+    #[arg(long, value_parser = parse_fee_token_address)]
+    pub fee_token: Option<Address>,
 }
 
 impl CreateArgs {
@@ -155,7 +166,7 @@ impl CreateArgs {
             vec![]
         };
 
-        let provider = utils::get_provider(&config)?;
+        let provider = utils::get_tempo_provider(&config)?;
 
         // respect chain, if set explicitly via cmd args
         let chain_id = if let Some(chain_id) = self.chain_id() {
@@ -186,7 +197,7 @@ impl CreateArgs {
             // Deploy with signer
             let signer = self.eth.wallet.signer().await?;
             let deployer = signer.address();
-            let provider = ProviderBuilder::<_, _, AnyNetwork>::default()
+            let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
                 .wallet(EthereumWallet::new(signer))
                 .connect_provider(provider);
             self.deploy(
@@ -268,7 +279,7 @@ impl CreateArgs {
 
     /// Deploys the contract
     #[expect(clippy::too_many_arguments)]
-    async fn deploy<P: Provider<AnyNetwork>>(
+    async fn deploy<P: Provider<TempoNetwork>>(
         self,
         abi: JsonAbi,
         bin: BytecodeObject,
@@ -290,7 +301,7 @@ impl CreateArgs {
 
         let is_args_empty = args.is_empty();
         let mut deployer =
-            factory.deploy_tokens(args.clone()).context("failed to deploy contract").map_err(|e| {
+            factory.deploy_tokens(args.clone(), self.fee_token).context("failed to deploy contract").map_err(|e| {
                 if is_args_empty {
                     e.wrap_err("no arguments provided for contract constructor; consider --constructor-args or --constructor-args-path")
                 } else {
@@ -302,7 +313,7 @@ impl CreateArgs {
         deployer.tx.set_from(deployer_address);
         deployer.tx.set_chain_id(chain);
         // `to` field must be set explicitly, cannot be None.
-        if deployer.tx.to.is_none() {
+        if deployer.tx.to().is_none() {
             deployer.tx.set_create();
         }
         deployer.tx.set_nonce(if let Some(nonce) = self.tx.nonce {
@@ -316,10 +327,11 @@ impl CreateArgs {
             deployer.tx.set_value(value);
         }
 
+        let tempo_tx = deployer.tx.inner.clone();
         deployer.tx.set_gas_limit(if let Some(gas_limit) = self.tx.gas_limit {
             Ok(gas_limit.to())
         } else {
-            provider.estimate_gas(deployer.tx.clone()).await
+            provider.estimate_gas(tempo_tx).await
         }?);
 
         if is_legacy {
@@ -520,23 +532,23 @@ impl<P, C> From<Deployer<P>> for ContractDeploymentTx<P, C> {
 #[must_use = "Deployer does nothing unless you `send` it"]
 pub struct Deployer<P> {
     /// The deployer's transaction, exposed for overriding the defaults
-    pub tx: WithOtherFields<TransactionRequest>,
+    pub tx: WithOtherFields<TempoTransactionRequest>,
     client: P,
     confs: usize,
     timeout: u64,
 }
 
-impl<P: Provider<AnyNetwork>> Deployer<P> {
+impl<P: Provider<TempoNetwork>> Deployer<P> {
     /// Broadcasts the contract deployment transaction and after waiting for it to
     /// be sufficiently confirmed (default: 1), it returns a tuple with the [`Address`] at the
     /// deployed contract's address and the corresponding [`AnyTransactionReceipt`].
     pub async fn send_with_receipt(
         self,
-    ) -> Result<(Address, AnyTransactionReceipt), ContractDeploymentError> {
+    ) -> Result<(Address, TempoTransactionReceipt), ContractDeploymentError> {
         let receipt = self
             .client
             .borrow()
-            .send_transaction(self.tx)
+            .send_transaction(self.tx.inner)
             .await?
             .with_required_confirmations(self.confs as u64)
             .with_timeout(Some(Duration::from_secs(self.timeout)))
@@ -561,7 +573,7 @@ pub struct DeploymentTxFactory<P> {
     timeout: u64,
 }
 
-impl<P: Provider<AnyNetwork> + Clone> DeploymentTxFactory<P> {
+impl<P: Provider<TempoNetwork> + Clone> DeploymentTxFactory<P> {
     /// Creates a factory for deployment of the Contract with bytecode, and the
     /// constructor defined in the abi. The client will be used to send any deployment
     /// transaction.
@@ -574,6 +586,7 @@ impl<P: Provider<AnyNetwork> + Clone> DeploymentTxFactory<P> {
     pub fn deploy_tokens(
         self,
         params: Vec<DynSolValue>,
+        fee_token: Option<Address>,
     ) -> Result<Deployer<P>, ContractDeploymentError> {
         // Encode the constructor args & concatenate with the bytecode if necessary
         let data: Bytes = match (self.abi.constructor(), params.is_empty()) {
@@ -590,8 +603,11 @@ impl<P: Provider<AnyNetwork> + Clone> DeploymentTxFactory<P> {
         };
 
         // create the tx object. Since we're deploying a contract, `to` is `None`
-        let tx = WithOtherFields::new(TransactionRequest::default().input(data.into()));
-
+        let tx = WithOtherFields::new(TempoTransactionRequest {
+            inner: TransactionRequest::default().input(data.into()),
+            fee_token,
+            ..Default::default()
+        });
         Ok(Deployer { client: self.client.clone(), tx, confs: 1, timeout: self.timeout })
     }
 }

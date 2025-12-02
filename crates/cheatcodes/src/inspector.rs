@@ -72,6 +72,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
+use tempo_alloy::rpc::TempoTransactionRequest;
 use tempo_revm::{TempoBlockEnv, TempoInvalidTransaction, evm::TempoContext};
 
 mod utils;
@@ -910,14 +911,18 @@ impl Cheatcodes {
                     let account =
                         ecx.journaled_state.inner.state().get_mut(&broadcast.new_origin).unwrap();
 
-                    let mut tx_req = TransactionRequest {
-                        from: Some(broadcast.new_origin),
-                        to: Some(TxKind::from(Some(call.target_address))),
-                        value: call.transfer_value(),
-                        input,
-                        nonce: Some(account.info.nonce),
-                        chain_id: Some(ecx.cfg.chain_id),
-                        gas: if is_fixed_gas_limit { Some(call.gas_limit) } else { None },
+                    let mut tx_req = TempoTransactionRequest {
+                        inner: TransactionRequest {
+                            from: Some(broadcast.new_origin),
+                            to: Some(TxKind::from(Some(call.target_address))),
+                            value: call.transfer_value(),
+                            input,
+                            nonce: Some(account.info.nonce),
+                            chain_id: Some(ecx.cfg.chain_id),
+                            gas: if is_fixed_gas_limit { Some(call.gas_limit) } else { None },
+                            ..Default::default()
+                        },
+                        fee_token: self.config.fee_token,
                         ..Default::default()
                     };
 
@@ -938,7 +943,7 @@ impl Cheatcodes {
                                 precompile_call_logs: vec![],
                             });
                         }
-                        tx_req.set_blob_sidecar(blob_sidecar);
+                        tx_req.inner.set_blob_sidecar(blob_sidecar);
                     }
 
                     // Apply active EIP-7702 delegations, if any.
@@ -953,7 +958,7 @@ impl Cheatcodes {
                                 account.info.nonce += 1;
                             }
                         }
-                        tx_req.authorization_list = Some(active_delegations);
+                        tx_req.inner.authorization_list = Some(active_delegations);
                     }
 
                     self.broadcastable_transactions.push_back(BroadcastableTransaction {
@@ -1702,12 +1707,16 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
                 let account = &ecx.journaled_state.inner.state()[&broadcast.new_origin];
                 self.broadcastable_transactions.push_back(BroadcastableTransaction {
                     rpc: ecx.journaled_state.database.active_fork_url(),
-                    transaction: TransactionRequest {
-                        from: Some(broadcast.new_origin),
-                        to: None,
-                        value: Some(input.value()),
-                        input: TransactionInput::new(input.init_code()),
-                        nonce: Some(account.info.nonce),
+                    transaction: TempoTransactionRequest {
+                        inner: TransactionRequest {
+                            from: Some(broadcast.new_origin),
+                            to: None,
+                            value: Some(input.value()),
+                            input: TransactionInput::new(input.init_code()),
+                            nonce: Some(account.info.nonce),
+                            ..Default::default()
+                        },
+                        fee_token: self.config.fee_token,
                         ..Default::default()
                     }
                     .into(),

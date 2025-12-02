@@ -45,6 +45,8 @@ alloy-json-abi.workspace = true
 dialoguer.workspace = true
 indicatif.workspace = true
 
+alloy-sol-types.workspace = true
+alloy-contract.workspace = true
 alloy-signer.workspace = true
 alloy-serde.workspace = true
 alloy-network.workspace = true
@@ -53,8 +55,9 @@ alloy-chains.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
-alloy-consensus.workspace = true
 thiserror.workspace = true
+
+tempo-alloy.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
