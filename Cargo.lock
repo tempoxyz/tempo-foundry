@@ -1733,7 +1733,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "tracing",
- "uuid 1.18.1",
+ "uuid 1.19.0",
 ]
 
 [[package]]
@@ -2251,9 +2251,9 @@ checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
 
 [[package]]
 name = "bitcoin-io"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b47c4ab7a93edb0c7198c5535ed9b52b63095f4e9b45279c6736cec4b856baf"
+checksum = "2dee39a0ee5b4095224a0cfc6bf4cc1baf0f9624b96b367e53b66d974e51d953"
 
 [[package]]
 name = "bitcoin_hashes"
@@ -4729,24 +4729,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "foundry-bench"
-version = "1.5.0"
-dependencies = [
- "chrono",
- "clap",
- "color-eyre",
- "eyre",
- "foundry-common",
- "foundry-compilers",
- "foundry-test-utils",
- "once_cell",
- "rayon",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "foundry-block-explorers"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5142,7 +5124,7 @@ dependencies = [
  "tempo-revm",
  "thiserror 2.0.17",
  "tracing",
- "uuid 1.18.1",
+ "uuid 1.19.0",
 ]
 
 [[package]]
@@ -5334,6 +5316,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "foundry-primitives"
+version = "1.5.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-evm",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types",
+ "alloy-serde",
+ "op-alloy-consensus",
+ "op-revm",
+ "revm",
+ "serde_json",
+]
+
+[[package]]
 name = "foundry-solang-parser"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5409,7 +5408,7 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
- "uuid 1.18.1",
+ "uuid 1.19.0",
  "webbrowser",
 ]
 
@@ -7502,7 +7501,7 @@ dependencies = [
  "rustc_version 0.4.1",
  "smallvec",
  "tagptr",
- "uuid 1.18.1",
+ "uuid 1.19.0",
 ]
 
 [[package]]
@@ -7570,7 +7569,7 @@ version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c012d14ef788ab066a347d19e3dda699916c92293b05b85ba2c76b8c82d2830"
 dependencies = [
- "uuid 1.18.1",
+ "uuid 1.19.0",
 ]
 
 [[package]]
@@ -8101,7 +8100,7 @@ dependencies = [
  "opentelemetry-http",
  "opentelemetry-proto",
  "opentelemetry_sdk",
- "prost 0.14.2",
+ "prost 0.14.1",
  "reqwest",
  "thiserror 2.0.17",
  "tokio",
@@ -8117,7 +8116,7 @@ checksum = "a7175df06de5eaee9909d4805a3d07e28bb752c34cab57fa9cff549da596b30f"
 dependencies = [
  "opentelemetry",
  "opentelemetry_sdk",
- "prost 0.14.2",
+ "prost 0.14.1",
  "tonic 0.14.2",
  "tonic-prost",
 ]
@@ -8847,12 +8846,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.14.2"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "101fec8d036f8d9d4a1e8ebf90d566d1d798f3b1aa379d2576a54a0d9acea5bd"
+checksum = "7231bd9b3d3d33c86b58adbac74b5ec0ad9f496b19d22801d773636feaa95f3d"
 dependencies = [
  "bytes",
- "prost-derive 0.14.2",
+ "prost-derive 0.14.1",
 ]
 
 [[package]]
@@ -8883,9 +8882,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.14.2"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2d93e596a829ebe00afa41c3a056e6308d6b8a4c7d869edf184e2c91b1ba564"
+checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -8914,11 +8913,11 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.14.2"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5d7b7346e150de32340ae3390b8b3ffa37ad93ec31fb5dad86afe817619e4e7"
+checksum = "b9b4db3d6da204ed77bb26ba83b6122a73aeb2e87e25fbf7ad2e84c4ccbf8f72"
 dependencies = [
- "prost 0.14.2",
+ "prost 0.14.1",
 ]
 
 [[package]]
@@ -9003,7 +9002,7 @@ dependencies = [
  "quick-xml 0.38.4",
  "strip-ansi-escapes",
  "thiserror 2.0.17",
- "uuid 1.18.1",
+ "uuid 1.19.0",
 ]
 
 [[package]]
@@ -12556,8 +12555,8 @@ version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "662c7f8e99d46c9d3a87561d771a970c29efaccbab4bbdc6ab65d099d2358077"
 dependencies = [
- "prost 0.14.2",
- "prost-types 0.14.2",
+ "prost 0.14.1",
+ "prost-types 0.14.1",
  "serde",
  "serde_json",
  "zeroize",
@@ -13235,7 +13234,7 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "toml_edit 0.23.7",
- "uuid 1.18.1",
+ "uuid 1.19.0",
  "zip",
  "zip-extract",
 ]
@@ -14217,7 +14216,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66bd50ad6ce1252d87ef024b3d64fe4c3cf54a86fb9ef4c631fdd0ded7aeaa67"
 dependencies = [
  "bytes",
- "prost 0.14.2",
+ "prost 0.14.1",
  "tonic 0.14.2",
 ]
 
@@ -14275,7 +14274,7 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
- "uuid 1.18.1",
+ "uuid 1.19.0",
 ]
 
 [[package]]
@@ -14853,13 +14852,13 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.18.1"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
+checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
 dependencies = [
  "getrandom 0.3.4",
  "js-sys",
- "serde",
+ "serde_core",
  "wasm-bindgen",
 ]
 
