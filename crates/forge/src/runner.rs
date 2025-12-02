@@ -17,8 +17,7 @@ use foundry_common::{TestFunctionExt, TestFunctionKind, contracts::ContractsByAd
 use foundry_compilers::utils::canonicalized;
 use foundry_config::{Config, FuzzCorpusConfig};
 use foundry_evm::{
-    constants::{CALLER, TEST_CONTRACT_ADDRESS},
-    core::tempo::FoundryStorageProvider,
+    constants::CALLER,
     decode::RevertDecoder,
     executors::{
         CallResult, EvmError, Executor, ITest, RawCallResult,
@@ -31,14 +30,13 @@ use foundry_evm::{
         BasicTxDetails, CallDetails, CounterExample, FuzzFixtures, fixture_name,
         invariant::InvariantContract,
     },
+    tempo::initialize_tempo_precompiles_and_contracts,
     traces::{TraceKind, TraceMode, load_contracts},
 };
 use itertools::Itertools;
 use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
-use revm::state::{AccountInfo, Bytecode};
 use serde::{Deserialize, Serialize};
-use tempo_precompiles::path_usd::PathUSD;
 use tokio::signal;
 use tracing::Span;
 
@@ -166,8 +164,8 @@ impl<'a> ContractRunner<'a> {
         // construction
         self.executor.set_balance(address, self.initial_balance())?;
 
-        // HACK: We initialize Tempo precompiles
-        self.initialize_tempo_precompiles();
+        // Initialize Tempo precompiles and contracts
+        initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
 
         // Deploy the test contract
         let deploy_result = self.executor.deploy(
@@ -209,56 +207,6 @@ impl<'a> ContractRunner<'a> {
         result.fuzz_fixtures = self.fuzz_fixtures(address);
 
         Ok(result)
-    }
-
-    /// Initialize Tempo precompiles for test execution.
-    ///
-    /// This initialization should be kept aligned with Tempo's genesis file to ensure
-    /// test environments accurately reflect production behavior.
-    fn initialize_tempo_precompiles(&mut self) {
-        use tempo_precompiles::*;
-
-        let admin = TEST_CONTRACT_ADDRESS;
-
-        // Set bytecode for all precompiles (except PathUSD which gets it via initialize)
-        let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
-        for precompile in [
-            NONCE_PRECOMPILE_ADDRESS,
-            STABLECOIN_EXCHANGE_ADDRESS,
-            TIP20_FACTORY_ADDRESS,
-            TIP20_REWARDS_REGISTRY_ADDRESS,
-            TIP403_REGISTRY_ADDRESS,
-            TIP_ACCOUNT_REGISTRAR,
-            TIP_FEE_MANAGER_ADDRESS,
-            VALIDATOR_CONFIG_ADDRESS,
-        ] {
-            self.executor.backend_mut().insert_account_info(
-                precompile,
-                AccountInfo {
-                    code_hash: bytecode.hash_slow(),
-                    code: Some(bytecode.clone()),
-                    ..Default::default()
-                },
-            );
-        }
-
-        // Initialize validator config (still manual as it's simpler)
-        self.executor
-            .backend_mut()
-            .insert_account_storage(
-                VALIDATOR_CONFIG_ADDRESS,
-                validator_config::slots::OWNER,
-                admin.into_word().into(),
-            )
-            .expect("failed to initialize validator config state");
-
-        // Initialize PathUSD using canonical tempo initialization
-        let chain_id = self.executor.env().evm_env.cfg_env.chain_id;
-        let timestamp = U256::from(self.executor.env().evm_env.block_env.timestamp);
-        let mut storage_provider =
-            FoundryStorageProvider::new(self.executor.backend_mut(), chain_id, timestamp);
-        let mut path_usd = PathUSD::new(&mut storage_provider);
-        path_usd.initialize(admin).expect("failed to initialize path_usd");
     }
 
     fn initial_balance(&self) -> U256 {
