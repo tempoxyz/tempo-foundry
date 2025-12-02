@@ -3,7 +3,6 @@ use std::{str::FromStr, time::Duration};
 use alloy_ens::NameOrAddress;
 use alloy_network::EthereumWallet;
 use alloy_provider::{Provider, ProviderBuilder};
-use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::{Result, eyre};
@@ -135,7 +134,7 @@ impl SendTxArgs {
 
             cast_send(
                 provider,
-                tx,
+                tx.inner,
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,
@@ -188,7 +187,7 @@ impl SendTxArgs {
 
             cast_send(
                 provider,
-                tx_request,
+                tx_request.inner,
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,
@@ -201,7 +200,7 @@ impl SendTxArgs {
 
 pub(crate) async fn cast_send<P: Provider<TempoNetwork>>(
     provider: P,
-    tx: WithOtherFields<TempoTransactionRequest>,
+    tx: TempoTransactionRequest,
     cast_async: bool,
     sync: bool,
     confs: u64,

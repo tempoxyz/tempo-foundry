@@ -8,7 +8,6 @@ use crate::{
 use alloy_eips::BlockId;
 use alloy_ens::NameOrAddress;
 use alloy_primitives::U256;
-use alloy_serde::WithOtherFields;
 use alloy_sol_types::sol;
 use clap::Parser;
 use foundry_cli::{
@@ -309,7 +308,7 @@ impl Erc20Subcommand {
                 tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
-                    WithOtherFields::new(tx),
+                    tx,
                     send_tx.cast_async,
                     send_tx.sync,
                     send_tx.confirmations,
@@ -325,7 +324,7 @@ impl Erc20Subcommand {
                 tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
-                    WithOtherFields::new(tx),
+                    tx,
                     send_tx.cast_async,
                     send_tx.sync,
                     send_tx.confirmations,
@@ -341,7 +340,7 @@ impl Erc20Subcommand {
                 tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
-                    WithOtherFields::new(tx),
+                    tx,
                     send_tx.cast_async,
                     send_tx.sync,
                     send_tx.confirmations,
@@ -357,7 +356,7 @@ impl Erc20Subcommand {
                 tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
-                    WithOtherFields::new(tx),
+                    tx,
                     send_tx.cast_async,
                     send_tx.sync,
                     send_tx.confirmations,

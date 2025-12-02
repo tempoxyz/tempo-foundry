@@ -13,15 +13,15 @@ forge script script/Mail.s.sol
 echo -e "\n=== CREATE AND FUND ADDRESS ==="
 read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"'); cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL"; printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
 echo -e "\n=== FORGE SCRIPT deploy and verify ==="
-forge script script/Mail.s.sol --private-key $PK --broadcast
+forge script --fee-token 1 script/Mail.s.sol --private-key $PK --broadcast --verify
 echo -e "\n=== FORGE SCRIPT deploy and verify with fee token ==="
-forge script --fee-token 0x20C0000000000000000000000000000000000002 script/Mail.s.sol --private-key $PK --broadcast
-forge script --fee-token 3 script/Mail.s.sol --private-key $PK --broadcast
+forge script --fee-token 0x20C0000000000000000000000000000000000002 script/Mail.s.sol --private-key $PK --broadcast --verify
+forge script --fee-token 3 script/Mail.s.sol --private-key $PK --broadcast --verify
 echo -e "\n=== FORGE CREATE and verify ==="
-forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --constructor-args 0x20c0000000000000000000000000000000000000
+forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
 echo -e "\n=== FORGE CREATE and verify with fee token ==="
-forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --constructor-args 0x20c0000000000000000000000000000000000000
-forge create --fee-token 3 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --constructor-args 0x20c0000000000000000000000000000000000000
+forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
+forge create --fee-token 3 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
 echo -e "\n=== CAST ERC20 transfer with fee token ==="
 cast erc20 transfer --fee-token 0x20c0000000000000000000000000000000000001 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
 cast erc20 transfer --fee-token 2 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK

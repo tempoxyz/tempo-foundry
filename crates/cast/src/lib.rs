@@ -83,12 +83,9 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     }
 
     /// Sends a transaction and waits for receipt synchronously
-    pub async fn send_sync(
-        &self,
-        tx: WithOtherFields<TempoTransactionRequest>,
-    ) -> eyre::Result<String> {
+    pub async fn send_sync(&self, tx: TempoTransactionRequest) -> eyre::Result<String> {
         let mut receipt: TransactionReceiptWithRevertReason =
-            self.provider.send_transaction_sync(tx.inner).await?.into();
+            self.provider.send_transaction_sync(tx).await?.into();
 
         // Allow to fail silently
         let _ = receipt.update_revert_reason(&self.provider).await;
@@ -99,9 +96,9 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     /// Sends a transaction to the specified address
     pub async fn send(
         &self,
-        tx: WithOtherFields<TempoTransactionRequest>,
+        tx: TempoTransactionRequest,
     ) -> eyre::Result<PendingTransactionBuilder<TempoNetwork>> {
-        let res = self.provider.send_transaction(tx.inner).await?;
+        let res = self.provider.send_transaction(tx).await?;
 
         Ok(res)
     }
