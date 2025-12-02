@@ -21,12 +21,14 @@ use tempo_precompiles::{
 
 use crate::executors::Executor;
 
-/// Initialize Tempo precompiles for the given executor.
+/// Initialize Tempo precompiles and contracts for the given executor.
 /// This initialization should be kept aligned with Tempo's genesis file to ensure
 /// executor environments accurately reflect production behavior.
 ///
 /// Ref: <https://github.com/tempoxyz/tempo/blob/main/xtask/src/genesis_args.rs>
-pub fn initialize_tempo_precompiles(executor: &mut Executor) -> Result<(), TempoPrecompileError> {
+pub fn initialize_tempo_precompiles_and_contracts(
+    executor: &mut Executor,
+) -> Result<(), TempoPrecompileError> {
     let sender = CALLER;
     let admin = TEST_CONTRACT_ADDRESS;
 

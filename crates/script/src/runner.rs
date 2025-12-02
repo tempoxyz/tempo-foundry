@@ -11,7 +11,7 @@ use foundry_evm::{
     executors::{DeployResult, EvmError, ExecutionErr, Executor, RawCallResult},
     opts::EvmOpts,
     revm::interpreter::{InstructionResult, return_ok},
-    tempo::initialize_tempo_precompiles,
+    tempo::initialize_tempo_precompiles_and_contracts,
     traces::{TraceKind, Traces},
 };
 
@@ -61,7 +61,8 @@ impl ScriptRunner {
         let mut library_transactions = VecDeque::new();
         let mut traces = Traces::default();
 
-        initialize_tempo_precompiles(&mut self.executor)?;
+        // Initialize Tempo precompiles and contracts
+        initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
 
         // Deploy libraries
         match libraries {

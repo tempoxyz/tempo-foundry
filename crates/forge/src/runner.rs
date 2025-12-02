@@ -30,7 +30,7 @@ use foundry_evm::{
         BasicTxDetails, CallDetails, CounterExample, FuzzFixtures, fixture_name,
         invariant::InvariantContract,
     },
-    tempo::initialize_tempo_precompiles,
+    tempo::initialize_tempo_precompiles_and_contracts,
     traces::{TraceKind, TraceMode, load_contracts},
 };
 use itertools::Itertools;
@@ -164,8 +164,8 @@ impl<'a> ContractRunner<'a> {
         // construction
         self.executor.set_balance(address, self.initial_balance())?;
 
-        // Initialize Tempo precompiles
-        initialize_tempo_precompiles(&mut self.executor)?;
+        // Initialize Tempo precompiles and contracts
+        initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
 
         // Deploy the test contract
         let deploy_result = self.executor.deploy(
