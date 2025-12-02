@@ -1,36 +1,75 @@
 #!/bin/bash
-echo -e "\n=== TEMPO VERSION ==="
-cast client --rpc-url $TEMPO_RPC_URL
+
+echo -e "\n=== INIT TEMPO PROJECT ==="
 tmp_dir=$(mktemp -d)
 cd "$tmp_dir"
-echo -e "\n=== INIT TEMPO PROJECT ==="
 forge init -n tempo tempo-check
 cd tempo-check
-echo -e "\n=== FORGE TEST ==="
+
+echo -e "\n=== FORGE TEST (LOCAL) ==="
 forge test
-echo -e "\n=== FORGE SCRIPT ==="
+
+echo -e "\n=== FORGE SCRIPT (LOCAL) ==="
 forge script script/Mail.s.sol
+
+echo -e "\n=== START TEMPO FORK ==="
+export TEMPO_RPC_URL="$_TEMPO_RPC_URL"
+
+echo -e "\n=== TEMPO VERSION ==="
+cast client --rpc-url $TEMPO_RPC_URL
+
+echo -e "\n=== FORGE TEST (FORK) ==="
+forge test
+
+echo -e "\n=== FORGE SCRIPT (FORK) ==="
+forge script script/Mail.s.sol
+
 echo -e "\n=== CREATE AND FUND ADDRESS ==="
-read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"'); cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL"; printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
-echo -e "\n=== FORGE SCRIPT deploy and verify ==="
-forge script --fee-token 1 script/Mail.s.sol --private-key $PK --broadcast --verify
-echo -e "\n=== FORGE SCRIPT deploy and verify with fee token ==="
-forge script --fee-token 0x20C0000000000000000000000000000000000002 script/Mail.s.sol --private-key $PK --broadcast --verify
-forge script --fee-token 3 script/Mail.s.sol --private-key $PK --broadcast --verify
-echo -e "\n=== FORGE CREATE and verify ==="
-forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
-echo -e "\n=== FORGE CREATE and verify with fee token ==="
-forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
-forge create --fee-token 3 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --verify --constructor-args 0x20c0000000000000000000000000000000000000
-echo -e "\n=== CAST ERC20 transfer with fee token ==="
-cast erc20 transfer --fee-token 0x20c0000000000000000000000000000000000001 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
-cast erc20 transfer --fee-token 2 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
-echo -e "\n=== CAST ERC20 approve with fee token ==="
-cast erc20 approve --fee-token 0x20c0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000001 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
-echo -e "\n=== CAST SEND with fee token ==="
-cast send --fee-token 0x20C0000000000000000000000000000000000001 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
-cast send --fee-token 2 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
-cast send --fee-token 3 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"')
+
+for i in {1..100}; do
+  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL" 2>&1)
+
+  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+    echo "$OUT" | jq
+    break
+  fi
+
+  echo "[$i] $OUT"
+  sleep 0.2
+done
+
+printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
+
+echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
+sleep 5
+
+echo -e "\n=== FORGE SCRIPT DEPLOY ==="
+forge script script/Mail.s.sol --private-key $PK --broadcast
+
+echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
+forge script --fee-token 1 script/Mail.s.sol --private-key $PK --broadcast
+
+echo -e "\n=== FORGE CREATE DEPLOY ==="
+forge create src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --constructor-args 0x20c0000000000000000000000000000000000000
+
+echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
+forge create --fee-token 1 src/Mail.sol:Mail --rpc-url $TEMPO_RPC_URL --private-key $PK --broadcast --constructor-args 0x20c0000000000000000000000000000000000000
+
+echo -e "\n=== CAST ERC20 TRANSFER ==="
+cast erc20 transfer 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
+
+echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
+cast erc20 transfer --fee-token 1 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
+
+echo -e "\n=== CAST ERC20 APPROVE ==="
+cast erc20 approve 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
+
+echo -e "\n=== CAST ERC20 APPROVE WITH FEE TOKEN ==="
+cast erc20 approve --fee-token 1 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
+
+echo -e "\n=== CAST SEND WITH FEE TOKEN ==="
+cast send --fee-token 1 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+
 echo -e "\n=== CAST MKTX with fee token ==="
-cast mktx --fee-token 0x20c0000000000000000000000000000000000002 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
-cast mktx --fee-token 3 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+cast mktx --fee-token 1 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK

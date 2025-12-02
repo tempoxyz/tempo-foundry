@@ -2,21 +2,26 @@
 
 name: bump-tempo-main
 
+permissions: {}
+
 on:
   schedule:
     - cron: "0 0 * * *" # Run daily at midnight UTC
   workflow_dispatch: # Needed so we can run it manually
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
-permissions:
-  contents: read
-
 jobs:
   main-sanity-check:
-    runs-on: ubuntu-latest
-
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
     steps:
       # Checkout the repository
       - uses: actions/checkout@v5
@@ -48,7 +53,7 @@ jobs:
 
       - name: Run Tempo check
         env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_RPC_URL }}
+          _TEMPO_RPC_URL: ${{ secrets.TEMPO_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
           TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
         run: |

@@ -1,11 +1,10 @@
 [workspace]
 members = [
-  "benches/",
-  # ignored for now because even though it has its own evm abstraction, it is still tangled with the other foundry-wide evm abstraction.
-  #"crates/anvil/",
-  #"crates/anvil/core/",
-  #"crates/anvil/rpc/",
-  #"crates/anvil/server/",
+  # "benches/",
+  # "crates/anvil/",
+  # "crates/anvil/core/",
+  # "crates/anvil/rpc/",
+  # "crates/anvil/server/",
   "crates/cast/",
   "crates/cheatcodes/",
   "crates/cheatcodes/spec/",
@@ -22,10 +21,11 @@ members = [
   "crates/evm/traces/",
   "crates/fmt/",
   "crates/forge/",
-  "crates/script-sequence/",
-  "crates/macros/",
-  "crates/test-utils/",
   "crates/lint/",
+  "crates/macros/",
+  "crates/primitives/",
+  "crates/script-sequence/",
+  "crates/test-utils/",
 ]
 resolver = "2"
 
@@ -221,6 +221,7 @@ foundry-macros = { path = "crates/macros" }
 foundry-test-utils = { path = "crates/test-utils" }
 foundry-wallets = { path = "crates/wallets" }
 foundry-linking = { path = "crates/linking" }
+foundry-primitives = { path = "crates/primitives" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.22.0", default-features = false }
@@ -228,7 +229,6 @@ foundry-compilers = { version = "0.19.6", default-features = false, features = [
   "rustls",
   "svm-solc",
 ] }
-
 foundry-fork-db = "0.21"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
@@ -294,13 +294,13 @@ revm-inspectors = { version = "0.33.0", features = ["serde"] }
 op-revm = { version = "14.1.0", default-features = false }
 
 # tempo
-tempo-alloy = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
-tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
-tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "91efc9f" }
+tempo-alloy = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
+tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
+tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "10320a5" }
 
 ## alloy-evm
 alloy-evm = "0.24.2"

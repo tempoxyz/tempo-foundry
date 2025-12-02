@@ -27,11 +27,10 @@ use revm::{
     primitives::hardfork::SpecId,
 };
 use tempo_chainspec::hardfork::TempoHardfork;
-use tempo_evm::TempoBlockEnv;
+use tempo_evm::{TempoBlockEnv, TempoHaltReason};
 use tempo_precompiles::extend_tempo_precompiles;
 use tempo_revm::{
-    TempoEvm, TempoHaltReason, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext,
-    handler::TempoEvmHandler,
+    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, handler::TempoEvmHandler,
 };
 
 pub fn new_evm_with_inspector<'db, I: InspectorExt>(
