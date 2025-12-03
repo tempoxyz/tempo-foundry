@@ -833,6 +833,8 @@ pub(crate) fn handle_expect_emit(
             } else {
                 should_fail = Some("log emitted but expected 0 times");
             }
+
+            return should_fail;
         }
     }
 
@@ -875,8 +877,6 @@ pub(crate) fn handle_expect_emit(
                 .expected_emits
                 .insert(index_to_fill_or_check, (event_to_fill_or_check, count_map));
         } else if let Some(interpreter) = &mut interpreter {
-            // This event was emitted but we expected it NOT to be (count=0)
-            // Fail immediately
             interpreter.bytecode.set_action(InterpreterAction::new_return(
                 InstructionResult::Revert,
                 Error::encode("use vm.expectEmitAnonymous to match anonymous events"),
