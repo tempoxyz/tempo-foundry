@@ -794,7 +794,7 @@ pub(crate) fn handle_expect_emit(
     state: &mut Cheatcodes,
     log: &alloy_primitives::Log,
     mut interpreter: Option<&mut Interpreter>,
-) -> Option<String> {
+) -> Option<&'static str> {
     // This function returns an optional string indicating a failure reason.
     // If the string is `Some`, it indicates that the expectation failed with the provided reason.
     let mut should_fail = None;
@@ -831,7 +831,7 @@ pub(crate) fn handle_expect_emit(
                     interpreter.gas,
                 ));
             } else {
-                should_fail = Some("log emitted but expected 0 times".to_string());
+                should_fail = Some("log emitted but expected 0 times");
             }
         }
     }
@@ -883,7 +883,7 @@ pub(crate) fn handle_expect_emit(
                 interpreter.gas,
             ));
         } else {
-            should_fail = Some("use vm.expectEmitAnonymous to match anonymous events".to_string());
+            should_fail = Some("use vm.expectEmitAnonymous to match anonymous events");
         }
 
         return should_fail;
