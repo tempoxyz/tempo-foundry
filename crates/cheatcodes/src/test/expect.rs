@@ -795,7 +795,8 @@ pub(crate) fn handle_expect_emit(
     log: &alloy_primitives::Log,
     mut interpreter: Option<&mut Interpreter>,
 ) -> Option<String> {
-    // Whether we should fail at the end of this function.
+    // This function returns an optional string indicating a failure reason.
+    // If the string is `Some`, it indicates that the expectation failed with the provided reason.
     let mut should_fail = None;
 
     // Fill or check the expected emits.
