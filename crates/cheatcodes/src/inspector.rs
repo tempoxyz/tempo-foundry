@@ -1203,8 +1203,13 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
     }
 
     fn log(&mut self, _ecx: Ecx, log: Log) {
-        if !self.expected_emits.is_empty() && expect::handle_expect_emit(self, &log, None) {
-            let _ = sh_err!("Expected emit did not match any expected emits");
+        if !self.expected_emits.is_empty()
+            && let Some(err) = expect::handle_expect_emit(self, &log, None)
+        {
+            // Because we do not have access to the interpreter here, we cannot fail the test
+            // immediately. In most cases the failure will still be caught on `call_end`.
+            // In the rare case it is not, we log the error here.
+            let _ = sh_err!("{err:?}");
         }
 
         // `recordLogs`
@@ -1212,10 +1217,8 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
     }
 
     fn log_full(&mut self, interpreter: &mut Interpreter, _ecx: Ecx, log: Log) {
-        if !self.expected_emits.is_empty()
-            && expect::handle_expect_emit(self, &log, Some(interpreter))
-        {
-            let _ = sh_err!("Expected emit did not match any expected emits");
+        if !self.expected_emits.is_empty() {
+            expect::handle_expect_emit(self, &log, Some(interpreter));
         }
 
         // `recordLogs`

@@ -794,9 +794,9 @@ pub(crate) fn handle_expect_emit(
     state: &mut Cheatcodes,
     log: &alloy_primitives::Log,
     mut interpreter: Option<&mut Interpreter>,
-) -> bool {
+) -> Option<String> {
     // Whether we should fail at the end of this function.
-    let mut should_fail = false;
+    let mut should_fail = None;
 
     // Fill or check the expected emits.
     // We expect for emit checks to be filled as they're declared (from oldest to newest),
@@ -830,7 +830,7 @@ pub(crate) fn handle_expect_emit(
                     interpreter.gas,
                 ));
             } else {
-                should_fail = true;
+                should_fail = Some("log emitted but expected 0 times".to_string());
             }
         }
     }
@@ -882,7 +882,7 @@ pub(crate) fn handle_expect_emit(
                 interpreter.gas,
             ));
         } else {
-            should_fail = true;
+            should_fail = Some("use vm.expectEmitAnonymous to match anonymous events".to_string());
         }
 
         return should_fail;
