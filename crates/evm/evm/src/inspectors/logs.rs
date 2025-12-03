@@ -54,10 +54,6 @@ where
         self.logs.push(log);
     }
 
-    fn log_full(&mut self, _interp: &mut Interpreter, _context: &mut CTX, log: Log) {
-        self.logs.push(log);
-    }
-
     fn call(&mut self, context: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
         if inputs.target_address == HARDHAT_CONSOLE_ADDRESS {
             return self.do_hardhat_log(context, inputs);
