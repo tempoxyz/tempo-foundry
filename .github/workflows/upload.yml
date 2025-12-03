@@ -35,25 +35,26 @@ jobs:
       actions: read
 
     steps:
-      - name: Checkout
+      - name: Checkout master for `foundryup` scripts
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          ref: master
 
-      - name: Set Isolated Artifact Directory
+      - name: Set isolated directory paths
         id: paths
         run: |
           set -euo pipefail
           printf 'artifact_dir=%s\n' "$RUNNER_TEMP/foundry_artifacts" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare Isolated Artifact Directory
+      - name: Prepare artifact directory
         env:
           ARTIFACT_DIR: ${{ steps.paths.outputs.artifact_dir }}
         run: |
           mkdir -p "$ARTIFACT_DIR"
           ls -la "$ARTIFACT_DIR" || true
 
-      - name: Download Release Assets
+      - name: Download release artifacts
         uses: actions/download-artifact@v6
         with:
             merge-multiple: true
@@ -89,7 +90,7 @@ jobs:
           source_dir: "binaries/foundry"
           destination_dir: "binaries/foundry/${{ github.event.inputs.tag || inputs.tag }}"
 
-      - name: Upload binaries to <nightly> to R2
+      - name: Upload binaries to <nightly> to R2 (if applicable)
         if: ${{ github.event.inputs.is_nightly == 'true' || inputs.is_nightly == 'true' }}
         uses: shallwefootball/s3-upload-action@master
         with:
@@ -100,7 +101,7 @@ jobs:
           source_dir: "binaries/foundry"
           destination_dir: "binaries/foundry/nightly"
 
-      - name: Upload foundryup scripts to R2
+      - name: Upload foundryup script to R2 from master
         uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.R2_BINARIES_KEY_ID }}
