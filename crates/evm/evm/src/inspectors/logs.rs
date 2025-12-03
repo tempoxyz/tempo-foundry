@@ -6,7 +6,7 @@ use revm::{
     Inspector,
     context::ContextTr,
     interpreter::{
-        CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
+        CallInputs, CallOutcome, Gas, InstructionResult, InterpreterResult,
         interpreter::EthInterpreter,
     },
 };
