@@ -106,7 +106,7 @@ Getting started is very easy:
 Install `foundryup`:
 
 ```
-curl -L https://foundry.paradigm.xyz | bash
+curl -L https://tempo.xyz/foundry | bash
 ```
 
 Next, run `foundryup -n tempo`.
