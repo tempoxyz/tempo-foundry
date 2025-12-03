@@ -134,6 +134,7 @@ casttest!(tempo_cast_run_aa, |_prj, cmd| {
 Executing previous transactions from the block.
 Traces:
   [28449] Test::grantRole(0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122, 0x389077a7171cFb5613c009520B6Cf7cc74d77e06)
+    ├─ emit RoleMembershipUpdated(role: 0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122, account: 0x389077a7171cFb5613c009520B6Cf7cc74d77e06, sender: 0x389077a7171cFb5613c009520B6Cf7cc74d77e06, hasRole: true)
     └─ ← [Return]
 
 
