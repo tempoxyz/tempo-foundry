@@ -9,6 +9,14 @@ on:
         type: string
         required: true
         description: The run id of the release workflow to publish
+      tag:
+        type: string
+        required: true
+        description: The tag of the release to publish
+      is_nightly:
+        type: boolean
+        required: true
+        description: Whether this is a nightly release
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -71,7 +79,7 @@ jobs:
           echo "Contents of binaries/foundry:"
           ls -la binaries/foundry/
 
-      - name: Upload binaries to R2
+      - name: Upload binaries to <tag> to R2
         uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.R2_BINARIES_KEY_ID }}
@@ -79,7 +87,18 @@ jobs:
           aws_bucket: ${{ secrets.R2_BINARIES_BUCKET }}
           endpoint: ${{ secrets.R2_BINARIES_ENDPOINT }}
           source_dir: "binaries/foundry"
-          destination_dir: "binaries/foundry"
+          destination_dir: "binaries/foundry/${{ github.event.inputs.tag || inputs.tag }}"
+
+      - name: Upload binaries to <nightly> to R2
+        if: ${{ github.event.inputs.is_nightly || inputs.is_nightly }}
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.R2_BINARIES_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.R2_BINARIES_SECRET_KEY }}
+          aws_bucket: ${{ secrets.R2_BINARIES_BUCKET }}
+          endpoint: ${{ secrets.R2_BINARIES_ENDPOINT }}
+          source_dir: "binaries/foundry"
+          destination_dir: "binaries/foundry/nightly"
 
       - name: Upload foundryup scripts to R2
         uses: shallwefootball/s3-upload-action@master
