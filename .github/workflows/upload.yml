@@ -16,7 +16,7 @@ on:
       is_nightly:
         type: boolean
         required: true
-        description: Whether this is a nightly release
+        description: Sync to nightly tag
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -90,7 +90,7 @@ jobs:
           destination_dir: "binaries/foundry/${{ github.event.inputs.tag || inputs.tag }}"
 
       - name: Upload binaries to <nightly> to R2
-        if: ${{ github.event.inputs.is_nightly || inputs.is_nightly }}
+        if: ${{ github.event.inputs.is_nightly == 'true' || inputs.is_nightly == 'true' }}
         uses: shallwefootball/s3-upload-action@master
         with:
           aws_key_id: ${{ secrets.R2_BINARIES_KEY_ID }}
