@@ -50,6 +50,10 @@ impl<CTX> Inspector<CTX, EthInterpreter> for LogCollector
 where
     CTX: ContextTr,
 {
+    fn log(&mut self, _context: &mut CTX, log: Log) {
+        self.logs.push(log);
+    }
+
     fn log_full(&mut self, _interp: &mut Interpreter, _context: &mut CTX, log: Log) {
         self.logs.push(log);
     }

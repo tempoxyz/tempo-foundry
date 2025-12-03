@@ -1202,9 +1202,24 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
         }
     }
 
+    fn log(&mut self, _ecx: Ecx, log: Log) {
+        if !self.expected_emits.is_empty() && expect::handle_expect_emit(self, &log, None) {
+            let _ = sh_err!("Expected emit did not match any expected emits");
+        }
+
+        // `recordLogs`
+        if let Some(storage_recorded_logs) = &mut self.recorded_logs {
+            storage_recorded_logs.push(Vm::Log {
+                topics: log.data.topics().to_vec(),
+                data: log.data.data.clone(),
+                emitter: log.address,
+            });
+        }
+    }
+
     fn log_full(&mut self, interpreter: &mut Interpreter, _ecx: Ecx, log: Log) {
         if !self.expected_emits.is_empty() {
-            expect::handle_expect_emit(self, &log, interpreter);
+            expect::handle_expect_emit(self, &log, Some(interpreter));
         }
 
         // `recordLogs`

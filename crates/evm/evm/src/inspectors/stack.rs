@@ -918,6 +918,14 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> 
     }
 
     #[allow(clippy::redundant_clone)]
+    fn log(&mut self, ecx: &mut TempoContext<&mut dyn DatabaseExt>, log: Log) {
+        call_inspectors!(
+            [&mut self.tracer, &mut self.log_collector, &mut self.cheatcodes, &mut self.printer],
+            |inspector| inspector.log(ecx, log.clone()),
+        );
+    }
+
+    #[allow(clippy::redundant_clone)]
     fn log_full(
         &mut self,
         interpreter: &mut Interpreter,
@@ -1204,6 +1212,10 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStack {
         ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         self.as_mut().initialize_interp(interpreter, ecx)
+    }
+
+    fn log(&mut self, ecx: &mut TempoContext<&mut dyn DatabaseExt>, log: Log) {
+        self.as_mut().log(ecx, log)
     }
 
     fn log_full(
