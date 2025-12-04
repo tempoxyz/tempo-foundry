@@ -34,6 +34,13 @@ pub struct SendTxArgs {
     #[arg(allow_negative_numbers = true)]
     args: Vec<String>,
 
+    /// Raw hex-encoded data for the transaction. Used instead of \[SIG\] and \[ARGS\].
+    #[arg(
+        long,
+        conflicts_with_all = &["sig", "args"]
+    )]
+    data: Option<String>,
+
     #[command(flatten)]
     send_tx: SendTxOpts,
 
@@ -67,7 +74,11 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
-        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked } = self;
+        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, data } = self;
+
+        if let Some(data) = data {
+            sig = Some(data);
+        }
 
         let code = if let Some(SendTxSubcommands::Create {
             code,

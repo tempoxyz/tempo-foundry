@@ -83,7 +83,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     }
 
     /// Sends a transaction and waits for receipt synchronously
-    pub async fn send_sync(&self, tx: TempoTransactionRequest) -> eyre::Result<String> {
+    pub async fn send_sync(&self, tx: TempoTransactionRequest) -> Result<String> {
         let mut receipt: TransactionReceiptWithRevertReason =
             self.provider.send_transaction_sync(tx).await?.into();
 
@@ -97,12 +97,13 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     pub async fn send(
         &self,
         tx: TempoTransactionRequest,
-    ) -> eyre::Result<PendingTransactionBuilder<TempoNetwork>> {
+    ) -> Result<PendingTransactionBuilder<TempoNetwork>> {
         let res = self.provider.send_transaction(tx).await?;
 
         Ok(res)
     }
 
+    /// Fetches the transaction receipt for the given transaction hash
     pub async fn receipt(
         &self,
         tx_hash: String,
@@ -110,7 +111,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         confs: u64,
         timeout: Option<u64>,
         cast_async: bool,
-    ) -> eyre::Result<String> {
+    ) -> Result<String> {
         let tx_hash = TxHash::from_str(&tx_hash).wrap_err("invalid tx hash")?;
 
         let mut receipt: TransactionReceiptWithRevertReason =
@@ -143,7 +144,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         &self,
         receipt: TransactionReceiptWithRevertReason,
         field: Option<String>,
-    ) -> eyre::Result<String> {
+    ) -> Result<String> {
         Ok(if let Some(ref field) = field {
             foundry_common::get_pretty_tx_receipt_attr(&receipt, field)
                 .ok_or_else(|| eyre::eyre!("invalid receipt field: {}", field))?
