@@ -2,7 +2,7 @@ use super::install::DependencyInstallOpts;
 use clap::{Parser, ValueHint};
 use eyre::Result;
 use foundry_cli::utils::Git;
-use foundry_common::fs;
+use foundry_common::{fs, provider::tempo};
 use foundry_compilers::artifacts::remappings::Remapping;
 use foundry_config::Config;
 use std::{
@@ -247,7 +247,7 @@ impl InitArgs {
 
             // set up the repo
             if !no_git {
-                init_git_repo(git, commit, use_parent_git, vyper)?;
+                init_git_repo(git, commit, use_parent_git, vyper, tempo)?;
             }
 
             if !offline {
@@ -294,7 +294,13 @@ impl InitArgs {
 /// Creates `.gitignore` and `.github/workflows/test.yml`, if they don't exist already.
 ///
 /// Commits everything in `root` if `commit` is true.
-fn init_git_repo(git: Git<'_>, commit: bool, use_parent_git: bool, vyper: bool) -> Result<()> {
+fn init_git_repo(
+    git: Git<'_>,
+    commit: bool,
+    use_parent_git: bool,
+    vyper: bool,
+    tempo: bool,
+) -> Result<()> {
     // `git init`
     if !git.is_in_repo()? || (!use_parent_git && !git.is_repo_root()?) {
         git.init()?;
@@ -313,6 +319,8 @@ fn init_git_repo(git: Git<'_>, commit: bool, use_parent_git: bool, vyper: bool) 
 
         if vyper {
             fs::write(workflow, include_str!("../../assets/vyper/workflowTemplate.yml"))?;
+        } else if tempo {
+            fs::write(workflow, include_str!("../../assets/tempo/workflowTemplate.yml"))?;
         } else {
             fs::write(workflow, include_str!("../../assets/solidity/workflowTemplate.yml"))?;
         }

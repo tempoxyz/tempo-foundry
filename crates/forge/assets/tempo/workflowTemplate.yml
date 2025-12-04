@@ -12,7 +12,7 @@ env:
 
 jobs:
   check:
-    name: Foundry project
+    name: Tempo Foundry project
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,7 +23,7 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: tempoxyz/tempo-foundry-toolchain@v1
 
       - name: Show Forge version
         run: forge --version
