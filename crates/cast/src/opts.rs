@@ -1,3 +1,13 @@
+use std::{path::PathBuf, str::FromStr};
+
+use alloy_ens::NameOrAddress;
+use alloy_primitives::{Address, B256, Selector, U256};
+use alloy_rpc_types::BlockId;
+use clap::{ArgAction, Parser, Subcommand, ValueHint};
+use eyre::Result;
+use foundry_cli::opts::{EtherscanOpts, GlobalArgs, RpcOpts};
+use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
+
 use crate::cmd::{
     access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
     bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs, create2::Create2Args,
@@ -6,14 +16,7 @@ use crate::cmd::{
     mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
     txpool::TxPoolSubcommands, wallet::WalletSubcommands,
 };
-use alloy_ens::NameOrAddress;
-use alloy_primitives::{Address, B256, Selector, U256};
-use alloy_rpc_types::BlockId;
-use clap::{ArgAction, Parser, Subcommand, ValueHint};
-use eyre::Result;
-use foundry_cli::opts::{EtherscanOpts, GlobalArgs, RpcOpts};
-use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
-use std::{path::PathBuf, str::FromStr};
+
 /// A Swiss Army knife for interacting with Ethereum applications from the command line.
 #[derive(Parser)]
 #[command(

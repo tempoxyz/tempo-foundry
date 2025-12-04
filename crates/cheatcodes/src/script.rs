@@ -1,20 +1,20 @@
 //! Implementations of [`Scripting`](spec::Group::Scripting) cheatcodes.
 
-use crate::{evm::journaled_account, Cheatcode, CheatsCtxt, Result, Vm::*};
+use crate::{Cheatcode, CheatsCtxt, Result, Vm::*, evm::journaled_account};
 use alloy_consensus::{SidecarBuilder, SimpleCoder};
-use alloy_primitives::{Address, Uint, B256, U256};
+use alloy_primitives::{Address, B256, U256, Uint};
 use alloy_rpc_types::Authorization;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::ContextExt;
-use foundry_wallets::{wallet_multi::MultiWallet, WalletSigner};
+use foundry_wallets::{WalletSigner, wallet_multi::MultiWallet};
 use parking_lot::Mutex;
 use revm::{
     bytecode::Bytecode,
     context::JournalTr,
     context_interface::transaction::SignedAuthorization,
-    primitives::{hardfork::SpecId, KECCAK_EMPTY},
+    primitives::{KECCAK_EMPTY, hardfork::SpecId},
 };
 use std::sync::Arc;
 

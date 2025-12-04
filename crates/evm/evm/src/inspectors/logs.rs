@@ -1,14 +1,14 @@
 use alloy_primitives::Log;
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
-use foundry_common::{fmt::ConsoleFmt, ErrorExt};
-use foundry_evm_core::{abi::console, constants::HARDHAT_CONSOLE_ADDRESS, InspectorExt};
+use foundry_common::{ErrorExt, fmt::ConsoleFmt};
+use foundry_evm_core::{InspectorExt, abi::console, constants::HARDHAT_CONSOLE_ADDRESS};
 use revm::{
+    Inspector,
     context::ContextTr,
     interpreter::{
-        interpreter::EthInterpreter, CallInputs, CallOutcome, Gas, InstructionResult,
-        InterpreterResult,
+        CallInputs, CallOutcome, Gas, InstructionResult, InterpreterResult,
+        interpreter::EthInterpreter,
     },
-    Inspector,
 };
 
 /// An inspector that collects logs during execution.
