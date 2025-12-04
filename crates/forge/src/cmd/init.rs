@@ -2,7 +2,7 @@ use super::install::DependencyInstallOpts;
 use clap::{Parser, ValueHint};
 use eyre::Result;
 use foundry_cli::utils::Git;
-use foundry_common::{fs, provider::tempo};
+use foundry_common::fs;
 use foundry_compilers::artifacts::remappings::Remapping;
 use foundry_config::Config;
 use std::{
