@@ -28,7 +28,7 @@ use foundry_evm::{
     },
     fuzz::{
         BasicTxDetails, CallDetails, CounterExample, FuzzFixtures, fixture_name,
-        invariant::InvariantContract,
+        invariant::InvariantContract, strategies::EvmFuzzState,
     },
     tempo::initialize_tempo_precompiles_and_contracts,
     traces::{TraceKind, TraceMode, load_contracts},
@@ -865,7 +865,7 @@ impl<'a> FunctionRunner<'a> {
         let invariant_result = match evm.invariant_fuzz(
             invariant_contract.clone(),
             &self.setup.fuzz_fixtures,
-            &self.setup.deployed_libs,
+            self.build_fuzz_state(true),
             progress.as_ref(),
             &self.tcfg.early_exit,
         ) {
@@ -1006,6 +1006,7 @@ impl<'a> FunctionRunner<'a> {
             fuzz_config.runs,
         );
 
+        let state = self.build_fuzz_state(false);
         let mut executor = self.executor.into_owned();
         // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
         // metrics (useful for benchmarking the fuzzer).
@@ -1019,7 +1020,7 @@ impl<'a> FunctionRunner<'a> {
         let result = match fuzzed_executor.fuzz(
             func,
             &self.setup.fuzz_fixtures,
-            &self.setup.deployed_libs,
+            state,
             self.address,
             &self.cr.mcr.revert_decoder,
             progress.as_ref(),
@@ -1107,6 +1108,27 @@ impl<'a> FunctionRunner<'a> {
 
     fn clone_executor(&self) -> Executor {
         self.executor.clone().into_owned()
+    }
+
+    fn build_fuzz_state(&self, invariant: bool) -> EvmFuzzState {
+        let config =
+            if invariant { self.config.invariant.dictionary } else { self.config.fuzz.dictionary };
+        if let Some(db) = self.executor.backend().active_fork_db() {
+            EvmFuzzState::new(
+                &self.setup.deployed_libs,
+                db,
+                config,
+                Some(&self.cr.mcr.fuzz_literals),
+            )
+        } else {
+            let db = self.executor.backend().mem_db();
+            EvmFuzzState::new(
+                &self.setup.deployed_libs,
+                db,
+                config,
+                Some(&self.cr.mcr.fuzz_literals),
+            )
+        }
     }
 }
 

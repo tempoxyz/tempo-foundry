@@ -1,9 +1,5 @@
 use std::{cmp::Ordering, sync::Arc, time::Duration};
 
-use crate::{
-    ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
-    progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
-};
 use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
 use alloy_network::{EthereumWallet, TransactionBuilder};
@@ -30,6 +26,11 @@ use foundry_config::Config;
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
 use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
+
+use crate::{
+    ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
+    progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
+};
 
 pub async fn estimate_gas<P: Provider<TempoNetwork>>(
     tx: &mut WithOtherFields<TempoTransactionRequest>,
