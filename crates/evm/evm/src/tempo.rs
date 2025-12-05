@@ -10,11 +10,10 @@ use tempo_contracts::{
     contracts::ARACHNID_CREATE2_FACTORY_BYTECODE,
 };
 use tempo_precompiles::{
-    NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS, TIP_ACCOUNT_REGISTRAR,
+    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS,
     TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS,
     TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
     error::TempoPrecompileError,
-    tip_fee_manager::TipFeeManager,
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
     tip20_factory::{ITIP20Factory, TIP20Factory},
     validator_config,
@@ -36,49 +35,25 @@ pub fn initialize_tempo_precompiles_and_contracts(
     // Set bytecode for all precompiles
     let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
 
-    // for precompile in [
-    //     NONCE_PRECOMPILE_ADDRESS,
-    //     STABLECOIN_EXCHANGE_ADDRESS,
-    //     TIP20_FACTORY_ADDRESS,
-    //     TIP20_REWARDS_REGISTRY_ADDRESS,
-    //     TIP403_REGISTRY_ADDRESS,
-    //     TIP_ACCOUNT_REGISTRAR,
-    //     TIP_FEE_MANAGER_ADDRESS,
-    //     VALIDATOR_CONFIG_ADDRESS,
-    // ] {
-    //     executor.backend_mut().insert_account_info(
-    //         precompile,
-    //         AccountInfo {
-    //             code_hash: bytecode.hash_slow(),
-    //             code: Some(bytecode.clone()),
-    //             ..Default::default()
-    //         },
-    //     );
-    // }
-
-    // Initialize TIP403 Registry
-    // https://github.com/tempoxyz/tempo/blob/main/crates/precompiles/src/tip403_registry/mod.rs
-    executor.backend_mut().insert_account_info(
-        TIP403_REGISTRY_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode.clone()),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    // Initialize TIP20 Factory
-    // https://github.com/tempoxyz/tempo/blob/main/crates/precompiles/src/tip20_factory/mod.rs
-    executor.backend_mut().insert_account_info(
+    for precompile in [
+        NONCE_PRECOMPILE_ADDRESS,
+        STABLECOIN_EXCHANGE_ADDRESS,
         TIP20_FACTORY_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode.clone()),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
+        TIP20_REWARDS_REGISTRY_ADDRESS,
+        TIP403_REGISTRY_ADDRESS,
+        TIP_FEE_MANAGER_ADDRESS,
+        VALIDATOR_CONFIG_ADDRESS,
+        ACCOUNT_KEYCHAIN_ADDRESS,
+    ] {
+        executor.backend_mut().insert_account_info(
+            precompile,
+            AccountInfo {
+                code_hash: bytecode.hash_slow(),
+                code: Some(bytecode.clone()),
+                ..Default::default()
+            },
+        );
+    }
 
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
@@ -109,53 +84,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
         U256::from(u64::MAX),
     )?;
 
-    // Create BetaUSD token
-    let beta_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
-        "BetaUSD",
-        "BetaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
-
-    // Create ThetaUSD token
-    let theta_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
-        "ThetaUSD",
-        "ThetaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
-
-    // Initialize TIP20RewardsRegistry
-    // https://github.com/tempoxyz/tempo/blob/main/crates/precompiles/src/tip20_rewards_registry/mod.rs
-    executor.backend_mut().insert_account_info(
-        TIP20_REWARDS_REGISTRY_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode.clone()),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    // Initialize ValidatorConfig
-    // https://github.com/tempoxyz/tempo/blob/main/crates/precompiles/src/validator_config/mod.rs#L48
-    executor.backend_mut().insert_account_info(
-        VALIDATOR_CONFIG_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode.clone()),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
+    // Initialize ValidatorConfig with admin as owner
     executor
         .backend_mut()
         .insert_account_storage(
@@ -164,59 +93,6 @@ pub fn initialize_tempo_precompiles_and_contracts(
             admin.into_word().into(),
         )
         .expect("failed to initialize validator config state");
-
-    // Initialize FeeManager
-    executor.backend_mut().insert_account_info(
-        TIP_FEE_MANAGER_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode.clone()),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    // Initialize stablecoin exchange
-    executor.backend_mut().insert_account_info(
-        STABLECOIN_EXCHANGE_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    // Initialize nonce manager
-    executor.backend_mut().insert_account_info(
-        NONCE_PRECOMPILE_ADDRESS,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
-
-    // Mint pairwise liquidity
-    let mut fee_manager = TipFeeManager::new(storage_provider);
-
-    // for b_token_address in b_tokens {
-    //     fee_manager
-    //         .mint(admin, a_token, b_token_address, amount, amount, admin)
-    //         .expect("Could not mint A -> B Liquidity pool");
-    // }
-
-    let a_token = _alpha_usd_token_address;
-    let b_tokens = vec![path_usd_token_address, beta_usd_token_address, theta_usd_token_address];
-
-    // mint_pairwise_liquidity(
-    //     alpha_token_address,
-    //     vec![PATH_USD_ADDRESS, beta_token_address, theta_token_address],
-    //     U256::from(10u64.pow(10)),
-    //     admin,
-    //     &mut evm,
-    // );
 
     // Set bytecode for all contracts
     insert_contract(executor, MULTICALL_ADDRESS, Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
