@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo -e "\n=== INIT TEMPO PROJECT ==="
 tmp_dir=$(mktemp -d)
