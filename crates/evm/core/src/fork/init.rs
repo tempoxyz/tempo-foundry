@@ -124,6 +124,7 @@ pub fn configure_env(
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
+    cfg.disable_fee_charge = true;
     // By default do not enforce transaction gas limits imposed by Osaka (EIP-7825).
     // Users can opt-in to enable these limits by setting `enable_tx_gas_limit` to true.
     if !enable_tx_gas_limit {
