@@ -6,7 +6,7 @@ use revm::{
     inspector::JournalExt,
     interpreter::{CallInputs, CallOutcome, interpreter::EthInterpreter},
 };
-use tempo_precompiles::tip20::is_tip20;
+use tempo_precompiles::tip20::is_tip20_prefix;
 
 #[derive(Default, Clone, Debug)]
 pub struct TempoLabels {
@@ -21,7 +21,7 @@ where
 {
     fn call(&mut self, ctx: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
         // hack(onbjerg): this is some actual dog water HOLY
-        if is_tip20(inputs.target_address) && !self.labels.contains_key(&inputs.target_address) {
+        if is_tip20_prefix(inputs.target_address) && !self.labels.contains_key(&inputs.target_address) {
             let bytes = ctx
                 .db_mut()
                 .storage(inputs.target_address, tempo_precompiles::tip20::slots::NAME)
