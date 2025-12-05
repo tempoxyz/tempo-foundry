@@ -34,7 +34,6 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     // Set bytecode for all precompiles
     let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
-
     for precompile in [
         NONCE_PRECOMPILE_ADDRESS,
         STABLECOIN_EXCHANGE_ADDRESS,
