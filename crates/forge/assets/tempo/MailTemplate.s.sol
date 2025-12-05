@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
 import {ITIP20RolesAuth} from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import {StdPrecompiles} from "tempo-std/StdPrecompiles.sol";
-import {Mail} from "../src/Mail.sol";
+import {SimpleMail, Mail} from "../src/Mail.sol";
 
 contract MailScript is Script {
     function setUp() public {}
@@ -20,6 +20,15 @@ contract MailScript is Script {
         token.mint(msg.sender, 1_000_000 * 10 ** token.decimals());
 
         new Mail(token);
+
+        vm.stopBroadcast();
+    }
+
+    function sendSimpleMail() public {
+        vm.startBroadcast();
+
+        SimpleMail mail = new SimpleMail();
+        mail.sendMail(makeAddr("alice"), "Hello Alice, this is a simple unit test mail.", 1000);
 
         vm.stopBroadcast();
     }
