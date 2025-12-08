@@ -17,7 +17,7 @@
 
 Tempo builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
 
-This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/documentation/protocol#protocol-components), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/guide/quickstart/evm-compatibility#evm-compatibility).
+This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/documentation/protocol#protocol-components), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/quickstart/evm-compatibility).
 
 - `forge`:
 
