@@ -10,9 +10,9 @@ use tempo_contracts::{
     contracts::ARACHNID_CREATE2_FACTORY_BYTECODE,
 };
 use tempo_precompiles::{
-    NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS, TIP_ACCOUNT_REGISTRAR,
-    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS,
-    TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
+    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS,
+    TIP_ACCOUNT_REGISTRAR, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS,
+    TIP20_REWARDS_REGISTRY_ADDRESS, TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
     error::TempoPrecompileError,
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
     tip20_factory::{ITIP20Factory, TIP20Factory},
@@ -35,6 +35,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
     // Set bytecode for all precompiles
     let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
     for precompile in [
+        ACCOUNT_KEYCHAIN_ADDRESS,
         NONCE_PRECOMPILE_ADDRESS,
         STABLECOIN_EXCHANGE_ADDRESS,
         TIP20_FACTORY_ADDRESS,
