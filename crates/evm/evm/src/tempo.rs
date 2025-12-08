@@ -59,7 +59,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
     let mut storage_provider =
         FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp);
 
-    // Create PathUSD token
+    // Create PathUSD token: 0x20C0000000000000000000000000000000000000
     let path_usd_token_address = create_and_mint_token(
         &mut storage_provider,
         "PathUSD",
@@ -71,11 +71,35 @@ pub fn initialize_tempo_precompiles_and_contracts(
         U256::from(u64::MAX),
     )?;
 
-    // Create AlphaUSD token
+    // Create AlphaUSD token: 0x20C0000000000000000000000000000000000001
     let _alpha_usd_token_address = create_and_mint_token(
         &mut storage_provider,
         "AlphaUSD",
         "AlphaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
+
+    // Create BetaUSD token: 0x20C0000000000000000000000000000000000002
+    let _beta_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "BetaUSD",
+        "BetaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
+
+    // Create ThetaUSD token: 0x20C0000000000000000000000000000000000003
+    let _theta_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "ThetaUSD",
+        "ThetaUSD",
         "USD",
         path_usd_token_address,
         admin,
