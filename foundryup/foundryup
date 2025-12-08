@@ -3,7 +3,7 @@ set -eo pipefail
 
 # NOTE: if you make modifications to this script, please increment the version number.
 # WARNING: the SemVer pattern: major.minor.patch must be followed as we use it to determine if the script is up to date.
-FOUNDRYUP_INSTALLER_VERSION="1.6.1"
+FOUNDRYUP_INSTALLER_VERSION="1.5.0"
 
 BASE_DIR=${XDG_CONFIG_HOME:-$HOME}
 FOUNDRY_DIR=${FOUNDRY_DIR:-"$BASE_DIR/.foundry"}
@@ -14,7 +14,6 @@ FOUNDRY_BIN_URL="https://raw.githubusercontent.com/foundry-rs/foundry/HEAD/found
 FOUNDRY_BIN_PATH="$FOUNDRY_BIN_DIR/foundryup"
 FOUNDRYUP_JOBS=""
 FOUNDRYUP_IGNORE_VERIFICATION=false
-FOUNDRY_CDN_URL="https://testnet-assets.tempoxyz.dev/binaries/foundry"
 
 BINS=(forge cast anvil chisel)
 HASH_NAMES=()
@@ -56,7 +55,7 @@ main() {
     esac; shift
   done
 
-  # Tempo only distributes `forge` and `cast` binaries
+  # Tempo only distributes a subset of the binaries
   if [[ "$FOUNDRYUP_NETWORK" == "tempo" ]]; then
     BINS=(forge cast)
   fi
@@ -108,11 +107,11 @@ main() {
     exit 0
   fi
 
-
   # If Tempo network is set, use the Tempo fork of Foundry
   if [[ "$FOUNDRYUP_NETWORK" == "tempo" ]]; then
     FOUNDRYUP_REPO="tempoxyz/tempo-foundry"
   else
+  # Default to Foundry repo
     FOUNDRYUP_REPO=${FOUNDRYUP_REPO:-foundry-rs/foundry}
   fi
 
@@ -322,7 +321,7 @@ main() {
     use
 
     say "done!"
-  # Install from Tempo's foundry repo if "--fork tempo" is set
+  # Install from Tempo's fork of Foundry if --network tempo is set
   elif [[ "$FOUNDRYUP_NETWORK" == "tempo" ]]; then
     FOUNDRYUP_VERSION=${FOUNDRYUP_VERSION:-nightly}
     FOUNDRYUP_TAG="${FOUNDRYUP_VERSION}"
@@ -332,9 +331,10 @@ main() {
     # Detect platform and architecture.
     detect_platform_arch
 
-    # Download from CDN
-    BIN_ARCHIVE_URL="${FOUNDRY_CDN_URL}/${FOUNDRYUP_TAG}/foundry_nightly_${PLATFORM}_${ARCHITECTURE}.$EXT"
-    MAN_TARBALL_URL="${FOUNDRY_CDN_URL}/${FOUNDRYUP_TAG}/foundry_man_nightly.tar.gz"
+    # Compute the URL of the release tarball in the Tempo Foundry repository.
+    RELEASE_URL="https://github.com/${FOUNDRYUP_REPO}/releases/download/${FOUNDRYUP_TAG}/"
+    BIN_ARCHIVE_URL="${RELEASE_URL}foundry_${FOUNDRYUP_VERSION}_${PLATFORM}_${ARCHITECTURE}.$EXT"
+    MAN_TARBALL_URL="${RELEASE_URL}foundry_man_${FOUNDRYUP_VERSION}.tar.gz"
 
     ensure mkdir -p "$FOUNDRY_VERSIONS_DIR"
 
@@ -451,17 +451,17 @@ OPTIONS:
     -h, --help      Print help information
     -v, --version   Print the version of foundryup
     -U, --update    Update foundryup to the latest version
-    -r, --repo      Build and install from a remote GitHub repo (uses default branch if no other options are set)
-    -b, --branch    Build and install a specific branch
     -i, --install   Install a specific version from built binaries
     -l, --list      List versions installed from built binaries
     -u, --use       Use a specific installed version from built binaries
-    -p, --path      Build and install a local repository
+    -b, --branch    Build and install a specific branch
     -P, --pr        Build and install a specific Pull Request
     -C, --commit    Build and install a specific commit
+    -r, --repo      Build and install from a remote GitHub repo (uses default branch if no other options are set)
+    -p, --path      Build and install a local repository
     -j, --jobs      Number of CPUs to use for building Foundry (default: all CPUs)
     -f, --force     Skip SHA verification for downloaded binaries (INSECURE - use with caution)
-    -n, --network   Install from a specific fork of Foundry (e.g., tempo)
+    -n, --network   Install binaries for a specific network (e.g., tempo)
     --arch          Install a specific architecture (supports amd64 and arm64)
     --platform      Install a specific platform (supports win32, linux, darwin and alpine)
 EOF
