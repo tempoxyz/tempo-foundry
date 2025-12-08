@@ -17,15 +17,15 @@
 
 [Tempo](https://docs.tempo.xyz/) is a blockchain designed specifically for stablecoin payments. Its architecture focuses on high throughput, low cost, and features that financial institutions, payment service providers, and fintech platforms expect from modern payment infrastructure.
 
-`Tempo Foundry` builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
+`Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that brings Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
 
-This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/documentation/protocol#protocol-components), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/quickstart/evm-compatibility).
+It extends Foundry with Tempo’s payment-native transaction model, stablecoin-denominated gas, and full `TIP-20` token features (including memos and compliance).
+
+This is a required drop-in replacement for upstream Foundry when developing against Tempo.
 
 Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
 
-## Getting Started
-
-### As a user
+## Testnet
 
 You can connect to Tempo's public testnet using the following details:
 
@@ -46,31 +46,32 @@ Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
 cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.testnet.tempo.xyz
 ```
 
-### As a developer
+## Changeset
 
-Some of the new features include:
+Key extensions and behavior changes introduced in Tempo Foundry:
 
 - In `foundryup`:
 
   - `foundryup -n tempo`: download the latest `nightly` release of Tempo's fork of Foundry.
-  - `foundryup -n tempo -i <TAG>` download a specific `nightly` release by tag `nightly-<hash>`.
+  - `foundryup -n tempo -i <TAG>`: download a specific `nightly` release by tag `nightly-<hash>`.
 
 - In `forge`:
 
-  - `forge init -n tempo`: adds Tempo specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
-  - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for use with Tempo for Foundry.
-  - `--fee-token` support: pay gas fees in any `TIP20` token.
+  - `forge init -n tempo`: adds a Tempo-specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
+  - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for Tempo-specific testing and utilities.
+  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
 - In `cast`:
 
-  - `cast run`: updated to correctly allow Tempo's system transactions to be processed by modifying the transaction environment when replaying a block.
+  - `cast run`: updated to correctly process Tempo's system transactions when replaying a block.
   - `cast tip20`: alias to `cast erc20`.
-  - `--fee-token` support: pay gas fees in any `TIP20` token.
+  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
 - Internal changeset:
 
-  - Support for Tempo's (stateful) precompiles including labels in traces.
-  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate some differences Tempo introduces to optimized for payments.
+  - Support for local and forked simulation of the Tempo execution environment.
+  - Support for Tempo's (stateful) precompiles and default contracts including labels in traces.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate differences Tempo introduces to optimize for payments.
 
 <br>
 <br>
