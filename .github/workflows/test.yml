@@ -73,7 +73,7 @@ jobs:
           echo "$authenticated_url"
           git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2
+      - uses: taiki-e/install-action@cf46383a970594553a83cc6140075ef6a7f54dee # v2
         with:
           tool: nextest
 
