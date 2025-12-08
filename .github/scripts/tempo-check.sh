@@ -28,7 +28,7 @@ echo -e "\n=== CREATE AND FUND ADDRESS ==="
 read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"')
 
 for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL" 2>&1)
+  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL" 2>&1 || true)
 
   if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
     echo "$OUT" | jq
@@ -50,15 +50,15 @@ if [[ -n "${VERIFIER_URL:-}" ]]; then
   VERIFY_ARGS+=(--verify)
 fi
 
-echo -e "\n=== FORGE SCRIPT SEND SIMPLE MAIL ==="
-forge script script/Mail.s.sol -s 'sendSimpleMail()' --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
+echo -e "\n=== FORGE SCRIPT DEPLOY ==="
+forge script script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
 
 echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
 forge script --fee-token 2 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
 forge script --fee-token 3 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
 
 echo -e "\n=== FORGE CREATE DEPLOY ==="
-forge create src/Mail.sol:SimpleMail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
+forge create src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
 
 echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
 forge create --fee-token 2 src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
