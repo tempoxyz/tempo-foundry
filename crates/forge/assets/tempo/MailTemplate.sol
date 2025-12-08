@@ -3,18 +3,6 @@ pragma solidity ^0.8.13;
 
 import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
 
-contract SimpleMail {
-    event SimpleMailSent(address indexed from, address indexed to, string message);
-
-    mapping(address => uint256) public balances;
-
-    function sendMail(address to, string memory message, uint256 amount) external {
-        balances[to] += amount;
-
-        emit SimpleMailSent(msg.sender, to, message);
-    }
-}
-
 contract Mail {
     event MailSent(address indexed from, address indexed to, string message, Attachment attachment);
 
