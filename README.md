@@ -19,8 +19,6 @@
 
 `Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that brings Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
 
-It extends Foundry with Tempo’s payment-native transaction model, stablecoin-denominated gas, and full `TIP-20` token features (including memos and compliance).
-
 This is a required drop-in replacement for upstream Foundry when developing against Tempo.
 
 Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
