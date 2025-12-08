@@ -294,13 +294,13 @@ revm-inspectors = { version = "0.33.0", features = ["serde"] }
 op-revm = { version = "14.1.0", default-features = false }
 
 # tempo
-tempo-alloy = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
-tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
-tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
-tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
-tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
-tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
-tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "78ea7e0" }
+tempo-alloy = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
+tempo-contracts = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
+tempo-revm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
+tempo-evm = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
+tempo-chainspec = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
+tempo-primitives = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
+tempo-precompiles = { git = "ssh://git@github.com/tempoxyz/tempo", rev = "67f98e7" }
 
 ## alloy-evm
 alloy-evm = "0.24.2"

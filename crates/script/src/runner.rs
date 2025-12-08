@@ -63,8 +63,10 @@ impl ScriptRunner {
         let mut library_transactions = VecDeque::new();
         let mut traces = Traces::default();
 
-        // Initialize Tempo precompiles and contracts
-        initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
+        // Initialize Tempo precompiles and contracts if we're not in fork mode.
+        if self.evm_opts.fork_url.is_none() {
+            initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
+        }
 
         // Deploy libraries
         match libraries {
