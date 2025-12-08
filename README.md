@@ -17,7 +17,7 @@
 
 [Tempo](https://docs.tempo.xyz/) is a blockchain designed specifically for stablecoin payments. Its architecture focuses on high throughput, low cost, and features that financial institutions, payment service providers, and fintech platforms expect from modern payment infrastructure.
 
-`Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that brings Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
+`Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that integrates Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
 
 This is a required drop-in replacement for upstream Foundry when developing against Tempo.
 
