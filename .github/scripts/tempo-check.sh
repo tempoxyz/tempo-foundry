@@ -28,7 +28,7 @@ echo -e "\n=== CREATE AND FUND ADDRESS ==="
 read ADDR PK < <(cast wallet new --json | jq -r '.[0] | "\(.address) \(.private_key)"')
 
 for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL" 2>&1)
+  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$TEMPO_RPC_URL" 2>&1 || true)
 
   if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
     echo "$OUT" | jq
