@@ -23,6 +23,36 @@ This is a required drop-in replacement for upstream Foundry when developing agai
 
 Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
 
+## Installation
+
+Getting started is very easy:
+
+Install `foundryup`:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+Or if you already have `foundryup` installed:
+
+```bash
+foundryup --update
+```
+
+Next, run:
+
+```bash
+foundryup -n tempo
+```
+
+It will automatically install the latest version of the precompiled binaries: [`forge`](#forge), [`cast`](#cast).
+
+**Done!**
+
+For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
+
+If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
+
 ## Testnet
 
 You can connect to Tempo's public testnet using the following details:
@@ -136,26 +166,6 @@ Tempo's fork of Foundry consists of:
 - **Streamlined CI/CD**
 
   - **Optimized CI**: Accelerate builds, run tests and execute scripts using [Foundry's GitHub action][foundry-gha].
-
-## Installation
-
-Getting started is very easy:
-
-Install `foundryup`:
-
-```
-curl -L https://tempo.xyz/foundry | bash
-```
-
-Next, run `foundryup -n tempo`.
-
-It will automatically install the latest version of the precompiled binaries: [`forge`](#forge), [`cast`](#cast).
-
-**Done!**
-
-For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
-
-If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
 
 ## How Fast?
 
