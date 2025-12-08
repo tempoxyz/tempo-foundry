@@ -19,11 +19,13 @@
 
 `Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that integrates Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
 
-This is a required drop-in replacement for upstream Foundry when developing against Tempo.
+This is a temporary required drop-in replacement for upstream Foundry while Tempo-specific features are being integrated into upstream Foundry, after which this fork will be deprecated.
 
 Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
 
 ## Installation
+
+Note: Tempo Foundry is installed through the standard upstream `foundryup` using the `-n tempo` flag, no separate installer is required.
 
 Getting started is very easy:
 
@@ -45,7 +47,7 @@ Next, run:
 foundryup -n tempo
 ```
 
-It will automatically install the latest version of the precompiled binaries: [`forge`](#forge), [`cast`](#cast).
+It will automatically install the latest `nightly` release of the precompiled binaries: [`forge`](#forge) and [`cast`](#cast).
 
 **Done!**
 
