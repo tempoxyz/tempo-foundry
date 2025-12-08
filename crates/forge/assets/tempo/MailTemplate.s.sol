@@ -5,20 +5,16 @@ import {Script} from "forge-std/Script.sol";
 import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
 import {ITIP20RolesAuth} from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import {StdPrecompiles} from "tempo-std/StdPrecompiles.sol";
+import {StdTokens} from "tempo-std/StdTokens.sol";
 import {Mail} from "../src/Mail.sol";
 
 contract MailScript is Script {
     function setUp() public {}
 
     function run() public {
-        if (vm.envExists("TEMPO_RPC_URL")) {
-            vm.createSelectFork(vm.envString("TEMPO_RPC_URL"));
-
-            vm.broadcast();
-            StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdPrecompiles.DEFAULT_FEE_TOKEN_ADDRESS);
-        }
-
         vm.startBroadcast();
+
+        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdTokens.ALPHA_USD_ADDRESS);
 
         ITIP20 token = ITIP20(
             StdPrecompiles.TIP20_FACTORY.createToken("testUSD", "tUSD", "USD", StdPrecompiles.PATH_USD, msg.sender)

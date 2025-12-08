@@ -75,7 +75,7 @@ mod verify;
 // Loads project's figment and merges the build cli arguments into it
 foundry_config::merge_impl_figment_convert!(ScriptArgs, build, evm);
 
-const DEFAULT_FEE_TOKEN_SYMBOL: &str = "AlphaUSD";
+const DEFAULT_FEE_TOKEN_SYMBOL: &str = "PathUSD";
 
 sol! {
     #[sol(rpc)]

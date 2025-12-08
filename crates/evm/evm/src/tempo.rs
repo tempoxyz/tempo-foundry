@@ -10,7 +10,7 @@ use tempo_contracts::{
     contracts::ARACHNID_CREATE2_FACTORY_BYTECODE,
 };
 use tempo_precompiles::{
-    NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS, TIP_ACCOUNT_REGISTRAR,
+    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS,
     TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS,
     TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
     error::TempoPrecompileError,
@@ -40,9 +40,9 @@ pub fn initialize_tempo_precompiles_and_contracts(
         TIP20_FACTORY_ADDRESS,
         TIP20_REWARDS_REGISTRY_ADDRESS,
         TIP403_REGISTRY_ADDRESS,
-        TIP_ACCOUNT_REGISTRAR,
         TIP_FEE_MANAGER_ADDRESS,
         VALIDATOR_CONFIG_ADDRESS,
+        ACCOUNT_KEYCHAIN_ADDRESS,
     ] {
         executor.backend_mut().insert_account_info(
             precompile,
@@ -54,33 +54,12 @@ pub fn initialize_tempo_precompiles_and_contracts(
         );
     }
 
-    // Set bytecode for all contracts
-    insert_contract(executor, MULTICALL_ADDRESS, Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
-    insert_contract(executor, CREATEX_ADDRESS, Bytes::from_static(&CreateX::DEPLOYED_BYTECODE));
-    insert_contract(
-        executor,
-        SAFE_DEPLOYER_ADDRESS,
-        Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE),
-    );
-    insert_contract(executor, PERMIT2_ADDRESS, Bytes::from_static(&Permit2::DEPLOYED_BYTECODE));
-    insert_contract(executor, ARACHNID_CREATE2_FACTORY_ADDRESS, ARACHNID_CREATE2_FACTORY_BYTECODE);
-
-    // Initialize validator config
-    executor
-        .backend_mut()
-        .insert_account_storage(
-            VALIDATOR_CONFIG_ADDRESS,
-            validator_config::slots::OWNER,
-            admin.into_word().into(),
-        )
-        .expect("failed to initialize validator config state");
-
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
     let mut storage_provider =
         FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp);
 
-    // Create PathUSD token
+    // Create PathUSD token: 0x20C0000000000000000000000000000000000000
     let path_usd_token_address = create_and_mint_token(
         &mut storage_provider,
         "PathUSD",
@@ -92,7 +71,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
         U256::from(u64::MAX),
     )?;
 
-    // Create AlphaUSD token
+    // Create AlphaUSD token: 0x20C0000000000000000000000000000000000001
     let _alpha_usd_token_address = create_and_mint_token(
         &mut storage_provider,
         "AlphaUSD",
@@ -103,6 +82,51 @@ pub fn initialize_tempo_precompiles_and_contracts(
         sender,
         U256::from(u64::MAX),
     )?;
+
+    // Create BetaUSD token: 0x20C0000000000000000000000000000000000002
+    let _beta_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "BetaUSD",
+        "BetaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
+
+    // Create ThetaUSD token: 0x20C0000000000000000000000000000000000003
+    let _theta_usd_token_address = create_and_mint_token(
+        &mut storage_provider,
+        "ThetaUSD",
+        "ThetaUSD",
+        "USD",
+        path_usd_token_address,
+        admin,
+        sender,
+        U256::from(u64::MAX),
+    )?;
+
+    // Initialize ValidatorConfig with admin as owner
+    executor
+        .backend_mut()
+        .insert_account_storage(
+            VALIDATOR_CONFIG_ADDRESS,
+            validator_config::slots::OWNER,
+            admin.into_word().into(),
+        )
+        .expect("failed to initialize validator config state");
+
+    // Set bytecode for all contracts
+    insert_contract(executor, MULTICALL_ADDRESS, Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
+    insert_contract(executor, CREATEX_ADDRESS, Bytes::from_static(&CreateX::DEPLOYED_BYTECODE));
+    insert_contract(
+        executor,
+        SAFE_DEPLOYER_ADDRESS,
+        Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE),
+    );
+    insert_contract(executor, PERMIT2_ADDRESS, Bytes::from_static(&Permit2::DEPLOYED_BYTECODE));
+    insert_contract(executor, ARACHNID_CREATE2_FACTORY_ADDRESS, ARACHNID_CREATE2_FACTORY_BYTECODE);
 
     Ok(())
 }
