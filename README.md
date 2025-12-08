@@ -48,7 +48,7 @@ cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.testnet.tempo.xyz
 
 ## Changeset
 
-Key extensions and behavior changes introduced in Tempo Foundry:
+Key extensions:
 
 - In `foundryup`:
 
@@ -67,7 +67,7 @@ Key extensions and behavior changes introduced in Tempo Foundry:
   - `cast tip20`: alias to `cast erc20`.
   - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
-- Internal changeset:
+- Additionally:
 
   - Support for local and forked simulation of the Tempo execution environment.
   - Support for Tempo's (stateful) precompiles and default contracts including labels in traces.
