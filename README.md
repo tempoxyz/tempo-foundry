@@ -19,16 +19,28 @@ Tempo builds on top of [Foundry](https://github.com/foundry-rs/foundry): the lea
 
 This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/documentation/protocol#protocol-components), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/quickstart/evm-compatibility).
 
-- `forge`:
+Get started [here](https://docs.tempo.xyz/sdk/foundry).
 
-  - `forge init`: adds Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
+Some of the new features include:
 
-- `cast`:
+- In `foundryup`:
 
-  - `cast run`: allowing system transactions to be processed by modifying the transaction environment.
+  - `foundryup -n tempo`: download the latest `nightly` release of Tempo's fork of Foundry.
+  - `foundryup -n tempo -i <TAG>` download a specific `nightly` release by tag `nightly-<hash>`.
+
+- In `forge`:
+
+  - `forge init -n tempo`: adds Tempo specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
+  - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for use with Tempo for Foundry.
+  - `--fee-token` support: pay gas fees in any `TIP20` token.
+
+- In `cast`:
+
+  - `cast run`: updated to correctly allow Tempo's system transactions to be processed by modifying the transaction environment when replaying a block.
   - `cast tip20`: alias to `cast erc20`.
+  - `--fee-token` support: pay gas fees in any `TIP20` token.
 
-- Internal changes:
+- Internal changeset:
 
   - Support for Tempo's (stateful) precompiles including labels in traces.
   - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate [the various customizations](https://docs.tempo.xyz/get-started/network-information/evm-compatibility) Tempo has made.
