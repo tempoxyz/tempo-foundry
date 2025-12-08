@@ -25,7 +25,7 @@ Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features i
 
 ## Installation
 
-Note: Tempo Foundry is installed through the standard upstream `foundryup` using the `-n tempo` flag, no separate installer is required.
+Tempo's Foundry fork is installed through the standard upstream `foundryup` using the `-n tempo` flag, no separate installer is required.
 
 Getting started is very easy:
 
