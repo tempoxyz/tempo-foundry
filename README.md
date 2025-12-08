@@ -27,7 +27,7 @@ Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features i
 
 Getting started is very easy:
 
-Install `foundryup`:
+Install regular `foundryup`:
 
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
