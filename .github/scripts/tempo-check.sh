@@ -53,6 +53,10 @@ fi
 echo -e "\n=== FORGE SCRIPT DEPLOY ==="
 forge script script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
 
+echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
+forge script --fee-token 2 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
+forge script --fee-token 3 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
+
 echo -e "\n=== FORGE CREATE DEPLOY ==="
 forge create src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
 
