@@ -13,13 +13,40 @@
 <br>
 <br>
 
-### Notable differences with Foundry
+# Tempo Foundry
 
-Tempo builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
+[Tempo](https://docs.tempo.xyz/) is a blockchain designed specifically for stablecoin payments. Its architecture focuses on high throughput, low cost, and features that financial institutions, payment service providers, and fintech platforms expect from modern payment infrastructure.
+
+`Tempo Foundry` builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
 
 This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/documentation/protocol#protocol-components), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/quickstart/evm-compatibility).
 
-Get started [here](https://docs.tempo.xyz/sdk/foundry).
+Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
+
+## Getting Started
+
+### As a user
+
+You can connect to Tempo's public testnet using the following details:
+
+| Property           | Value                           |
+| ------------------ | ------------------------------- |
+| **Network Name**   | Tempo Testnet (Andantino)       |
+| **Currency**       | `USD`                           |
+| **Chain ID**       | `42429`                         |
+| **HTTP URL**       | `https://rpc.testnet.tempo.xyz` |
+| **WebSocket URL**  | `wss://rpc.testnet.tempo.xyz`   |
+| **Block Explorer** | `https://explore.tempo.xyz`     |
+
+Next, grab some stablecoins to test with from Tempo's [Faucet](https://docs.tempo.xyz/quickstart/faucet#faucet).
+
+Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
+
+```bash
+cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.testnet.tempo.xyz
+```
+
+### As a developer
 
 Some of the new features include:
 
@@ -43,7 +70,7 @@ Some of the new features include:
 - Internal changeset:
 
   - Support for Tempo's (stateful) precompiles including labels in traces.
-  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate [the various customizations](https://docs.tempo.xyz/get-started/network-information/evm-compatibility) Tempo has made.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate some differences Tempo introduces to optimized for payments.
 
 <br>
 <br>
