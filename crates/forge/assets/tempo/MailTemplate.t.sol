@@ -19,7 +19,7 @@ contract MailTest is Test {
         StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdTokens.ALPHA_USD_ADDRESS);
 
         token = ITIP20(
-            StdPrecompiles.TIP20_FACTORY.createToken("testUSD", "tUSD", "USD", StdPrecompiles.PATH_USD, address(this))
+            StdPrecompiles.TIP20_FACTORY.createToken("testUSD", "tUSD", "USD", StdTokens.PATH_USD, address(this))
         );
         ITIP20RolesAuth(address(token)).grantRole(token.ISSUER_ROLE(), address(this));
 
