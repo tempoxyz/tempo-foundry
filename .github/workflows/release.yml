@@ -132,17 +132,6 @@ jobs:
       - run: printf 'RUSTC_WRAPPER=sccache\n' >> "$GITHUB_ENV"
         if: ${{ contains(matrix.runner, 'depot') }}
 
-      # Make git@github.com:* rewrite to https://x-access-token:<token>@github.com/*
-      - name: Configure Git to use GITHUB_TOKEN for GitHub
-        env:
-          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
-        shell: bash
-        run: |
-          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
-          echo "$authenticated_url"
-          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
-          # git config --global url."$authenticated_url".insteadOf "git@github.com:"
-
       - name: Apple M1 setup
         if: matrix.target == 'aarch64-apple-darwin'
         run: |

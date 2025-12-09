@@ -64,14 +64,6 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.target }}
-      - name: Configure Git to use GITHUB_TOKEN for GitHub
-        env:
-          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
-        shell: bash
-        run: |
-          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
-          echo "$authenticated_url"
-          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2
         with:
@@ -83,14 +75,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Configure Git to use GITHUB_TOKEN for GitHub
-        env:
-          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
-        shell: bash
-        run: |
-          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
-          echo "$authenticated_url"
-          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
       - name: Install Bun
         if: contains(matrix.name, 'external')
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
@@ -130,5 +114,4 @@ jobs:
           WS_ARCHIVE_URLS: ${{ secrets.WS_ARCHIVE_URLS }}
           ETHERSCAN_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
           ARBITRUM_RPC: ${{ secrets.ARBITRUM_RPC }}
-          TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
         run: cargo nextest run -p forge -p cast ${{ matrix.flags }}

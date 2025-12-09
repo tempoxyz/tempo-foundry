@@ -31,15 +31,6 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Configure Git to use GITHUB_TOKEN for GitHub
-        env:
-          TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
-        shell: bash
-        run: |
-          authenticated_url="https://${GITHUB_ACTOR}:${TOKEN}@github.com/"
-          echo "$authenticated_url"
-          git config --global url."$authenticated_url".insteadOf "ssh://git@github.com/"
-
       - name: Bump to Tempo main
         run: |
           chmod +x ./.github/scripts/tempo-main-bump.sh
@@ -54,7 +45,6 @@ jobs:
       - name: Run Tempo check on devnet
         env:
           TEMPO_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
-          TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
         run: |
           chmod +x ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-check.sh
@@ -63,7 +53,6 @@ jobs:
         env:
           TEMPO_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
-          TEMPO_TOKEN: ${{ secrets.FOUNDRY_TEMPO_RELEASE_PAT }}
         run: |
           chmod +x ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-check.sh
