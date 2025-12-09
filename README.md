@@ -13,25 +13,95 @@
 <br>
 <br>
 
-### Notable differences with Foundry
+# Tempo Foundry
 
-Tempo builds on top of [Foundry](https://github.com/foundry-rs/foundry): the leading Ethereum development toolkit, through a custom fork that adds first-class support for Tempo.
+[Tempo](https://docs.tempo.xyz/) is a blockchain designed specifically for stablecoin payments. Its architecture focuses on high throughput, low cost, and features that financial institutions, payment service providers, and fintech platforms expect from modern payment infrastructure.
 
-This fork extends Foundry with Tempo's [protocol-level features](https://docs.tempo.xyz/documentation/protocol#protocol-components), enabling developers to build, test, and deploy contracts that go [beyond the limits of standard EVM chains](https://docs.tempo.xyz/guide/quickstart/evm-compatibility#evm-compatibility).
+`Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that integrates Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
 
-- `forge`:
+This is a temporary required drop-in replacement for upstream Foundry while Tempo-specific features are being integrated into upstream Foundry, after which this fork will be deprecated.
 
-  - `forge init`: adds Tempo specific `Mail` template showcasing a TIP20 transfer with memo: `forge init -n tempo`.
+Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
 
-- `cast`:
+## Installation
 
-  - `cast run`: allowing system transactions to be processed by modifying the transaction environment.
+Tempo's Foundry fork is installed through the standard upstream `foundryup` using the `-n tempo` flag, no separate installer is required.
+
+Getting started is very easy:
+
+Install regular `foundryup`:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+Or if you already have `foundryup` installed:
+
+```bash
+foundryup --update
+```
+
+Next, run:
+
+```bash
+foundryup -n tempo
+```
+
+It will automatically install the latest `nightly` release of the precompiled binaries: [`forge`](#forge) and [`cast`](#cast).
+
+**Done!**
+
+For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
+
+If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
+
+## Testnet
+
+You can connect to Tempo's public testnet using the following details:
+
+| Property           | Value                           |
+| ------------------ | ------------------------------- |
+| **Network Name**   | Tempo Testnet (Andantino)       |
+| **Currency**       | `USD`                           |
+| **Chain ID**       | `42429`                         |
+| **HTTP URL**       | `https://rpc.testnet.tempo.xyz` |
+| **WebSocket URL**  | `wss://rpc.testnet.tempo.xyz`   |
+| **Block Explorer** | `https://explore.tempo.xyz`     |
+
+Next, grab some stablecoins to test with from Tempo's [Faucet](https://docs.tempo.xyz/quickstart/faucet#faucet).
+
+Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
+
+```bash
+cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.testnet.tempo.xyz
+```
+
+## Changeset
+
+Key extensions:
+
+- In `foundryup`:
+
+  - `foundryup -n tempo`: download the latest `nightly` release of Tempo's fork of Foundry.
+  - `foundryup -n tempo -i <TAG>`: download a specific `nightly` release by tag `nightly-<hash>`.
+
+- In `forge`:
+
+  - `forge init -n tempo`: adds a Tempo-specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
+  - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for Tempo-specific testing and utilities.
+  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+
+- In `cast`:
+
+  - `cast run`: updated to correctly process Tempo's system transactions when replaying a block.
   - `cast tip20`: alias to `cast erc20`.
+  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
-- Internal changes:
+- Additionally:
 
-  - Support for Tempo's (stateful) precompiles including labels in traces.
-  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate [the various customizations](https://docs.tempo.xyz/get-started/network-information/evm-compatibility) Tempo has made.
+  - Support for local and forked simulation of the Tempo execution environment.
+  - Support for Tempo's (stateful) precompiles and default contracts including labels in traces.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate differences Tempo introduces to optimize for payments.
 
 <br>
 <br>
@@ -98,26 +168,6 @@ Tempo's fork of Foundry consists of:
 - **Streamlined CI/CD**
 
   - **Optimized CI**: Accelerate builds, run tests and execute scripts using [Foundry's GitHub action][foundry-gha].
-
-## Installation
-
-Getting started is very easy:
-
-Install `foundryup`:
-
-```
-curl -L https://tempo.xyz/foundry | bash
-```
-
-Next, run `foundryup -n tempo`.
-
-It will automatically install the latest version of the precompiled binaries: [`forge`](#forge), [`cast`](#cast).
-
-**Done!**
-
-For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
-
-If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
 
 ## How Fast?
 
