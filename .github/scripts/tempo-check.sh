@@ -47,7 +47,7 @@ sleep 5
 # If `VERIFIER_URL` is set, add the `--verify` flag to forge commands.
 VERIFY_ARGS=()
 if [[ -n "${VERIFIER_URL:-}" ]]; then
-  VERIFY_ARGS+=(--verify)
+  VERIFY_ARGS+=(--verify --retries 10 --delay 10)
 fi
 
 echo -e "\n=== FORGE SCRIPT DEPLOY ==="
