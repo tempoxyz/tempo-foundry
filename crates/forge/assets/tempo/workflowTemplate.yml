@@ -23,7 +23,10 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: tempoxyz/tempo-foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+          network: tempo
 
       - name: Show Forge version
         run: forge --version
