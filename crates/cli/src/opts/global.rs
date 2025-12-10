@@ -1,8 +1,5 @@
 use clap::{ArgAction, Parser};
-use foundry_common::{
-    shell::{ColorChoice, OutputFormat, OutputMode, Shell, Verbosity},
-    version::{IS_NIGHTLY_VERSION, NIGHTLY_VERSION_WARNING_MESSAGE},
-};
+use foundry_common::shell::{ColorChoice, OutputFormat, OutputMode, Shell, Verbosity};
 use serde::{Deserialize, Serialize};
 
 /// Global arguments for the CLI.
@@ -67,14 +64,6 @@ impl GlobalArgs {
         if self.threads.is_some() {
             self.force_init_thread_pool()?;
         }
-
-        // Display a warning message if the current version is not stable.
-        // if IS_NIGHTLY_VERSION
-        //     && !self.json
-        //     && std::env::var_os("FOUNDRY_DISABLE_NIGHTLY_WARNING").is_none()
-        // {
-        //     let _ = sh_warn!("{}", NIGHTLY_VERSION_WARNING_MESSAGE);
-        // }
 
         Ok(())
     }
