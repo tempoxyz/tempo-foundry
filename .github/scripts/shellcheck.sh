@@ -3,7 +3,17 @@
 # runs shellcheck and prints GitHub Actions annotations for each warning and error
 # https://github.com/koalaman/shellcheck
 
-find . -name "*.sh" -not -path "./.git/*" -exec shellcheck -f gcc {} + | \
+IGNORE_DIRS=(
+  "./.git/*"
+  "./target/*"
+)
+
+ignore_args=()
+for dir in "${IGNORE_DIRS[@]}"; do
+  ignore_args+=(-not -path "$dir")
+done
+
+find . -name "*.sh" "${ignore_args[@]}" -exec shellcheck -f gcc {} + | \
   while IFS=: read -r file line col severity msg; do
     level="warning"
     [[ "$severity" == *error* ]] && level="error"
