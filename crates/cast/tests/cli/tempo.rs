@@ -30,7 +30,7 @@ logsBloom            [..]
 root                 
 status               true
 transactionHash      [..]
-transactionIndex     0
+transactionIndex     [..]
 type                 FeeToken
 to                   0x20C0000000000000000000000000000000000001
 
@@ -65,7 +65,7 @@ logsBloom            [..]
 root                 
 status               true
 transactionHash      [..]
-transactionIndex     0
+transactionIndex     [..]
 type                 FeeToken
 to                   0x20C0000000000000000000000000000000000001
 
@@ -98,7 +98,7 @@ logsBloom            [..]
 root                 
 status               true
 transactionHash      [..]
-transactionIndex     0
+transactionIndex     [..]
 type                 FeeToken
 to                   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D
 
