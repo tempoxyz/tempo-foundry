@@ -60,6 +60,22 @@ jobs:
           persist-credentials: false
       - uses: crate-ci/typos@626c4bedb751ce0b7f03262ca97ddda9a076ae1c # v1
 
+  shellcheck:
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: reviewdog/action-shellcheck@90b8cde5f78a0ca946391250a4a94ff7731bd758
+        with:
+          reporter: github-pr-review
+          path: .
+          pattern: '*.sh'
+          exclude: "./.git/*"
+
   clippy:
     runs-on: depot-ubuntu-latest
     timeout-minutes: 30
