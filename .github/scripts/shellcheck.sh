@@ -7,7 +7,8 @@ find . -name "*.sh" -not -path "./.git/*" -exec shellcheck -f gcc {} + | \
   while IFS=: read -r file line col severity msg; do
     level="warning"
     [[ "$severity" == *error* ]] && level="error"
-    echo "::${level} file=${file#./},line=${line},col=${col}::${msg}"
+    file="${file#./}"
+    echo "::${level} file=${file},line=${line},col=${col}::${file}:${line}:${col}:${msg}"
   done
 
 exit "${PIPESTATUS[0]}"
