@@ -112,11 +112,11 @@ jobs:
             svm_target_platform: macosx-aarch64
             platform: darwin
             arch: arm64
-          # - runner: depot-windows-latest-16
-          #   target: x86_64-pc-windows-msvc
-          #   svm_target_platform: windows-amd64
-          #   platform: win32
-          #   arch: amd64
+          - runner: depot-windows-latest-16
+            target: x86_64-pc-windows-msvc
+            svm_target_platform: windows-amd64
+            platform: win32
+            arch: amd64
     steps:
       - uses: actions/checkout@v6
         with:
@@ -137,6 +137,14 @@ jobs:
         run: |
           printf 'SDKROOT=%s\n' "$(xcrun -sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
           printf 'MACOSX_DEPLOYMENT_TARGET=%s\n' "$(xcrun -sdk macosx --show-sdk-platform-version)" >> "$GITHUB_ENV"
+
+      - name: Windows setup
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: powershell
+        run: |
+          choco install llvm -y
+          printf "LIBCLANG_PATH=C:\\Program Files\\LLVM\\bin\n" >> "$GITHUB_ENV"
+          printf "PATH=C:\\Program Files\\LLVM\\bin:$PATH\n" >> "$GITHUB_ENV"
 
       - name: cross setup
         if: contains(matrix.target, 'musl')
