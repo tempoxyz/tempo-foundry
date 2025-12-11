@@ -51,18 +51,18 @@ if [[ -n "${VERIFIER_URL:-}" ]]; then
 fi
 
 echo -e "\n=== FORGE SCRIPT DEPLOY ==="
-forge script script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
+forge script script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"}
 
 echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
-forge script --fee-token 2 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
-forge script --fee-token 3 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]}
+forge script --fee-token 2 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"}
+forge script --fee-token 3 script/Mail.s.sol --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"}
 
 echo -e "\n=== FORGE CREATE DEPLOY ==="
-forge create src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
+forge create src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"} --constructor-args 0x20c0000000000000000000000000000000000000
 
 echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
-forge create --fee-token 2 src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
-forge create --fee-token 3 src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]} --constructor-args 0x20c0000000000000000000000000000000000000
+forge create --fee-token 2 src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"} --constructor-args 0x20c0000000000000000000000000000000000000
+forge create --fee-token 3 src/Mail.sol:Mail --private-key $PK --rpc-url $TEMPO_RPC_URL --broadcast ${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"} --constructor-args 0x20c0000000000000000000000000000000000000
 
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
 cast erc20 transfer --fee-token 2 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url $TEMPO_RPC_URL --private-key $PK
