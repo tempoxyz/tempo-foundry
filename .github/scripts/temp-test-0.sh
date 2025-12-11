@@ -1,3 +1,0 @@
-foo=$bar
-
-echo $foo
