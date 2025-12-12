@@ -49,6 +49,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 use tokio::signal::ctrl_c;
 
 pub use foundry_evm::*;
@@ -56,6 +57,7 @@ pub use foundry_evm::*;
 pub mod args;
 pub mod cmd;
 pub mod opts;
+pub mod tempo;
 
 pub mod base;
 pub(crate) mod debug;
@@ -72,6 +74,90 @@ extern crate tracing;
 extern crate foundry_common;
 
 // TODO: CastContract with common contract initializers? Same for CastProviders?
+
+pub struct CastTxSender<P> {
+    provider: P,
+}
+
+impl<P: Provider<TempoNetwork>> CastTxSender<P> {
+    pub fn new(provider: P) -> Self {
+        Self { provider }
+    }
+
+    /// Sends a transaction and waits for receipt synchronously
+    pub async fn send_sync(&self, tx: TempoTransactionRequest) -> Result<String> {
+        let mut receipt: TransactionReceiptWithRevertReason =
+            self.provider.send_transaction_sync(tx).await?.into();
+
+        // Allow to fail silently
+        let _ = receipt.update_revert_reason(&self.provider).await;
+
+        self.format_receipt(receipt, None)
+    }
+
+    /// Sends a transaction to the specified address
+    pub async fn send(
+        &self,
+        tx: TempoTransactionRequest,
+    ) -> Result<PendingTransactionBuilder<TempoNetwork>> {
+        let res = self.provider.send_transaction(tx).await?;
+
+        Ok(res)
+    }
+
+    /// Fetches the transaction receipt for the given transaction hash
+    pub async fn receipt(
+        &self,
+        tx_hash: String,
+        field: Option<String>,
+        confs: u64,
+        timeout: Option<u64>,
+        cast_async: bool,
+    ) -> Result<String> {
+        let tx_hash = TxHash::from_str(&tx_hash).wrap_err("invalid tx hash")?;
+
+        let mut receipt: TransactionReceiptWithRevertReason =
+            match self.provider.get_transaction_receipt(tx_hash).await? {
+                Some(r) => r,
+                None => {
+                    // if the async flag is provided, immediately exit if no tx is found, otherwise
+                    // try to poll for it
+                    if cast_async {
+                        eyre::bail!("tx not found: {:?}", tx_hash)
+                    } else {
+                        PendingTransactionBuilder::new(self.provider.root().clone(), tx_hash)
+                            .with_required_confirmations(confs)
+                            .with_timeout(timeout.map(Duration::from_secs))
+                            .get_receipt()
+                            .await?
+                    }
+                }
+            }
+            .into();
+
+        // Allow to fail silently
+        let _ = receipt.update_revert_reason(&self.provider).await;
+
+        self.format_receipt(receipt, field)
+    }
+
+    /// Helper method to format transaction receipts consistently
+    fn format_receipt(
+        &self,
+        receipt: TransactionReceiptWithRevertReason,
+        field: Option<String>,
+    ) -> Result<String> {
+        Ok(if let Some(ref field) = field {
+            foundry_common::get_pretty_tx_receipt_attr(&receipt, field)
+                .ok_or_else(|| eyre::eyre!("invalid receipt field: {}", field))?
+        } else if shell::is_json() {
+            // to_value first to sort json object keys
+            serde_json::to_value(&receipt)?.to_string()
+        } else {
+            receipt.pretty()
+        })
+    }
+}
 
 pub struct Cast<P> {
     provider: P,

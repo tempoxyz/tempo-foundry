@@ -21,7 +21,6 @@ use crate::{
     utils::IgnoredTraces,
 };
 use alloy_consensus::BlobTransactionSidecar;
-use alloy_evm::eth::EthEvmContext;
 use alloy_network::TransactionBuilder4844;
 use alloy_primitives::{
     Address, B256, Bytes, Log, TxKind, U256, hex,
@@ -53,7 +52,7 @@ use rand::Rng;
 use revm::{
     Inspector, Journal,
     bytecode::opcode as op,
-    context::{BlockEnv, JournalTr, LocalContext, TransactionType, result::EVMError},
+    context::{JournalTr, LocalContext, TransactionType, result::EVMError},
     context_interface::{CreateScheme, transaction::SignedAuthorization},
     handler::FrameResult,
     interpreter::{
@@ -73,13 +72,15 @@ use std::{
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
+use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_revm::{TempoBlockEnv, TempoInvalidTransaction, evm::TempoContext};
 
 mod utils;
 
 pub mod analysis;
 pub use analysis::CheatcodeAnalysis;
 
-pub type Ecx<'a, 'b, 'c> = &'a mut EthEvmContext<&'b mut (dyn DatabaseExt + 'c)>;
+pub type Ecx<'a, 'b, 'c> = &'a mut TempoContext<&'b mut (dyn DatabaseExt + 'c)>;
 
 /// Helper trait for obtaining complete [revm::Inspector] instance from mutable reference to
 /// [Cheatcodes].
@@ -133,12 +134,12 @@ where
     E: CheatcodesExecutor + ?Sized,
     F: for<'a, 'b> FnOnce(
         &mut FoundryEvm<'a, &'b mut dyn InspectorExt>,
-    ) -> Result<O, EVMError<DatabaseError>>,
+    ) -> Result<O, EVMError<DatabaseError, TempoInvalidTransaction>>,
 {
     let mut inspector = executor.get_inspector(ccx.state);
     let error = std::mem::replace(&mut ccx.ecx.error, Ok(()));
 
-    let ctx = EthEvmContext {
+    let ctx = TempoContext {
         block: ccx.ecx.block.clone(),
         cfg: ccx.ecx.cfg.clone(),
         tx: ccx.ecx.tx.clone(),
@@ -384,7 +385,7 @@ pub struct Cheatcodes {
     ///
     /// Used in the cheatcode handler to overwrite the block environment separately from the
     /// execution block environment.
-    pub block: Option<BlockEnv>,
+    pub block: Option<TempoBlockEnv>,
 
     /// Currently active EIP-7702 delegations that will be consumed when building the next
     /// transaction. Set by `vm.attachDelegation()` and consumed via `.take()` during
@@ -705,7 +706,7 @@ impl Cheatcodes {
     ) -> Option<CallOutcome> {
         // Apply custom execution evm version.
         if let Some(spec_id) = self.execution_evm_version {
-            ecx.cfg.spec = spec_id;
+            ecx.cfg.spec = spec_id.into();
         }
 
         let gas = Gas::new(call.gas_limit);
@@ -910,14 +911,18 @@ impl Cheatcodes {
                     let account =
                         ecx.journaled_state.inner.state().get_mut(&broadcast.new_origin).unwrap();
 
-                    let mut tx_req = TransactionRequest {
-                        from: Some(broadcast.new_origin),
-                        to: Some(TxKind::from(Some(call.target_address))),
-                        value: call.transfer_value(),
-                        input,
-                        nonce: Some(account.info.nonce),
-                        chain_id: Some(ecx.cfg.chain_id),
-                        gas: if is_fixed_gas_limit { Some(call.gas_limit) } else { None },
+                    let mut tx_req = TempoTransactionRequest {
+                        inner: TransactionRequest {
+                            from: Some(broadcast.new_origin),
+                            to: Some(TxKind::from(Some(call.target_address))),
+                            value: call.transfer_value(),
+                            input,
+                            nonce: Some(account.info.nonce),
+                            chain_id: Some(ecx.cfg.chain_id),
+                            gas: if is_fixed_gas_limit { Some(call.gas_limit) } else { None },
+                            ..Default::default()
+                        },
+                        fee_token: self.config.fee_token,
                         ..Default::default()
                     };
 
@@ -938,7 +943,7 @@ impl Cheatcodes {
                                 precompile_call_logs: vec![],
                             });
                         }
-                        tx_req.set_blob_sidecar(blob_sidecar);
+                        tx_req.inner.set_blob_sidecar(blob_sidecar);
                     }
 
                     // Apply active EIP-7702 delegations, if any.
@@ -953,7 +958,7 @@ impl Cheatcodes {
                                 account.info.nonce += 1;
                             }
                         }
-                        tx_req.authorization_list = Some(active_delegations);
+                        tx_req.inner.authorization_list = Some(active_delegations);
                     }
 
                     self.broadcastable_transactions.push_back(BroadcastableTransaction {
@@ -1114,7 +1119,7 @@ impl Cheatcodes {
     }
 }
 
-impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for Cheatcodes {
+impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
     fn initialize_interp(&mut self, interpreter: &mut Interpreter, ecx: Ecx) {
         // When the first interpreter is initialized we've circumvented the balance and gas checks,
         // so we apply our actual block data with the correct fees and all.
@@ -1710,12 +1715,16 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for Cheatcodes {
                 let account = &ecx.journaled_state.inner.state()[&broadcast.new_origin];
                 self.broadcastable_transactions.push_back(BroadcastableTransaction {
                     rpc: ecx.journaled_state.database.active_fork_url(),
-                    transaction: TransactionRequest {
-                        from: Some(broadcast.new_origin),
-                        to: None,
-                        value: Some(input.value()),
-                        input: TransactionInput::new(input.init_code()),
-                        nonce: Some(account.info.nonce),
+                    transaction: TempoTransactionRequest {
+                        inner: TransactionRequest {
+                            from: Some(broadcast.new_origin),
+                            to: None,
+                            value: Some(input.value()),
+                            input: TransactionInput::new(input.init_code()),
+                            nonce: Some(account.info.nonce),
+                            ..Default::default()
+                        },
+                        fee_token: self.config.fee_token,
                         ..Default::default()
                     }
                     .into(),

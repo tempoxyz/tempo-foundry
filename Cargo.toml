@@ -4,7 +4,6 @@ members = [
     "crates/cast/",
     "crates/cheatcodes/",
     "crates/cheatcodes/spec/",
-    "crates/chisel/",
     "crates/cli/",
     "crates/common/",
     "crates/config/",
@@ -188,7 +187,6 @@ trezor-client.opt-level = "z"
 
 [workspace.dependencies]
 cast = { path = "crates/cast" }
-chisel = { path = "crates/chisel" }
 forge = { path = "crates/forge" }
 
 forge-doc = { path = "crates/doc" }

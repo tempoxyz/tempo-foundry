@@ -17,7 +17,7 @@ use clap::Args;
 use eyre::Result;
 use foundry_cli::{
     opts::{CliAuthorizationList, EthereumOpts, TransactionOpts},
-    utils::{self, LoadConfig, get_provider_builder, parse_function_args},
+    utils::{self, LoadConfig, get_provider_builder, parse_fee_token_address, parse_function_args},
 };
 use foundry_common::{fmt::format_tokens, provider::RetryProviderWithSigner};
 use foundry_config::{Chain, Config};
@@ -52,6 +52,10 @@ pub struct SendTxOpts {
     /// Ethereum options
     #[command(flatten)]
     pub eth: EthereumOpts,
+
+    /// Fee token to use for transaction.
+    #[arg(long, value_parser = parse_fee_token_address)]
+    pub fee_token: Option<Address>,
 }
 
 /// Different sender kinds used by [`CastTxBuilder`].
@@ -146,15 +150,15 @@ pub struct InitState;
 /// State with known [TxKind].
 #[derive(Debug)]
 pub struct ToState {
-    to: Option<Address>,
+    pub(crate) to: Option<Address>,
 }
 
 /// State with known input for the transaction.
 #[derive(Debug)]
 pub struct InputState {
-    kind: TxKind,
-    input: Vec<u8>,
-    func: Option<Function>,
+    pub(crate) kind: TxKind,
+    pub(crate) input: Vec<u8>,
+    pub(crate) func: Option<Function>,
 }
 
 /// Builder type constructing [TransactionRequest] from cast send/mktx inputs.
@@ -162,20 +166,20 @@ pub struct InputState {
 /// It is implemented as a stateful builder with expected state transition of [InitState] ->
 /// [ToState] -> [InputState].
 #[derive(Debug)]
-pub struct CastTxBuilder<P, S> {
-    provider: P,
-    tx: WithOtherFields<TransactionRequest>,
+pub struct CastTxBuilder<P, S, T> {
+    pub(crate) provider: P,
+    pub(crate) tx: WithOtherFields<T>,
     /// Whether the transaction should be sent as a legacy transaction.
-    legacy: bool,
-    blob: bool,
-    auth: Vec<CliAuthorizationList>,
-    chain: Chain,
-    etherscan_api_key: Option<String>,
-    access_list: Option<Option<AccessList>>,
-    state: S,
+    pub(crate) legacy: bool,
+    pub(crate) blob: bool,
+    pub(crate) auth: Vec<CliAuthorizationList>,
+    pub(crate) chain: Chain,
+    pub(crate) etherscan_api_key: Option<String>,
+    pub(crate) access_list: Option<Option<AccessList>>,
+    pub(crate) state: S,
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
     /// provided [TransactionOpts].
     pub async fn new(provider: P, tx_opts: TransactionOpts, config: &Config) -> Result<Self> {
@@ -228,7 +232,10 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState> {
     }
 
     /// Sets [TxKind] for this builder and changes state to [ToState].
-    pub async fn with_to(self, to: Option<NameOrAddress>) -> Result<CastTxBuilder<P, ToState>> {
+    pub async fn with_to(
+        self,
+        to: Option<NameOrAddress>,
+    ) -> Result<CastTxBuilder<P, ToState, TransactionRequest>> {
         let to = if let Some(to) = to { Some(to.resolve(&self.provider).await?) } else { None };
         Ok(CastTxBuilder {
             provider: self.provider,
@@ -244,7 +251,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState> {
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
     /// Accepts user-provided code, sig and args params and constructs calldata for the transaction.
     /// If code is present, input will be set to code + encoded constructor arguments. If no code is
     /// present, input is set to just provided arguments.
@@ -253,7 +260,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState> {
         code: Option<String>,
         sig: Option<String>,
         args: Vec<String>,
-    ) -> Result<CastTxBuilder<P, InputState>> {
+    ) -> Result<CastTxBuilder<P, InputState, TransactionRequest>> {
         let (mut args, func) = if let Some(sig) = sig {
             parse_function_args(
                 &sig,
@@ -300,7 +307,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState> {
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
     /// Builds [TransactionRequest] and fills missing fields. Returns a transaction which is ready
     /// to be broadcasted.
     pub async fn build(
@@ -488,7 +495,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState> {
     }
 }
 
-impl<P, S> CastTxBuilder<P, S>
+impl<P, S> CastTxBuilder<P, S, TransactionRequest>
 where
     P: Provider<AnyNetwork>,
 {
@@ -508,7 +515,7 @@ where
 }
 
 /// Helper function that tries to decode custom error name and inputs from error payload data.
-async fn decode_execution_revert(data: &RawValue) -> Result<Option<String>> {
+pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<String>> {
     let err_data = serde_json::from_str::<Bytes>(data.get())?;
     let Some(selector) = err_data.get(..4) else { return Ok(None) };
     if let Some(known_error) =

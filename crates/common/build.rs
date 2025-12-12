@@ -19,7 +19,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tag_name = try_env_var("TAG_NAME").unwrap_or_else(|| String::from("dev"));
     let is_nightly = tag_name.contains("nightly");
-    let version_suffix = if is_nightly { "nightly" } else { &tag_name };
+    let base_suffix = if is_nightly {
+        "nightly".to_string()
+    } else if let Some((_, rc_number)) = tag_name.split_once("rc") {
+        format!("rc{rc_number}")
+    } else {
+        tag_name
+    };
+
+    let version_suffix = format!("{base_suffix}-tempo");
 
     if is_nightly {
         println!("cargo:rustc-env=FOUNDRY_IS_NIGHTLY_VERSION=true");
