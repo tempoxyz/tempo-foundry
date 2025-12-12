@@ -15,6 +15,7 @@ casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
+
 feeToken             0x20C0000000000000000000000000000000000002
 feePayer             0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 blockHash            [..]
@@ -32,6 +33,7 @@ transactionHash      [..]
 transactionIndex     [..]
 type                 FeeToken
 to                   0x20C0000000000000000000000000000000000001
+
 "#]]);
 
     cmd.cast_fuse().args([
@@ -48,6 +50,7 @@ to                   0x20C0000000000000000000000000000000000001
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
+
 feeToken             0x20C0000000000000000000000000000000000003
 feePayer             0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 blockHash            [..]
@@ -65,6 +68,7 @@ transactionHash      [..]
 transactionIndex     [..]
 type                 FeeToken
 to                   0x20C0000000000000000000000000000000000001
+
 "#]]);
 
     cmd.cast_fuse().args([
@@ -79,6 +83,7 @@ to                   0x20C0000000000000000000000000000000000001
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
+
 feeToken             0x20C0000000000000000000000000000000000003
 feePayer             0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 blockHash            [..]
@@ -96,6 +101,7 @@ transactionHash      [..]
 transactionIndex     [..]
 type                 FeeToken
 to                   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D
+
 "#]]);
 });
 
@@ -113,6 +119,7 @@ casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
 0x[..]
+
 "#]]);
 });
 
@@ -133,8 +140,11 @@ Traces:
     │        topic 3: 0x000000000000000000000000389077a7171cfb5613c009520b6cf7cc74d77e06
     │           data: 0x0000000000000000000000000000000000000000000000000000000000000001
     └─ ← [Return]
+
+
 Transaction successfully executed.
 [GAS]
+
 "#]]);
 });
 
@@ -146,6 +156,7 @@ casttest!(tempo_cast_aa_receipt, |_prj, cmd| {
         TESTNET_URL,
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
+
 feeToken             0x20C0000000000000000000000000000000000001
 feePayer             0x389077a7171cFb5613c009520B6Cf7cc74d77e06
 blockHash            0x83d790916e4913d04a45b8f03e1d124cce164fd65a69e079e50a8fa30d7f8d44
@@ -163,5 +174,6 @@ transactionHash      0x6fb40b6ce389c4493512164fdf01d30a43554d6f70b4fad9dc8e7578b
 transactionIndex     0
 type                 AA
 to                   0x20C000000000000000000000000000000000042a
+
 "#]]);
 });
