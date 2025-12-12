@@ -42,10 +42,15 @@ revm = { workspace = true, default-features = false, features = [
     "optional_eip3607",
     "optional_block_gas_limit",
     "optional_no_base_fee",
+    "optional_fee_charge",
     "arbitrary",
     "c-kzg",
 ] }
 revm-inspectors.workspace = true
+
+tempo-contracts.workspace = true
+tempo-precompiles.workspace = true
+tempo-revm.workspace = true
 
 eyre.workspace = true
 parking_lot.workspace = true
