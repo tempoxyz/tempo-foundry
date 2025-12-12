@@ -3,23 +3,23 @@ name: release
 permissions: {}
 
 on:
-  push:
-    tags:
-      - "stable"
-      - "rc"
-      - "rc-*"
-      - "v*.*.*"
-  schedule:
-    - cron: "0 6 * * *"
+  # push:
+  #   tags:
+  #     - "stable"
+  #     - "rc"
+  #     - "rc-*"
+  #     - "v*.*.*"
+  # schedule:
+  #   - cron: "0 6 * * *"
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
-  IS_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+  IS_NIGHTLY: true
 
   # Keep in sync with `docker-publish.yml`.
   RUST_PROFILE: maxperf
-  RUST_FEATURES: aws-kms,gcp-kms,turnkey,cli,asm-keccak,js-tracer
+  RUST_FEATURES: aws-kms,gcp-kms,turnkey,asm-keccak
 
   LAST_STABLE_VERSION: "v1.4.4"
 
@@ -75,17 +75,6 @@ jobs:
           toTag: ${{ steps.release_info.outputs.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  release-docker:
-    name: Release Docker
-    needs: prepare
-    uses: ./.github/workflows/docker-publish.yml
-    permissions:
-      contents: read
-      id-token: write
-      packages: write
-    with:
-      tag_name: ${{ needs.prepare.outputs.tag_name }}
 
   release:
     permissions:
@@ -161,6 +150,14 @@ jobs:
           printf 'SDKROOT=%s\n' "$(xcrun -sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
           printf 'MACOSX_DEPLOYMENT_TARGET=%s\n' "$(xcrun -sdk macosx --show-sdk-platform-version)" >> "$GITHUB_ENV"
 
+      - name: Windows setup
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: powershell
+        run: |
+          choco install llvm -y
+          printf "LIBCLANG_PATH=C:\\Program Files\\LLVM\\bin\n" >> "$GITHUB_ENV"
+          printf "PATH=C:\\Program Files\\LLVM\\bin:$PATH\n" >> "$GITHUB_ENV"
+
       - name: cross setup
         if: contains(matrix.target, 'musl')
         uses: taiki-e/cache-cargo-install-action@7447f04c51f2ba27ca35e7f1e28fab848c5b3ba7 # v2
@@ -179,7 +176,7 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          flags=(--target $TARGET --profile $RUST_PROFILE --bins
+          flags=(--target $TARGET --profile $RUST_PROFILE --bin forge --bin cast
             --no-default-features --features "$RUST_FEATURES")
 
           # `jemalloc` is not fully supported on MSVC or aarch64 Linux.
@@ -195,7 +192,7 @@ jobs:
             cargo build "${flags[@]}"
           fi
 
-          bins=(anvil cast chisel forge)
+          bins=(cast forge)
           for name in "${bins[@]}"; do
             bin="$OUT_DIR/$name$ext"
             printf '\n'
@@ -216,20 +213,19 @@ jobs:
         shell: bash
         run: |
           if [[ "$PLATFORM_NAME" == "linux" || "$PLATFORM_NAME" == "alpine" ]]; then
-            tar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast anvil chisel
+            tar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast
             printf "file_name=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> "$GITHUB_OUTPUT"
           elif [ "$PLATFORM_NAME" == "darwin" ]; then
             # We need to use gtar here otherwise the archive is corrupt.
             # See: https://github.com/actions/virtual-environments/issues/2619
-            gtar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast anvil chisel
+            gtar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast
             printf "file_name=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> "$GITHUB_OUTPUT"
           else
             cd "$OUT_DIR"
-            7z a -tzip "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe anvil.exe chisel.exe
+            7z a -tzip "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe
             mv "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
             printf "file_name=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" >> "$GITHUB_OUTPUT"
           fi
-          printf "foundry_attestation=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.attestation.txt" >> "$GITHUB_OUTPUT"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v5
@@ -249,33 +245,10 @@ jobs:
           sudo apt-get -y install help2man
           help2man -N $OUT_DIR/forge > forge.1
           help2man -N $OUT_DIR/cast > cast.1
-          help2man -N $OUT_DIR/anvil > anvil.1
-          help2man -N $OUT_DIR/chisel > chisel.1
           gzip forge.1
           gzip cast.1
-          gzip anvil.1
-          gzip chisel.1
-          tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz anvil.1.gz chisel.1.gz
+          tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz
           printf 'foundry_man=%s\n' "foundry_man_${VERSION_NAME}.tar.gz" >> "$GITHUB_OUTPUT"
-
-      - name: Binaries attestation
-        id: attestation
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: |
-            ${{ env.anvil_bin_path }}
-            ${{ env.cast_bin_path }}
-            ${{ env.chisel_bin_path }}
-            ${{ env.forge_bin_path }}
-
-      - name: Record attestation URL
-        env:
-          ATTESTATION_URL: ${{ steps.attestation.outputs.attestation-url }}
-          FOUNDRY_ATTESTATION: ${{ steps.artifacts.outputs.foundry_attestation }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s\n' "$ATTESTATION_URL" > "$FOUNDRY_ATTESTATION"
 
       # Creates the release for this specific version
       - name: Create release
@@ -338,7 +311,7 @@ jobs:
   issue:
     name: Open an issue
     runs-on: ubuntu-latest
-    needs: [prepare, release-docker, release, cleanup]
+    needs: [prepare, release, cleanup]
     if: failure()
     permissions:
       contents: read
