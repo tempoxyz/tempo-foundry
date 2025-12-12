@@ -17,9 +17,11 @@ use clap::Args;
 use eyre::Result;
 use foundry_cli::{
     opts::{CliAuthorizationList, EthereumOpts, TransactionOpts},
-    utils::{self, LoadConfig, get_provider_builder, parse_fee_token_address, parse_function_args},
+    utils::{
+        self, LoadConfig, get_tempo_signer_provider, parse_fee_token_address, parse_function_args,
+    },
 };
-use foundry_common::{fmt::format_tokens, provider::RetryProviderWithSigner};
+use foundry_common::{fmt::format_tokens, provider::tempo::TempoRetryProviderWithSigner};
 use foundry_config::{Chain, Config};
 use foundry_wallets::{WalletOpts, WalletSigner};
 use itertools::Itertools;
@@ -535,11 +537,10 @@ pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<St
 /// Creates a provider with wallet for signing transactions locally.
 pub(crate) async fn signing_provider(
     tx_opts: &SendTxOpts,
-) -> eyre::Result<RetryProviderWithSigner> {
+) -> eyre::Result<TempoRetryProviderWithSigner> {
     let config = tx_opts.eth.load_config()?;
     let signer = tx_opts.eth.wallet.signer().await?;
-    let wallet = alloy_network::EthereumWallet::from(signer);
-    let provider = get_provider_builder(&config)?.build_with_wallet(wallet)?;
+    let provider = get_tempo_signer_provider(&config, signer)?;
     if let Some(interval) = tx_opts.poll_interval {
         provider.client().set_poll_interval(Duration::from_secs(interval))
     }
