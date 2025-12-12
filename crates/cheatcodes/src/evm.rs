@@ -5,7 +5,6 @@ use crate::{
     Vm::*,
     inspector::{Ecx, RecordDebugStepInfo},
 };
-use alloy_consensus::TxEnvelope;
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_network::eip2718::EIP4844_TX_TYPE_ID;
 use alloy_primitives::{
@@ -587,7 +586,7 @@ impl Cheatcode for blobBaseFeeCall {
 
         ccx.ecx.block.set_blob_excess_gas_and_price(
             (*newBlobBaseFee).to(),
-            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec),
+            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec.into()),
         );
         Ok(Default::default())
     }
