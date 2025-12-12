@@ -373,6 +373,7 @@ impl TestRunnerConfig {
             self.evm_opts.clone(),
             Some(known_contracts),
             Some(artifact_id.clone()),
+            None,
         ));
         ExecutorBuilder::new()
             .inspectors(|stack| {

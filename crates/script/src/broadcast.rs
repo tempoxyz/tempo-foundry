@@ -1,16 +1,14 @@
 use std::{cmp::Ordering, sync::Arc, time::Duration};
 
-use alloy_chains::{Chain, NamedChain};
-use alloy_consensus::TxEnvelope;
+use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
-use alloy_network::{AnyNetwork, EthereumWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
     Address, TxHash,
     map::{AddressHashMap, AddressHashSet},
     utils::format_units,
 };
 use alloy_provider::{Provider, utils::Eip1559Estimation};
-use alloy_rpc_types::TransactionRequest;
 use alloy_serde::WithOtherFields;
 use eyre::{Context, Result, bail};
 use forge_verify::provider::VerificationProviderType;
@@ -18,32 +16,33 @@ use foundry_cheatcodes::Wallets;
 use foundry_cli::utils::{has_batch_support, has_different_gas_calc};
 use foundry_common::{
     TransactionMaybeSigned,
-    provider::{RetryProvider, get_http_provider, try_get_http_provider},
+    provider::{
+        tempo::{TempoRetryProvider, get_tempo_http_provider, try_get_tempo_http_provider},
+        try_get_http_provider,
+    },
     shell,
 };
 use foundry_config::Config;
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
+use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
 
 use crate::{
-    ScriptArgs, ScriptConfig, build::LinkedBuildData, progress::ScriptProgress,
-    sequence::ScriptSequenceKind, verify::BroadcastedState,
+    ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
+    progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
 };
 
-pub async fn estimate_gas<P: Provider<AnyNetwork>>(
-    tx: &mut WithOtherFields<TransactionRequest>,
+pub async fn estimate_gas<P: Provider<TempoNetwork>>(
+    tx: &mut WithOtherFields<TempoTransactionRequest>,
     provider: &P,
     estimate_multiplier: u64,
 ) -> Result<()> {
     // if already set, some RPC endpoints might simply return the gas value that is already
     // set in the request and omit the estimate altogether, so we remove it here
-    tx.gas = None;
-
-    tx.set_gas_limit(
-        provider.estimate_gas(tx.clone()).await.wrap_err("Failed to estimate gas for tx")?
-            * estimate_multiplier
-            / 100,
-    );
+    tx.inner.inner.gas = None;
+    let estimated_gas =
+        provider.estimate_gas(tx.inner.clone()).await.wrap_err("Failed to estimate gas for tx")?;
+    tx.set_gas_limit(estimated_gas * estimate_multiplier / 100);
     Ok(())
 }
 
@@ -62,9 +61,9 @@ pub async fn next_nonce(
 /// Represents how to send a single transaction.
 #[derive(Clone)]
 pub enum SendTransactionKind<'a> {
-    Unlocked(WithOtherFields<TransactionRequest>),
-    Raw(WithOtherFields<TransactionRequest>, &'a EthereumWallet),
-    Signed(TxEnvelope),
+    Unlocked(WithOtherFields<TempoTransactionRequest>),
+    Raw(WithOtherFields<TempoTransactionRequest>, &'a EthereumWallet),
+    Signed(TempoTxEnvelope),
 }
 
 impl<'a> SendTransactionKind<'a> {
@@ -76,7 +75,7 @@ impl<'a> SendTransactionKind<'a> {
     /// 2. Gas estimation: Re-estimates gas right before broadcasting for chains that require it
     pub async fn prepare(
         &mut self,
-        provider: &RetryProvider,
+        provider: &TempoRetryProvider,
         sequential_broadcast: bool,
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
@@ -130,17 +129,17 @@ impl<'a> SendTransactionKind<'a> {
     /// - Submit via `eth_sendTransaction` for unlocked accounts
     /// - Sign and submit via `eth_sendRawTransaction` for raw transactions
     /// - Submit pre-signed transaction via `eth_sendRawTransaction`
-    pub async fn send(self, provider: Arc<RetryProvider>) -> Result<TxHash> {
+    pub async fn send(self, provider: Arc<TempoRetryProvider>) -> Result<TxHash> {
         let pending = match self {
             Self::Unlocked(tx) => {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
                 // Submit the transaction
-                provider.send_transaction(tx).await?
+                provider.send_transaction(tx.inner).await?
             }
             Self::Raw(tx, signer) => {
                 debug!("sending transaction: {:?}", tx);
-                let signed = tx.build(signer).await?;
+                let signed = tx.inner.build(signer).await?;
 
                 // Submit the raw transaction
                 provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?
@@ -160,7 +159,7 @@ impl<'a> SendTransactionKind<'a> {
     /// [`send`](Self::send) into a single call.
     pub async fn prepare_and_send(
         mut self,
-        provider: Arc<RetryProvider>,
+        provider: Arc<TempoRetryProvider>,
         sequential_broadcast: bool,
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
@@ -194,7 +193,7 @@ impl SendTransactionsKind {
     pub fn for_sender(
         &self,
         addr: &Address,
-        tx: WithOtherFields<TransactionRequest>,
+        tx: WithOtherFields<TempoTransactionRequest>,
     ) -> Result<SendTransactionKind<'_>> {
         match self {
             Self::Unlocked(unlocked) => {
@@ -236,13 +235,16 @@ impl BundledState {
             .enumerate()
             .map(|(sequence_idx, sequence)| async move {
                 let rpc_url = sequence.rpc_url();
-                let provider = Arc::new(get_http_provider(rpc_url));
+                let provider = Arc::new(get_tempo_http_provider(rpc_url));
+                let fee_token_symbol =
+                    get_fee_token_symbol(&provider, self.script_config.fee_token).await;
                 progress_ref
                     .wait_for_pending(
                         sequence_idx,
                         sequence,
                         &provider,
                         self.script_config.config.transaction_timeout,
+                        fee_token_symbol,
                     )
                     .await
             })
@@ -312,7 +314,9 @@ impl BundledState {
         for i in 0..self.sequence.sequences().len() {
             let mut sequence = self.sequence.sequences_mut().get_mut(i).unwrap();
 
-            let provider = Arc::new(try_get_http_provider(sequence.rpc_url())?);
+            let provider = Arc::new(try_get_tempo_http_provider(sequence.rpc_url())?);
+            let fee_token_symbol =
+                get_fee_token_symbol(&provider, self.script_config.fee_token).await;
             let already_broadcasted = sequence.receipts.len();
 
             let seq_progress = progress.get_sequence_progress(i, sequence);
@@ -363,13 +367,13 @@ impl BundledState {
                                 SendTransactionKind::Signed(tx)
                             }
                             TransactionMaybeSigned::Unsigned(mut tx) => {
-                                let from = tx.from.expect("No sender for onchain transaction!");
+                                let from = tx.from().expect("No sender for onchain transaction!");
 
                                 tx.set_chain_id(sequence.chain);
 
                                 // Set TxKind::Create explicitly to satisfy `check_reqd_fields` in
                                 // alloy
-                                if tx.to.is_none() {
+                                if tx.to().is_none() {
                                     tx.set_create();
                                 }
 
@@ -488,6 +492,7 @@ impl BundledState {
                                 sequence,
                                 &provider,
                                 self.script_config.config.transaction_timeout,
+                                fee_token_symbol.clone(),
                             )
                             .await?
                     }
@@ -507,14 +512,10 @@ impl BundledState {
             let avg_gas_price = format_units(total_gas_price / sequence.receipts.len() as u64, 9)
                 .unwrap_or_else(|_| "N/A".to_string());
 
-            let token_symbol = NamedChain::try_from(sequence.chain)
-                .unwrap_or_default()
-                .native_currency_symbol()
-                .unwrap_or("ETH");
             seq_progress.inner.write().set_status(&format!(
                 "Total Paid: {} {} ({} gas * avg {} gwei)\n",
                 paid.trim_end_matches('0'),
-                token_symbol,
+                fee_token_symbol,
                 total_gas,
                 avg_gas_price.trim_end_matches('0').trim_end_matches('.')
             ));

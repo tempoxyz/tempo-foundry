@@ -1,3 +1,111 @@
+<br>
+<br>
+
+<p align="center">
+  <a href="https://tempo.xyz">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tempoxyz/.github/refs/heads/main/assets/combomark-dark.svg">
+      <img alt="tempo combomark" src="https://raw.githubusercontent.com/tempoxyz/.github/refs/heads/main/assets/combomark-bright.svg" width="auto" height="120">
+    </picture>
+  </a>
+</p>
+
+<br>
+<br>
+
+# Tempo Foundry
+
+[Tempo](https://docs.tempo.xyz/) is a blockchain designed specifically for stablecoin payments. Its architecture focuses on high throughput, low cost, and features that financial institutions, payment service providers, and fintech platforms expect from modern payment infrastructure.
+
+`Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that integrates Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
+
+This is a temporary required drop-in replacement for upstream Foundry while Tempo-specific features are being integrated into upstream Foundry, after which this fork will be deprecated.
+
+Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
+
+## Installation
+
+Tempo's Foundry fork is installed through the standard upstream `foundryup` using the `-n tempo` flag, no separate installer is required.
+
+Getting started is very easy:
+
+Install regular `foundryup`:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+Or if you already have `foundryup` installed:
+
+```bash
+foundryup --update
+```
+
+Next, run:
+
+```bash
+foundryup -n tempo
+```
+
+It will automatically install the latest `nightly` release of the precompiled binaries: [`forge`](#forge) and [`cast`](#cast).
+
+**Done!**
+
+For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
+
+If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
+
+## Testnet
+
+You can connect to Tempo's public testnet using the following details:
+
+| Property           | Value                           |
+| ------------------ | ------------------------------- |
+| **Network Name**   | Tempo Testnet (Andantino)       |
+| **Currency**       | `USD`                           |
+| **Chain ID**       | `42429`                         |
+| **HTTP URL**       | `https://rpc.testnet.tempo.xyz` |
+| **WebSocket URL**  | `wss://rpc.testnet.tempo.xyz`   |
+| **Block Explorer** | `https://explore.tempo.xyz`     |
+
+Next, grab some stablecoins to test with from Tempo's [Faucet](https://docs.tempo.xyz/quickstart/faucet#faucet).
+
+Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
+
+```bash
+cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.testnet.tempo.xyz
+```
+
+## Changeset
+
+Key extensions:
+
+- In `foundryup`:
+
+  - `foundryup -n tempo`: download the latest `nightly` release of Tempo's fork of Foundry.
+  - `foundryup -n tempo -i <TAG>`: download a specific `nightly` release by tag `nightly-<hash>`.
+
+- In `forge`:
+
+  - `forge init -n tempo`: adds a Tempo-specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
+  - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for Tempo-specific testing and utilities.
+  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+
+- In `cast`:
+
+  - `cast run`: updated to correctly process Tempo's system transactions when replaying a block.
+  - `cast tip20`: alias to `cast erc20`.
+  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+
+- Additionally:
+
+  - Support for local and forked simulation of the Tempo execution environment.
+  - Support for Tempo's (stateful) precompiles and default contracts including labels in traces.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate differences Tempo introduces to optimize for payments.
+
+<br>
+<br>
+
 <div align="center">
   <img src=".github/assets/banner.png" alt="Foundry banner" />
 
@@ -25,12 +133,10 @@
 
 ### Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.
 
-Foundry consists of:
+Tempo's fork of Foundry consists of:
 
 - [**Forge**](#forge): Build, test, fuzz, debug and deploy [Solidity][solidity] contracts, like Hardhat, Brownie, Ape.
 - [**Cast**](#cast): A Swiss Army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- [**Anvil**](#anvil): Fast local Ethereum development node, akin to Hardhat Network, Tenderly.
-- [**Chisel**](#chisel): Fast, utilitarian, and verbose Solidity REPL.
 
 **Need help getting started with Foundry? Read the [📖 Foundry Docs][foundry-docs]!**
 
@@ -62,30 +168,6 @@ Foundry consists of:
 - **Streamlined CI/CD**
 
   - **Optimized CI**: Accelerate builds, run tests and execute scripts using [Foundry's GitHub action][foundry-gha].
-
-## Installation
-
-Getting started is very easy:
-
-Install `foundryup`:
-
-```
-curl -L https://foundry.paradigm.xyz | bash
-```
-
-Next, run `foundryup`.
-
-It will automatically install the latest version of the precompiled binaries: [`forge`](#forge), [`cast`](#cast), [`anvil`](#anvil), and [`chisel`](#chisel).
-
-```
-foundryup
-```
-
-**Done!**
-
-For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
-
-If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
 
 ## How Fast?
 
@@ -221,75 +303,6 @@ Run `cast --help` to explore the full list of available subcommands and their us
 
 More documentation can be found in the [cast](https://getfoundry.sh/cast/overview) section of the Foundry Docs.
 
-## Anvil
-
-Anvil is a fast local Ethereum development node.
-
-Let's fork Ethereum mainnet at the latest block:
-
-```sh
-anvil --fork-url https://eth.merkle.io
-```
-
-You can use those same `cast` subcommands against your `anvil` instance:
-
-```sh
-cast block-number
-```
-
----
-
-Run `anvil --help` to explore the full list of available features and their usage.
-
-More documentation can be found in the [anvil](https://getfoundry.sh/anvil/overview) section of the Foundry Docs.
-
-## Chisel
-
-Chisel is a fast, utilitarian, and verbose Solidity REPL.
-
-To use Chisel, simply type `chisel`.
-
-```sh
-chisel
-```
-
-From here, start writing Solidity code! Chisel will offer verbose feedback on each input.
-
-Create a variable `a` and query it:
-
-```console
-➜ uint256 a = 123;
-➜ a
-Type: uint256
-├ Hex: 0x7b
-├ Hex (full word): 0x000000000000000000000000000000000000000000000000000000000000007b
-└ Decimal: 123
-```
-
-Finally, run `!source` to see `a` was applied:
-
-```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
-
-import {Vm} from "forge-std/Vm.sol";
-
-contract REPL {
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-
-    /// @notice REPL contract entry point
-    function run() public {
-        uint256 a = 123;
-    }
-}
-```
-
----
-
-Run `chisel --help` to explore the full list of available features and their usage.
-
-More documentation can be found in the [chisel](https://getfoundry.sh/chisel/overview) section of the Foundry Docs.
-
 ## Configuration
 
 Foundry is highly configurable, allowing you to tailor it to your needs. Configuration is managed via a file called [`foundry.toml`](./crates/config) located in the root of your project or any parent directory. For a full list of configuration options, refer to the [config package documentation](./crates/config/README.md#all-options).
@@ -324,6 +337,10 @@ If the answer is not there:
 - Open an issue with [the bug](https://github.com/foundry-rs/foundry/issues/new)
 
 If you want to contribute, or follow along with contributor discussion, you can use our [main telegram](https://t.me/foundry_rs) to chat with us about the development of Foundry!
+
+## Security
+
+See [`SECURITY.md`](https://github.com/tempoxyz/tempo-foundry?tab=security-ov-file).
 
 ## License
 

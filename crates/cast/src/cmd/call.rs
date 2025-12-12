@@ -9,7 +9,7 @@ use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, map::HashMap};
 use alloy_provider::Provider;
 use alloy_rpc_types::{
-    BlockId, BlockNumberOrTag, BlockOverrides,
+    BlockId, BlockNumberOrTag, BlockOverrides, TransactionRequest,
     state::{StateOverride, StateOverridesBuilder},
 };
 use clap::Parser;
@@ -259,7 +259,7 @@ impl CallArgs {
             None
         };
 
-        let (tx, func) = CastTxBuilder::new(&provider, tx, &config)
+        let (tx, func) = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?

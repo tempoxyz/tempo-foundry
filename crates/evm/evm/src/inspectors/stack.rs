@@ -1,8 +1,10 @@
+use crate::inspectors::tempo_labels::TempoLabels;
+
 use super::{
     Cheatcodes, CheatsConfig, ChiselState, CustomPrintTracer, Fuzzer, LineCoverageCollector,
     LogCollector, RevertDiagnostic, ScriptExecutionInspector, TracingInspector,
 };
-use alloy_evm::{Evm, eth::EthEvmContext};
+use alloy_evm::Evm;
 use alloy_primitives::{
     Address, Bytes, Log, TxKind, U256,
     map::{AddressHashMap, HashMap},
@@ -20,10 +22,7 @@ use foundry_evm_networks::NetworkConfigs;
 use foundry_evm_traces::{SparsedTraceArena, TraceMode};
 use revm::{
     Inspector,
-    context::{
-        BlockEnv,
-        result::{ExecutionResult, Output},
-    },
+    context::result::{ExecutionResult, Output},
     context_interface::CreateScheme,
     interpreter::{
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, InstructionResult,
@@ -36,6 +35,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
+use tempo_revm::{TempoBlockEnv, TempoHaltReason, evm::TempoContext};
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
@@ -46,7 +46,7 @@ pub struct InspectorStackBuilder {
     ///
     /// Used in the cheatcode handler to overwrite the block environment separately from the
     /// execution block environment.
-    pub block: Option<BlockEnv>,
+    pub block: Option<TempoBlockEnv>,
     /// The gas price.
     ///
     /// Used in the cheatcode handler to overwrite the gas price separately from the gas price
@@ -94,7 +94,7 @@ impl InspectorStackBuilder {
 
     /// Set the block environment.
     #[inline]
-    pub fn block(mut self, block: BlockEnv) -> Self {
+    pub fn block(mut self, block: TempoBlockEnv) -> Self {
         self.block = Some(block);
         self
     }
@@ -348,6 +348,8 @@ pub struct InspectorStackInner {
     pub top_frame_journal: HashMap<Address, Account>,
     /// Address that reverted the call, if any.
     pub reverter: Option<Address>,
+    /// Tempo-specific labels collected during execution.
+    pub tempo_labels: TempoLabels,
 }
 
 /// Struct keeping mutable references to both parts of [InspectorStack] and implementing
@@ -415,7 +417,7 @@ impl InspectorStack {
 
     /// Sets the block for the relevant inspectors.
     #[inline]
-    pub fn set_block(&mut self, block: &BlockEnv) {
+    pub fn set_block(&mut self, block: &TempoBlockEnv) {
         if let Some(cheatcodes) = &mut self.cheatcodes {
             cheatcodes.block = Some(block.clone());
         }
@@ -533,6 +535,7 @@ impl InspectorStack {
                     log_collector,
                     tracer,
                     reverter,
+                    tempo_labels,
                     ..
                 },
         } = self;
@@ -555,12 +558,14 @@ impl InspectorStack {
             SparsedTraceArena { arena, ignored }
         });
 
+        let mut labels = tempo_labels.labels;
+        labels.extend(
+            cheatcodes.as_ref().map(|cheatcodes| cheatcodes.labels.clone()).unwrap_or_default(),
+        );
+
         InspectorData {
             logs: log_collector.map(|logs| logs.logs).unwrap_or_default(),
-            labels: cheatcodes
-                .as_ref()
-                .map(|cheatcodes| cheatcodes.labels.clone())
-                .unwrap_or_default(),
+            labels,
             traces,
             line_coverage: line_coverage.map(|line_coverage| line_coverage.finish()),
             edge_coverage: edge_coverage.map(|edge_coverage| edge_coverage.into_hitcount()),
@@ -576,7 +581,7 @@ impl InspectorStackRefMut<'_> {
     /// Should be called on the top-level call of inner context (depth == 0 &&
     /// self.in_inner_context) Decreases sender nonce for CALLs to keep backwards compatibility
     /// Updates tx.origin to the value before entering inner context
-    fn adjust_evm_data_for_inner_context(&mut self, ecx: &mut EthEvmContext<&mut dyn DatabaseExt>) {
+    fn adjust_evm_data_for_inner_context(&mut self, ecx: &mut TempoContext<&mut dyn DatabaseExt>) {
         let inner_context_data =
             self.inner_context_data.as_ref().expect("should be called in inner context");
         ecx.tx.caller = inner_context_data.original_origin;
@@ -584,7 +589,7 @@ impl InspectorStackRefMut<'_> {
 
     fn do_call_end(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
@@ -621,7 +626,7 @@ impl InspectorStackRefMut<'_> {
 
     fn do_create_end(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) -> CreateOutcome {
@@ -647,7 +652,7 @@ impl InspectorStackRefMut<'_> {
 
     fn transact_inner(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         kind: TxKind,
         caller: Address,
         input: Bytes,
@@ -762,7 +767,11 @@ impl InspectorStackRefMut<'_> {
             }
             ExecutionResult::Halt { reason, gas_used } => {
                 let _ = gas.record_cost(gas_used);
-                (reason.into(), None, Bytes::new())
+                let instruction_result = match reason {
+                    TempoHaltReason::Ethereum(halt) => halt.into(),
+                    TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
+                };
+                (instruction_result, None, Bytes::new())
             }
             ExecutionResult::Revert { gas_used, output } => {
                 let _ = gas.record_cost(gas_used);
@@ -793,7 +802,7 @@ impl InspectorStackRefMut<'_> {
     }
 
     /// Invoked at the beginning of a new top-level (0 depth) frame.
-    fn top_level_frame_start(&mut self, ecx: &mut EthEvmContext<&mut dyn DatabaseExt>) {
+    fn top_level_frame_start(&mut self, ecx: &mut TempoContext<&mut dyn DatabaseExt>) {
         if self.enable_isolation {
             // If we're in isolation mode, we need to keep track of the state at the beginning of
             // the frame to be able to roll back on revert
@@ -804,7 +813,7 @@ impl InspectorStackRefMut<'_> {
     /// Invoked at the end of root frame.
     fn top_level_frame_end(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         result: InstructionResult,
     ) {
         if !result.is_revert() {
@@ -834,7 +843,7 @@ impl InspectorStackRefMut<'_> {
     fn step_inlined(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         call_inspectors!(
             [
@@ -857,7 +866,7 @@ impl InspectorStackRefMut<'_> {
     fn step_end_inlined(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         call_inspectors!(
             [
@@ -874,11 +883,11 @@ impl InspectorStackRefMut<'_> {
     }
 }
 
-impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> {
+impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> {
     fn initialize_interp(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         call_inspectors!(
             [
@@ -895,7 +904,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
     fn step(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         self.step_inlined(interpreter, ecx);
     }
@@ -903,13 +912,13 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
     fn step_end(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         self.step_end_inlined(interpreter, ecx);
     }
 
     #[allow(clippy::redundant_clone)]
-    fn log(&mut self, ecx: &mut EthEvmContext<&mut dyn DatabaseExt>, log: Log) {
+    fn log(&mut self, ecx: &mut TempoContext<&mut dyn DatabaseExt>, log: Log) {
         call_inspectors!(
             [&mut self.tracer, &mut self.log_collector, &mut self.cheatcodes, &mut self.printer],
             |inspector| inspector.log(ecx, log.clone()),
@@ -920,7 +929,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
     fn log_full(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         log: Log,
     ) {
         call_inspectors!(
@@ -931,7 +940,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
 
     fn call(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         call: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
@@ -1030,7 +1039,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
 
     fn call_end(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
@@ -1049,7 +1058,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
 
     fn create(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         create: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
@@ -1088,7 +1097,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
 
     fn create_end(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
@@ -1107,7 +1116,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
         call_inspectors!([&mut self.printer], |inspector| Inspector::<
-            EthEvmContext<&mut dyn DatabaseExt>,
+            TempoContext<&mut dyn DatabaseExt>,
         >::selfdestruct(
             inspector, contract, target, value,
         ));
@@ -1117,7 +1126,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_>
 impl InspectorExt for InspectorStackRefMut<'_> {
     fn should_use_create2_factory(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         inputs: &CreateInputs,
     ) -> bool {
         call_inspectors!(
@@ -1144,11 +1153,11 @@ impl InspectorExt for InspectorStackRefMut<'_> {
     }
 }
 
-impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
+impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStack {
     fn step(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         self.as_mut().step_inlined(interpreter, ecx)
     }
@@ -1156,14 +1165,14 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
     fn step_end(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         self.as_mut().step_end_inlined(interpreter, ecx)
     }
 
     fn call(
         &mut self,
-        context: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        context: &mut TempoContext<&mut dyn DatabaseExt>,
         inputs: &mut CallInputs,
     ) -> Option<CallOutcome> {
         self.as_mut().call(context, inputs)
@@ -1171,7 +1180,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
 
     fn call_end(
         &mut self,
-        context: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        context: &mut TempoContext<&mut dyn DatabaseExt>,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
@@ -1180,7 +1189,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
 
     fn create(
         &mut self,
-        context: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        context: &mut TempoContext<&mut dyn DatabaseExt>,
         create: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         self.as_mut().create(context, create)
@@ -1188,7 +1197,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
 
     fn create_end(
         &mut self,
-        context: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        context: &mut TempoContext<&mut dyn DatabaseExt>,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
@@ -1198,19 +1207,19 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
     fn initialize_interp(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
     ) {
         self.as_mut().initialize_interp(interpreter, ecx)
     }
 
-    fn log(&mut self, ecx: &mut EthEvmContext<&mut dyn DatabaseExt>, log: Log) {
+    fn log(&mut self, ecx: &mut TempoContext<&mut dyn DatabaseExt>, log: Log) {
         self.as_mut().log(ecx, log)
     }
 
     fn log_full(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         log: Log,
     ) {
         self.as_mut().log_full(interpreter, ecx, log)
@@ -1224,7 +1233,7 @@ impl Inspector<EthEvmContext<&mut dyn DatabaseExt>> for InspectorStack {
 impl InspectorExt for InspectorStack {
     fn should_use_create2_factory(
         &mut self,
-        ecx: &mut EthEvmContext<&mut dyn DatabaseExt>,
+        ecx: &mut TempoContext<&mut dyn DatabaseExt>,
         inputs: &CreateInputs,
     ) -> bool {
         self.as_mut().should_use_create2_factory(ecx, inputs)

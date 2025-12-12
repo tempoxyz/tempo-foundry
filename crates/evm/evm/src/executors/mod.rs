@@ -50,6 +50,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tempo_revm::{TempoBlockEnv, TempoHaltReason, TempoTxEnv};
 
 mod builder;
 pub use builder::ExecutorBuilder;
@@ -180,12 +181,12 @@ impl Executor {
 
     /// Returns the EVM spec ID.
     pub fn spec_id(&self) -> SpecId {
-        self.env.evm_env.cfg_env.spec
+        self.env.evm_env.cfg_env.spec.into()
     }
 
     /// Sets the EVM spec ID.
     pub fn set_spec_id(&mut self, spec_id: SpecId) {
-        self.env.evm_env.cfg_env.spec = spec_id;
+        self.env.evm_env.cfg_env.spec = spec_id.into();
     }
 
     /// Returns the gas limit for calls and deployments.
@@ -702,28 +703,30 @@ impl Executor {
             evm_env: EvmEnv {
                 cfg_env: {
                     let mut cfg = self.env().evm_env.cfg_env.clone();
-                    cfg.spec = self.spec_id();
+                    cfg.spec = self.spec_id().into();
                     cfg
                 },
                 // We always set the gas price to 0 so we can execute the transaction regardless of
                 // network conditions - the actual gas price is kept in `self.block` and is applied
                 // by the cheatcode handler if it is enabled
-                block_env: BlockEnv {
-                    basefee: 0,
-                    gas_limit: self.gas_limit,
+                block_env: TempoBlockEnv {
+                    inner: BlockEnv { basefee: 0, gas_limit: self.gas_limit, ..Default::default() },
                     ..self.env().evm_env.block_env.clone()
                 },
             },
-            tx: TxEnv {
-                caller,
-                kind,
-                data,
-                value,
-                // As above, we set the gas price to 0.
-                gas_price: 0,
-                gas_priority_fee: None,
-                gas_limit: self.gas_limit,
-                chain_id: Some(self.env().evm_env.cfg_env.chain_id),
+            tx: TempoTxEnv {
+                inner: TxEnv {
+                    caller,
+                    kind,
+                    data,
+                    value,
+                    // As above, we set the gas price to 0.
+                    gas_price: 0,
+                    gas_priority_fee: None,
+                    gas_limit: self.gas_limit,
+                    chain_id: Some(self.env().evm_env.cfg_env.chain_id),
+                    ..Default::default()
+                },
                 ..self.env().tx.clone()
             },
         }
@@ -1036,7 +1039,7 @@ impl std::ops::DerefMut for CallResult {
 fn convert_executed_result(
     env: Env,
     inspector: InspectorStack,
-    ResultAndState { result, state: state_changeset }: ResultAndState,
+    ResultAndState { result, state: state_changeset }: ResultAndState<TempoHaltReason>,
     has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
@@ -1048,11 +1051,15 @@ fn convert_executed_result(
             (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
         }
         ExecutionResult::Halt { reason, gas_used } => {
-            (reason.into(), 0_u64, gas_used, None, vec![])
+            let instruction_result = match reason {
+                TempoHaltReason::Ethereum(halt) => halt.into(),
+                TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
+            };
+            (instruction_result, 0_u64, gas_used, None, vec![])
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
-        env.evm_env.cfg_env.spec,
+        env.evm_env.cfg_env.spec.into(),
         &env.tx.data,
         env.tx.kind.is_create(),
         env.tx.access_list.len().try_into()?,

@@ -11,7 +11,6 @@ use alloy_primitives::{
     map::{HashMap, HashSet},
 };
 use alloy_provider::Provider;
-use alloy_rpc_types::TransactionInput;
 use eyre::{OptionExt, Result};
 use foundry_cheatcodes::Wallets;
 use foundry_cli::utils::{ensure_clean_constructor, needs_setup};
@@ -293,8 +292,7 @@ impl ExecutedState {
         // issues with eth_estimateGas and eth_sendTransaction requests.
         for tx in &mut txs {
             if let Some(req) = tx.transaction.as_unsigned_mut() {
-                req.input =
-                    TransactionInput::maybe_both(std::mem::take(&mut req.input).into_input());
+                req.inner.inner.set_input_and_data();
             }
         }
         let rpc_data = RpcData::from_transactions(&txs);

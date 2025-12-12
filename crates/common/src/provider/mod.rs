@@ -1,6 +1,7 @@
 //! Provider-related instantiation and usage utilities.
 
 pub mod runtime_transport;
+pub mod tempo;
 
 use crate::{
     ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT, provider::runtime_transport::RuntimeTransportBuilder,

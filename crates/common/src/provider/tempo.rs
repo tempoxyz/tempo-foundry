@@ -1,0 +1,311 @@
+use crate::{
+    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT,
+    provider::{
+        DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME, POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR, resolve_path,
+        runtime_transport::RuntimeTransportBuilder,
+    },
+};
+use alloy_chains::NamedChain;
+use alloy_network::EthereumWallet;
+use alloy_provider::{
+    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
+    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
+};
+use alloy_rpc_client::ClientBuilder;
+use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
+use eyre::WrapErr;
+use std::{net::SocketAddr, path::Path, str::FromStr, time::Duration};
+use tempo_alloy::TempoNetwork;
+use url::{ParseError, Url};
+
+/// Helper type alias for a Tempo retry provider
+pub type TempoRetryProvider<N = TempoNetwork> = RootProvider<N>;
+
+pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
+    JoinFill<
+        JoinFill<Identity, JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
+        WalletFiller<EthereumWallet>,
+    >,
+    RootProvider<N>,
+    N,
+>;
+
+#[inline]
+#[track_caller]
+pub fn get_tempo_http_provider(builder: impl AsRef<str>) -> TempoRetryProvider {
+    try_get_tempo_http_provider(builder).unwrap()
+}
+
+/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
+/// an anvil or other dev node) and with the default, or 7 second otherwise.
+#[inline]
+pub fn try_get_tempo_http_provider(builder: impl AsRef<str>) -> eyre::Result<TempoRetryProvider> {
+    TempoProviderBuilder::new(builder.as_ref()).build()
+}
+
+/// Helper type to construct a `RetryProvider`
+#[derive(Debug)]
+pub struct TempoProviderBuilder {
+    // Note: this is a result, so we can easily chain builder calls
+    url: eyre::Result<Url>,
+    chain: NamedChain,
+    max_retry: u32,
+    initial_backoff: u64,
+    timeout: Duration,
+    /// available CUPS
+    compute_units_per_second: u64,
+    /// JWT Secret
+    jwt: Option<String>,
+    headers: Vec<String>,
+    is_local: bool,
+    /// Whether to accept invalid certificates.
+    accept_invalid_certs: bool,
+}
+
+impl TempoProviderBuilder {
+    /// Creates a new builder instance
+    pub fn new(url_str: &str) -> Self {
+        // a copy is needed for the next lines to work
+        let mut url_str = url_str;
+
+        // invalid url: non-prefixed URL scheme is not allowed, so we prepend the default http
+        // prefix
+        let storage;
+        if url_str.starts_with("localhost:") {
+            storage = format!("http://{url_str}");
+            url_str = storage.as_str();
+        }
+
+        let url = Url::parse(url_str)
+            .or_else(|err| match err {
+                ParseError::RelativeUrlWithoutBase => {
+                    if SocketAddr::from_str(url_str).is_ok() {
+                        Url::parse(&format!("http://{url_str}"))
+                    } else {
+                        let path = Path::new(url_str);
+
+                        if let Ok(path) = resolve_path(path) {
+                            Url::parse(&format!("file://{}", path.display()))
+                        } else {
+                            Err(err)
+                        }
+                    }
+                }
+                _ => Err(err),
+            })
+            .wrap_err_with(|| format!("invalid provider URL: {url_str:?}"));
+
+        // Use the final URL string to guess if it's a local URL.
+        let is_local = url.as_ref().is_ok_and(|url| guess_local_url(url.as_str()));
+
+        Self {
+            url,
+            chain: NamedChain::Mainnet,
+            max_retry: 8,
+            initial_backoff: 800,
+            timeout: REQUEST_TIMEOUT,
+            // alchemy max cpus <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
+            compute_units_per_second: ALCHEMY_FREE_TIER_CUPS,
+            jwt: None,
+            headers: vec![],
+            is_local,
+            accept_invalid_certs: false,
+        }
+    }
+
+    /// Enables a request timeout.
+    ///
+    /// The timeout is applied from when the request starts connecting until the
+    /// response body has finished.
+    ///
+    /// Default is no timeout.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Sets the chain of the node the provider will connect to
+    pub fn chain(mut self, chain: NamedChain) -> Self {
+        self.chain = chain;
+        self
+    }
+
+    /// How often to retry a failed request
+    pub fn max_retry(mut self, max_retry: u32) -> Self {
+        self.max_retry = max_retry;
+        self
+    }
+
+    /// How often to retry a failed request. If `None`, defaults to the already-set value.
+    pub fn maybe_max_retry(mut self, max_retry: Option<u32>) -> Self {
+        self.max_retry = max_retry.unwrap_or(self.max_retry);
+        self
+    }
+
+    /// The starting backoff delay to use after the first failed request. If `None`, defaults to
+    /// the already-set value.
+    pub fn maybe_initial_backoff(mut self, initial_backoff: Option<u64>) -> Self {
+        self.initial_backoff = initial_backoff.unwrap_or(self.initial_backoff);
+        self
+    }
+
+    /// The starting backoff delay to use after the first failed request
+    pub fn initial_backoff(mut self, initial_backoff: u64) -> Self {
+        self.initial_backoff = initial_backoff;
+        self
+    }
+
+    /// Sets the number of assumed available compute units per second
+    ///
+    /// See also, <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
+    pub fn compute_units_per_second(mut self, compute_units_per_second: u64) -> Self {
+        self.compute_units_per_second = compute_units_per_second;
+        self
+    }
+
+    /// Sets the number of assumed available compute units per second
+    ///
+    /// See also, <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
+    pub fn compute_units_per_second_opt(mut self, compute_units_per_second: Option<u64>) -> Self {
+        if let Some(cups) = compute_units_per_second {
+            self.compute_units_per_second = cups;
+        }
+        self
+    }
+
+    /// Sets the provider to be local.
+    ///
+    /// This is useful for local dev nodes.
+    pub fn local(mut self, is_local: bool) -> Self {
+        self.is_local = is_local;
+        self
+    }
+
+    /// Sets aggressive `max_retry` and `initial_backoff` values
+    ///
+    /// This is only recommend for local dev nodes
+    pub fn aggressive(self) -> Self {
+        self.max_retry(100).initial_backoff(100).local(true)
+    }
+
+    /// Sets the JWT secret
+    pub fn jwt(mut self, jwt: impl Into<String>) -> Self {
+        self.jwt = Some(jwt.into());
+        self
+    }
+
+    /// Sets http headers
+    pub fn headers(mut self, headers: Vec<String>) -> Self {
+        self.headers = headers;
+
+        self
+    }
+
+    /// Sets http headers. If `None`, defaults to the already-set value.
+    pub fn maybe_headers(mut self, headers: Option<Vec<String>>) -> Self {
+        self.headers = headers.unwrap_or(self.headers);
+        self
+    }
+
+    /// Sets whether to accept invalid certificates.
+    pub fn accept_invalid_certs(mut self, accept_invalid_certs: bool) -> Self {
+        self.accept_invalid_certs = accept_invalid_certs;
+        self
+    }
+
+    /// Constructs the `RetryProvider` taking all configs into account.
+    pub fn build(self) -> eyre::Result<TempoRetryProvider> {
+        let Self {
+            url,
+            chain,
+            max_retry,
+            initial_backoff,
+            timeout,
+            compute_units_per_second,
+            jwt,
+            headers,
+            is_local,
+            accept_invalid_certs,
+        } = self;
+        let url = url?;
+
+        let retry_layer =
+            RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
+
+        let transport = RuntimeTransportBuilder::new(url)
+            .with_timeout(timeout)
+            .with_headers(headers)
+            .with_jwt(jwt)
+            .accept_invalid_certs(accept_invalid_certs)
+            .build();
+        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+        if !is_local {
+            client.set_poll_interval(
+                chain
+                    .average_blocktime_hint()
+                    // we cap the poll interval because if not provided, chain would default to
+                    // mainnet
+                    .map(|hint| hint.min(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME))
+                    .unwrap_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME)
+                    .mul_f32(POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR),
+            );
+        }
+
+        let provider = AlloyProviderBuilder::<_, _, TempoNetwork>::default()
+            .connect_provider(RootProvider::new(client));
+
+        Ok(provider)
+    }
+
+    /// Constructs the `RetryProvider` with a wallet.
+    pub fn build_with_wallet(
+        self,
+        wallet: EthereumWallet,
+    ) -> eyre::Result<TempoRetryProviderWithSigner> {
+        let Self {
+            url,
+            chain,
+            max_retry,
+            initial_backoff,
+            timeout,
+            compute_units_per_second,
+            jwt,
+            headers,
+            is_local,
+            accept_invalid_certs,
+        } = self;
+        let url = url?;
+
+        let retry_layer =
+            RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
+
+        let transport = RuntimeTransportBuilder::new(url)
+            .with_timeout(timeout)
+            .with_headers(headers)
+            .with_jwt(jwt)
+            .accept_invalid_certs(accept_invalid_certs)
+            .build();
+
+        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+        if !is_local {
+            client.set_poll_interval(
+                chain
+                    .average_blocktime_hint()
+                    // we cap the poll interval because if not provided, chain would default to
+                    // mainnet
+                    .map(|hint| hint.min(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME))
+                    .unwrap_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME)
+                    .mul_f32(POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR),
+            );
+        }
+
+        let provider = AlloyProviderBuilder::<_, _, TempoNetwork>::default()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .connect_provider(RootProvider::new(client));
+
+        Ok(provider)
+    }
+}

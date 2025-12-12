@@ -28,7 +28,6 @@ forge-script-sequence.workspace = true
 solar.workspace = true
 
 alloy-dyn-abi.workspace = true
-alloy-evm.workspace = true
 alloy-json-abi.workspace = true
 alloy-primitives.workspace = true
 alloy-genesis.workspace = true
@@ -57,7 +56,7 @@ memchr.workspace = true
 p256 = "0.13"
 ecdsa = "0.16"
 rand.workspace = true
-revm.workspace = true
+revm = { workspace = true, features = ["optional_fee_charge"] }
 revm-inspectors.workspace = true
 semver.workspace = true
 serde_json.workspace = true
@@ -67,3 +66,6 @@ tracing.workspace = true
 walkdir.workspace = true
 proptest.workspace = true
 serde.workspace = true
+
+tempo-alloy.workspace = true
+tempo-revm.workspace = true

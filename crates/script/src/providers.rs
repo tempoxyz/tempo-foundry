@@ -1,7 +1,7 @@
 use alloy_primitives::map::{HashMap, hash_map::Entry};
 use alloy_provider::{Provider, utils::Eip1559Estimation};
 use eyre::{Result, WrapErr};
-use foundry_common::provider::{RetryProvider, get_http_provider};
+use foundry_common::provider::tempo::{TempoRetryProvider, get_tempo_http_provider};
 use foundry_config::Chain;
 use std::{ops::Deref, sync::Arc};
 
@@ -39,7 +39,7 @@ impl Deref for ProvidersManager {
 /// Holds related metadata to each provider RPC.
 #[derive(Debug)]
 pub struct ProviderInfo {
-    pub provider: Arc<RetryProvider>,
+    pub provider: Arc<TempoRetryProvider>,
     pub chain: u64,
     pub gas_price: GasPrice,
 }
@@ -53,7 +53,7 @@ pub enum GasPrice {
 
 impl ProviderInfo {
     pub async fn new(rpc: &str, mut is_legacy: bool) -> Result<Self> {
-        let provider = Arc::new(get_http_provider(rpc));
+        let provider = Arc::new(get_tempo_http_provider(rpc));
         let chain = provider.get_chain_id().await?;
 
         if let Some(chain) = Chain::from(chain).named() {

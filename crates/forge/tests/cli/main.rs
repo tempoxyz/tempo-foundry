@@ -23,7 +23,6 @@ mod inline_config;
 mod install;
 mod json;
 mod lint;
-mod multi_script;
 mod precompiles;
 mod script;
 mod soldeer;

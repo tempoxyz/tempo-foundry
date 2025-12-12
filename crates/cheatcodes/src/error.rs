@@ -10,6 +10,7 @@ use foundry_wallets::error::WalletSignerError;
 use k256::ecdsa::signature::Error as SignatureError;
 use revm::context_interface::result::EVMError;
 use std::{borrow::Cow, fmt};
+use tempo_revm::TempoInvalidTransaction;
 
 /// Cheatcode result type.
 ///
@@ -279,8 +280,8 @@ impl_from!(
     WalletSignerError,
 );
 
-impl<T: Into<BackendError>> From<EVMError<T>> for Error {
-    fn from(err: EVMError<T>) -> Self {
+impl<T: Into<BackendError>> From<EVMError<T, TempoInvalidTransaction>> for Error {
+    fn from(err: EVMError<T, TempoInvalidTransaction>) -> Self {
         Self::display(BackendError::from(err))
     }
 }

@@ -1,14 +1,9 @@
 [workspace]
 members = [
     "benches/",
-    "crates/anvil/",
-    "crates/anvil/core/",
-    "crates/anvil/rpc/",
-    "crates/anvil/server/",
     "crates/cast/",
     "crates/cheatcodes/",
     "crates/cheatcodes/spec/",
-    "crates/chisel/",
     "crates/cli/",
     "crates/common/",
     "crates/config/",
@@ -191,9 +186,7 @@ syn.opt-level = "z"
 trezor-client.opt-level = "z"
 
 [workspace.dependencies]
-anvil = { path = "crates/anvil" }
 cast = { path = "crates/cast" }
-chisel = { path = "crates/chisel" }
 forge = { path = "crates/forge" }
 
 forge-doc = { path = "crates/doc" }
@@ -296,6 +289,15 @@ alloy-op-evm = "0.25.1"
 revm = { version = "33.1.0", default-features = false }
 revm-inspectors = { version = "0.33.0", features = ["serde"] }
 op-revm = { version = "14.1.0", default-features = false }
+
+# tempo
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "b1a1326" }
 
 ## cli
 anstream = "0.6"
