@@ -90,7 +90,6 @@ evmole.workspace = true
 [dev-dependencies]
 alloy-hardforks.workspace = true
 dirs.workspace = true
-anvil.workspace = true
 foundry-test-utils.workspace = true
 
 [features]

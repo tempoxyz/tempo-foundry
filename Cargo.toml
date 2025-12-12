@@ -1,10 +1,5 @@
 [workspace]
 members = [
-    "benches/",
-    "crates/anvil/",
-    "crates/anvil/core/",
-    "crates/anvil/rpc/",
-    "crates/anvil/server/",
     "crates/cast/",
     "crates/cheatcodes/",
     "crates/cheatcodes/spec/",
@@ -191,7 +186,6 @@ syn.opt-level = "z"
 trezor-client.opt-level = "z"
 
 [workspace.dependencies]
-anvil = { path = "crates/anvil" }
 cast = { path = "crates/cast" }
 chisel = { path = "crates/chisel" }
 forge = { path = "crates/forge" }

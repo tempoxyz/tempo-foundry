@@ -6,18 +6,15 @@
 # Cargo profile for builds.
 PROFILE ?= dev
 
-# The docker image name
-DOCKER_IMAGE_NAME ?= ghcr.io/foundry-rs/foundry:latest
-
 BIN_DIR = dist/bin
 CARGO_TARGET_DIR ?= target
 
 # List of features to use when building. Can be overridden via the environment.
 # No jemalloc on Windows
 ifeq ($(OS),Windows_NT)
-    FEATURES ?= aws-kms gcp-kms turnkey cli asm-keccak
+    FEATURES ?= aws-kms gcp-kms turnkey asm-keccak
 else
-    FEATURES ?= jemalloc aws-kms gcp-kms turnkey cli asm-keccak
+    FEATURES ?= jemalloc aws-kms gcp-kms turnkey asm-keccak
 endif
 
 ##@ Help
@@ -31,14 +28,6 @@ help: ## Display this help.
 .PHONY: build
 build: ## Build the project.
 	cargo build --features "$(FEATURES)" --profile "$(PROFILE)"
-
-.PHONY: build-docker
-build-docker: ## Build the docker image.
-	docker build . -t "$(DOCKER_IMAGE_NAME)" \
-	--build-arg "RUST_PROFILE=$(PROFILE)" \
-	--build-arg "RUST_FEATURES=$(FEATURES)" \
-	--build-arg "TAG_NAME=dev" \
-	--build-arg "VERGEN_GIT_SHA=$(shell git rev-parse HEAD)"
 
 ##@ Test
 
