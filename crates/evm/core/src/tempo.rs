@@ -6,7 +6,7 @@ use revm::{
     state::{AccountInfo, Bytecode},
 };
 use tempo_chainspec::hardfork::TempoHardfork;
-use tempo_precompiles::error::TempoPrecompileError;
+use tempo_precompiles::{error::TempoPrecompileError, storage::PrecompileStorageProvider};
 
 use crate::backend::Backend;
 
@@ -21,10 +21,17 @@ pub struct FoundryStorageProvider<'a> {
     gas_used: u64,
     gas_refunded: i64,
     transient: HashMap<(Address, U256), U256>,
+    beneficiary: Address,
+    spec: TempoHardfork,
 }
 
 impl<'a> FoundryStorageProvider<'a> {
-    pub fn new(backend: &'a mut Backend, chain_id: u64, timestamp: U256) -> Self {
+    pub fn new(
+        backend: &'a mut Backend,
+        chain_id: u64,
+        timestamp: U256,
+        spec: TempoHardfork,
+    ) -> Self {
         Self {
             backend,
             chain_id,
@@ -32,18 +39,15 @@ impl<'a> FoundryStorageProvider<'a> {
             gas_used: 0,
             gas_refunded: 0,
             transient: HashMap::new(),
+            beneficiary: Address::ZERO,
+            spec,
         }
     }
 }
 
-impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorageProvider<'a> {
+impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn spec(&self) -> TempoHardfork {
-        // Note: in Foundry we are currently using the Prague hardfork which is unmatched with Tempo
-        // resulting in always returning the default Tempo hardfork (the oldest).
-        //
-        // Once Foundry is updated to default to Osaka this will need to be updated to return
-        // the correct hardfork again.
-        TempoHardfork::Allegretto
+        self.spec
     }
 
     fn chain_id(&self) -> u64 {
@@ -57,7 +61,12 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
     fn set_code(&mut self, address: Address, code: Bytecode) -> Result<(), TempoPrecompileError> {
         self.backend.insert_account_info(
             address,
-            AccountInfo { code_hash: code.hash_slow(), code: Some(code), ..Default::default() },
+            AccountInfo {
+                code_hash: code.hash_slow(),
+                code: Some(code),
+                nonce: 1,
+                ..Default::default()
+            },
         );
         Ok(())
     }
@@ -67,7 +76,6 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         _address: Address,
         _f: &mut dyn FnMut(&AccountInfo),
     ) -> Result<(), TempoPrecompileError> {
-        // Not supported in test initialization
         Ok(())
     }
 
@@ -105,13 +113,10 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
         _address: Address,
         _event: alloy_primitives::LogData,
     ) -> Result<(), TempoPrecompileError> {
-        // Events during initialization are not captured in test setup
-        // This is acceptable as initialization events aren't tested
         Ok(())
     }
 
     fn deduct_gas(&mut self, gas: u64) -> Result<(), TempoPrecompileError> {
-        // Track gas for accounting purposes, but don't enforce limits during init
         self.gas_used = self.gas_used.saturating_add(gas);
         Ok(())
     }
@@ -129,8 +134,6 @@ impl<'a> tempo_precompiles::storage::PrecompileStorageProvider for FoundryStorag
     }
 
     fn beneficiary(&self) -> Address {
-        // note(onbjerg): this doesn't matter during initialization so we can safely set it to
-        // address zero. during execution the evm will set this to an appropriate value.
-        Address::ZERO
+        self.beneficiary
     }
 }

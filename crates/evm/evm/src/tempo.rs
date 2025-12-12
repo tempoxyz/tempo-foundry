@@ -3,7 +3,8 @@ use foundry_evm_core::{
     constants::{CALLER, TEST_CONTRACT_ADDRESS},
     tempo::FoundryStorageProvider,
 };
-use revm::state::{AccountInfo, Bytecode};
+use revm::state::Bytecode;
+use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_contracts::{
     ARACHNID_CREATE2_FACTORY_ADDRESS, CREATEX_ADDRESS, CreateX, MULTICALL_ADDRESS, Multicall,
     PERMIT2_ADDRESS, Permit2, SAFE_DEPLOYER_ADDRESS, SafeDeployer,
@@ -14,6 +15,7 @@ use tempo_precompiles::{
     TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS,
     TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
     error::TempoPrecompileError,
+    storage::StorageCtx,
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
     tip20_factory::{ITIP20Factory, TIP20Factory},
     validator_config,
@@ -32,112 +34,109 @@ pub fn initialize_tempo_precompiles_and_contracts(
     let sender = CALLER;
     let admin = TEST_CONTRACT_ADDRESS;
 
-    // Set bytecode for all precompiles
-    let bytecode = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
-    for precompile in [
-        NONCE_PRECOMPILE_ADDRESS,
-        STABLECOIN_EXCHANGE_ADDRESS,
-        TIP20_FACTORY_ADDRESS,
-        TIP20_REWARDS_REGISTRY_ADDRESS,
-        TIP403_REGISTRY_ADDRESS,
-        TIP_FEE_MANAGER_ADDRESS,
-        VALIDATOR_CONFIG_ADDRESS,
-        ACCOUNT_KEYCHAIN_ADDRESS,
-    ] {
-        executor.backend_mut().insert_account_info(
-            precompile,
-            AccountInfo {
-                code_hash: bytecode.hash_slow(),
-                code: Some(bytecode.clone()),
-                ..Default::default()
-            },
-        );
-    }
-
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
-    let storage_provider = FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp);
+    let mut storage = FoundryStorageProvider::new(
+        executor.backend_mut(),
+        chain_id,
+        timestamp,
+        TempoHardfork::default(),
+    );
 
-    // Create PathUSD token: 0x20C0000000000000000000000000000000000000
-    let path_usd_token_address = create_and_mint_token(
-        "PathUSD",
-        "PathUSD",
-        "USD",
-        Address::ZERO,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
+    StorageCtx::enter(&mut storage, || -> Result<(), TempoPrecompileError> {
+        let mut ctx = StorageCtx;
 
-    // Create AlphaUSD token: 0x20C0000000000000000000000000000000000001
-    let _alpha_usd_token_address = create_and_mint_token(
-        "AlphaUSD",
-        "AlphaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
+        let sentinel = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
+        for precompile in [
+            NONCE_PRECOMPILE_ADDRESS,
+            STABLECOIN_EXCHANGE_ADDRESS,
+            TIP20_FACTORY_ADDRESS,
+            TIP20_REWARDS_REGISTRY_ADDRESS,
+            TIP403_REGISTRY_ADDRESS,
+            TIP_FEE_MANAGER_ADDRESS,
+            VALIDATOR_CONFIG_ADDRESS,
+            ACCOUNT_KEYCHAIN_ADDRESS,
+        ] {
+            ctx.set_code(precompile, sentinel.clone())?;
+        }
 
-    // Create BetaUSD token: 0x20C0000000000000000000000000000000000002
-    let _beta_usd_token_address = create_and_mint_token(
-        "BetaUSD",
-        "BetaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
+        // Create PathUSD token: 0x20C0000000000000000000000000000000000000
+        let path_usd_token_address = create_and_mint_token(
+            "PathUSD",
+            "PathUSD",
+            "USD",
+            Address::ZERO,
+            admin,
+            sender,
+            U256::from(u64::MAX),
+        )?;
 
-    // Create ThetaUSD token: 0x20C0000000000000000000000000000000000003
-    let _theta_usd_token_address = create_and_mint_token(
-        "ThetaUSD",
-        "ThetaUSD",
-        "USD",
-        path_usd_token_address,
-        admin,
-        sender,
-        U256::from(u64::MAX),
-    )?;
+        // Create AlphaUSD token: 0x20C0000000000000000000000000000000000001
+        let _alpha_usd_token_address = create_and_mint_token(
+            "AlphaUSD",
+            "AlphaUSD",
+            "USD",
+            path_usd_token_address,
+            admin,
+            sender,
+            U256::from(u64::MAX),
+        )?;
 
-    // Initialize ValidatorConfig with admin as owner
-    executor
-        .backend_mut()
-        .insert_account_storage(
+        // Create BetaUSD token: 0x20C0000000000000000000000000000000000002
+        let _beta_usd_token_address = create_and_mint_token(
+            "BetaUSD",
+            "BetaUSD",
+            "USD",
+            path_usd_token_address,
+            admin,
+            sender,
+            U256::from(u64::MAX),
+        )?;
+
+        // Create ThetaUSD token: 0x20C0000000000000000000000000000000000003
+        let _theta_usd_token_address = create_and_mint_token(
+            "ThetaUSD",
+            "ThetaUSD",
+            "USD",
+            path_usd_token_address,
+            admin,
+            sender,
+            U256::from(u64::MAX),
+        )?;
+
+        // Initialize ValidatorConfig with admin as owner
+        ctx.sstore(
             VALIDATOR_CONFIG_ADDRESS,
             validator_config::slots::OWNER,
             admin.into_word().into(),
-        )
-        .expect("failed to initialize validator config state");
+        )?;
 
-    // Set bytecode for all contracts
-    insert_contract(executor, MULTICALL_ADDRESS, Bytes::from_static(&Multicall::DEPLOYED_BYTECODE));
-    insert_contract(executor, CREATEX_ADDRESS, Bytes::from_static(&CreateX::DEPLOYED_BYTECODE));
-    insert_contract(
-        executor,
-        SAFE_DEPLOYER_ADDRESS,
-        Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE),
-    );
-    insert_contract(executor, PERMIT2_ADDRESS, Bytes::from_static(&Permit2::DEPLOYED_BYTECODE));
-    insert_contract(executor, ARACHNID_CREATE2_FACTORY_ADDRESS, ARACHNID_CREATE2_FACTORY_BYTECODE);
+        // Set bytecode for all contracts
+        ctx.set_code(
+            MULTICALL_ADDRESS,
+            Bytecode::new_legacy(Bytes::from_static(&Multicall::DEPLOYED_BYTECODE)),
+        )?;
+        ctx.set_code(
+            CREATEX_ADDRESS,
+            Bytecode::new_legacy(Bytes::from_static(&CreateX::DEPLOYED_BYTECODE)),
+        )?;
+        ctx.set_code(
+            SAFE_DEPLOYER_ADDRESS,
+            Bytecode::new_legacy(Bytes::from_static(&SafeDeployer::DEPLOYED_BYTECODE)),
+        )?;
+        ctx.set_code(
+            PERMIT2_ADDRESS,
+            Bytecode::new_legacy(Bytes::from_static(&Permit2::DEPLOYED_BYTECODE)),
+        )?;
+        ctx.set_code(
+            ARACHNID_CREATE2_FACTORY_ADDRESS,
+            Bytecode::new_legacy(ARACHNID_CREATE2_FACTORY_BYTECODE),
+        )?;
+
+        Ok(())
+    })?;
 
     Ok(())
-}
-
-/// Helper function to insert a contract's bytecode into the executor's state.
-fn insert_contract(executor: &mut Executor, addr: Address, bytes: Bytes) {
-    let bytecode = Bytecode::new_legacy(bytes);
-    executor.backend_mut().insert_account_info(
-        addr,
-        AccountInfo {
-            code_hash: bytecode.hash_slow(),
-            code: Some(bytecode),
-            nonce: 1,
-            ..Default::default()
-        },
-    );
 }
 
 /// Helper function to create and mint a TIP20 token.

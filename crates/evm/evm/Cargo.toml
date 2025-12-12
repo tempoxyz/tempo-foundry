@@ -48,6 +48,7 @@ revm = { workspace = true, default-features = false, features = [
 ] }
 revm-inspectors.workspace = true
 
+tempo-chainspec.workspace = true
 tempo-contracts.workspace = true
 tempo-precompiles.workspace = true
 tempo-revm.workspace = true

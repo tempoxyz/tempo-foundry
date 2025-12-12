@@ -4883,6 +4883,7 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
+ "tempo-chainspec",
  "tempo-contracts",
  "tempo-precompiles",
  "tempo-revm",
