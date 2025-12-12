@@ -56,5 +56,7 @@ alloy-eips.workspace = true
 alloy-consensus.workspace = true
 thiserror.workspace = true
 
+tempo-alloy.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true

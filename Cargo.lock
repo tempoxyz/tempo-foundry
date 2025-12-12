@@ -4385,6 +4385,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tempo-alloy",
  "thiserror 2.0.17",
  "tokio",
  "tracing",
@@ -4404,6 +4405,7 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
+ "tempo-alloy",
  "walkdir",
 ]
 

@@ -23,6 +23,8 @@ eyre.workspace = true
 serde_json.workspace = true
 walkdir.workspace = true
 
+tempo-alloy.workspace = true
+
 revm-inspectors.workspace = true
 
 alloy-primitives.workspace = true

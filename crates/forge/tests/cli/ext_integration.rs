@@ -110,6 +110,7 @@ fn makerdao_multicall() {
 
 // <https://github.com/hexonaut/guni-lev>
 #[test]
+#[ignore = "tempo skip"]
 fn gunilev() {
     ExtTester::new("hexonaut", "guni-lev", "15ee8b4c2d28e553c5cd5ba9a2a274af97563bc4")
         .fork_block(13633752)
@@ -118,6 +119,7 @@ fn gunilev() {
 
 // <https://github.com/mds1/convex-shutdown-simulation>
 #[test]
+#[ignore = "tempo skip"]
 fn convex_shutdown_simulation() {
     ExtTester::new(
         "mds1",

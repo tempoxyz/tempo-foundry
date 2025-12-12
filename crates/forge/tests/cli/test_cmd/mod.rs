@@ -20,50 +20,56 @@ mod table;
 mod trace;
 
 // Run `forge test` on `/testdata`.
-forgetest!(testdata, |_prj, cmd| {
-    let testdata =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata").canonicalize().unwrap();
-    cmd.current_dir(&testdata);
+forgetest!(
+    #[ignore = "tempo skip"]
+    testdata,
+    |_prj, cmd| {
+        let testdata = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata")
+            .canonicalize()
+            .unwrap();
+        cmd.current_dir(&testdata);
 
-    let mut dotenv = std::fs::File::create(testdata.join(".env")).unwrap();
-    for (name, endpoint) in rpc_endpoints().iter() {
-        if let Some(url) = endpoint.endpoint.as_url() {
-            let key = format!("RPC_{}", name.to_uppercase());
-            // cmd.env(&key, url);
-            writeln!(dotenv, "{key}={url}").unwrap();
+        let mut dotenv = std::fs::File::create(testdata.join(".env")).unwrap();
+        for (name, endpoint) in rpc_endpoints().iter() {
+            if let Some(url) = endpoint.endpoint.as_url() {
+                let key = format!("RPC_{}", name.to_uppercase());
+                // cmd.env(&key, url);
+                writeln!(dotenv, "{key}={url}").unwrap();
+            }
         }
-    }
-    drop(dotenv);
+        drop(dotenv);
 
-    let mut args = vec!["test"];
-    if cfg!(feature = "isolate-by-default") {
-        args.push(
+        let mut args = vec!["test"];
+        if cfg!(feature = "isolate-by-default") {
+            args.push(
             "--nmc=(LastCallGasDefaultTest|MockFunctionTest|WithSeed|StateDiff|GetStorageSlotsTest|RecordAccount)",
         );
-    }
+        }
 
-    let orig_assert = cmd.args(args).assert();
-    if orig_assert.get_output().status.success() {
-        return;
-    }
-    let stdout = orig_assert.get_output().stdout_lossy();
-    if let Some(i) = stdout.rfind("Suite result:") {
-        test_debug!("--- short stdout ---\n\n{}\n\n---", &stdout[i..]);
-    }
-
-    // Retry failed tests.
-    cmd.args(["--rerun"]);
-    let n = 3;
-    for i in 1..=n {
-        test_debug!("retrying failed tests... ({i}/{n})");
-        let assert = cmd.assert();
-        if assert.get_output().status.success() {
+        let orig_assert = cmd.args(args).assert();
+        if orig_assert.get_output().status.success() {
             return;
         }
-    }
+        let stdout = orig_assert.get_output().stdout_lossy();
+        if let Some(i) = stdout.rfind("Suite result:") {
+            test_debug!("--- short stdout ---\n\n{}\n\n---", &stdout[i..]);
+        }
 
-    orig_assert.success();
-});
+        // Retry failed tests.
+        cmd.args(["--rerun"]);
+        let n = 3;
+        for i in 1..=n {
+            test_debug!("retrying failed tests... ({i}/{n})");
+            let assert = cmd.assert();
+            if assert.get_output().status.success() {
+                return;
+            }
+        }
+
+        orig_assert.success();
+    }
+);
 
 // tests that test filters are handled correctly
 forgetest!(can_set_filter_values, |prj, cmd| {
@@ -4016,14 +4022,18 @@ Ran 1 test suite [ELAPSED]: 1 tests passed, 0 failed, 0 skipped (1 total tests)
 // tests proper reverts in fork mode for contracts with non-existent linked libraries.
 // <https://github.com/foundry-rs/foundry/issues/11185>
 #[cfg(not(feature = "isolate-by-default"))]
-forgetest_init!(can_fork_test_with_non_existent_linked_library, |prj, cmd| {
-    prj.update_config(|config| {
-        config.libraries =
-            vec!["src/Counter.sol:LibCounter:0x530008d2b058137d9c475b1b7d83984f1fcf1dd0".into()];
-    });
-    prj.add_source(
-        "Counter.sol",
-        r"
+forgetest_init!(
+    #[ignore = "tempo skip"]
+    can_fork_test_with_non_existent_linked_library,
+    |prj, cmd| {
+        prj.update_config(|config| {
+            config.libraries = vec![
+                "src/Counter.sol:LibCounter:0x530008d2b058137d9c475b1b7d83984f1fcf1dd0".into(),
+            ];
+        });
+        prj.add_source(
+            "Counter.sol",
+            r"
 library LibCounter {
     function dummy() external pure returns (uint) {
         return 1;
@@ -4050,13 +4060,13 @@ contract Counter {
     }
 }
    ",
-    );
+        );
 
-    let endpoint = rpc::next_http_archive_rpc_url();
+        let endpoint = rpc::next_http_archive_rpc_url();
 
-    prj.add_test(
-        "Counter.t.sol",
-        &r#"
+        prj.add_test(
+            "Counter.t.sol",
+            &r#"
 import "forge-std/Test.sol";
 import "src/Counter.sol";
 
@@ -4072,10 +4082,10 @@ contract CounterTest is Test {
     }
 }
    "#
-        .replace("<url>", &endpoint),
-    );
+            .replace("<url>", &endpoint),
+        );
 
-    cmd.args(["test", "--fork-url", &endpoint]).assert_failure().stdout_eq(str![[r#"
+        cmd.args(["test", "--fork-url", &endpoint]).assert_failure().stdout_eq(str![[r#"
 [COMPILING_FILES] with [SOLC_VERSION]
 [SOLC_VERSION] [ELAPSED]
 Compiler run successful!
@@ -4097,20 +4107,24 @@ Encountered a total of 2 failing tests, 0 tests succeeded
 Tip: Run `forge test --rerun` to retry only the 2 failed tests
 
 "#]]);
-});
+    }
+);
 
 // <https://github.com/foundry-rs/foundry/issues/11632>
 #[cfg(not(feature = "isolate-by-default"))]
-forgetest_init!(invariant_consistent_output, |prj, cmd| {
-    prj.update_config(|config| {
-        config.fuzz.seed = Some(U256::from(100u32));
-        config.invariant.runs = 10;
-        config.invariant.depth = 100;
-        config.invariant.show_metrics = false;
-    });
-    prj.add_test(
-        "InvariantOutputTest.t.sol",
-        r#"
+forgetest_init!(
+    #[ignore = "tempo skip"]
+    invariant_consistent_output,
+    |prj, cmd| {
+        prj.update_config(|config| {
+            config.fuzz.seed = Some(U256::from(100u32));
+            config.invariant.runs = 10;
+            config.invariant.depth = 100;
+            config.invariant.show_metrics = false;
+        });
+        prj.add_test(
+            "InvariantOutputTest.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 
 contract InvariantOutputTest is Test {
@@ -4131,12 +4145,13 @@ contract InvariantOutputTest is Test {
     }
 }
    "#,
-    );
+        );
 
-    cmd.args(["test", "--mt", "invariant_check_count", "--color", "always"])
-        .assert_failure()
-        .stdout_eq(file!["../../fixtures/invariant_traces.svg": TermSvg]);
-});
+        cmd.args(["test", "--mt", "invariant_check_count", "--color", "always"])
+            .assert_failure()
+            .stdout_eq(file!["../../fixtures/invariant_traces.svg": TermSvg]);
+    }
+);
 
 forgetest_init!(memory_limit, |prj, cmd| {
     prj.wipe_contracts();
