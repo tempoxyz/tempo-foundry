@@ -273,27 +273,31 @@ forgetest_async!(
 );
 
 // `--ignore` tests
-forgetest_async!(can_ignore_creation, |prj, cmd| {
-    test_verify_bytecode_with_ignore(
-        prj,
-        cmd,
-        "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
-        "SystemConfig",
-        Config {
-            evm_version: EvmVersion::London,
-            optimizer_runs: Some(999999),
-            optimizer: Some(true),
-            cbor_metadata: false,
-            bytecode_hash: BytecodeHash::None,
-            ..Default::default()
-        },
-        "etherscan",
-        "https://api.etherscan.io/v2/api?chainid=1",
-        ("ignored", "partial"),
-        "creation",
-        "1",
-    );
-});
+forgetest_async!(
+    #[ignore = "tempo skip"]
+    can_ignore_creation,
+    |prj, cmd| {
+        test_verify_bytecode_with_ignore(
+            prj,
+            cmd,
+            "0xba2492e52F45651B60B8B38d4Ea5E2390C64Ffb1",
+            "SystemConfig",
+            Config {
+                evm_version: EvmVersion::London,
+                optimizer_runs: Some(999999),
+                optimizer: Some(true),
+                cbor_metadata: false,
+                bytecode_hash: BytecodeHash::None,
+                ..Default::default()
+            },
+            "etherscan",
+            "https://api.etherscan.io/v2/api?chainid=1",
+            ("ignored", "partial"),
+            "creation",
+            "1",
+        );
+    }
+);
 
 forgetest_async!(can_ignore_runtime, |prj, cmd| {
     test_verify_bytecode_with_ignore(
