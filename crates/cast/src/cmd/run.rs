@@ -1,17 +1,17 @@
-use crate::{debug::handle_traces, utils::apply_chain_and_block_specific_env_changes};
-use alloy_consensus::Transaction;
-use alloy_network::{AnyNetwork, TransactionResponse};
+use crate::debug::handle_traces;
+use alloy_consensus::{BlockHeader, Transaction};
+use alloy_network::TransactionResponse;
 use alloy_primitives::{
     Address, Bytes, U256,
     map::{AddressSet, HashMap},
 };
 use alloy_provider::Provider;
-use alloy_rpc_types::BlockTransactions;
+use alloy_rpc_types::{BlockTransactions, TransactionRequest};
 use clap::Parser;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
     opts::{EtherscanOpts, RpcOpts},
-    utils::{TraceResult, init_progress},
+    utils::{TraceResult, get_tempo_provider_builder, init_progress},
 };
 use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_impersonated_tx, is_known_system_sender, shell};
 use foundry_compilers::artifacts::EvmVersion;
@@ -28,10 +28,12 @@ use foundry_evm::{
     executors::{EvmError, Executor, TracingExecutor},
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode, Traces},
-    utils::configure_tx_env,
+    utils::{apply_chain_and_block_specific_env_changes, configure_tx_req_env},
 };
 use futures::TryFutureExt;
 use revm::DatabaseRef;
+use tempo_alloy::TempoNetwork;
+use tempo_primitives::TempoTxEnvelope;
 
 /// CLI arguments for `cast run`.
 #[derive(Clone, Debug, Parser)]
@@ -131,7 +133,7 @@ impl RunArgs {
         let compute_units_per_second =
             if self.no_rate_limit { Some(u64::MAX) } else { self.compute_units_per_second };
 
-        let provider = foundry_cli::utils::get_provider_builder(&config)?
+        let provider = get_tempo_provider_builder(&config)?
             .compute_units_per_second_opt(compute_units_per_second)
             .build()?;
 
@@ -141,16 +143,6 @@ impl RunArgs {
             .await
             .wrap_err_with(|| format!("tx not found: {tx_hash:?}"))?
             .ok_or_else(|| eyre::eyre!("tx not found: {:?}", tx_hash))?;
-
-        // check if the tx is a system transaction
-        if is_known_system_sender(tx.from())
-            || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
-        {
-            return Err(eyre::eyre!(
-                "{:?} is a system transaction.\nReplaying system transactions is currently not supported.",
-                tx.tx_hash()
-            ));
-        }
 
         let tx_block_number =
             tx.block_number.ok_or_else(|| eyre::eyre!("tx may still be pending: {:?}", tx_hash))?;
@@ -165,7 +157,7 @@ impl RunArgs {
             TracingExecutor::get_fork_material(&mut config, evm_opts)
         )?;
 
-        let mut evm_version = self.evm_version;
+        let evm_version = self.evm_version;
 
         env.evm_env.cfg_env.disable_block_gas_limit = self.disable_block_gas_limit;
 
@@ -179,22 +171,14 @@ impl RunArgs {
         env.evm_env.block_env.number = U256::from(tx_block_number);
 
         if let Some(block) = &block {
-            env.evm_env.block_env.timestamp = U256::from(block.header.timestamp);
-            env.evm_env.block_env.beneficiary = block.header.beneficiary;
-            env.evm_env.block_env.difficulty = block.header.difficulty;
-            env.evm_env.block_env.prevrandao = Some(block.header.mix_hash.unwrap_or_default());
-            env.evm_env.block_env.basefee = block.header.base_fee_per_gas.unwrap_or_default();
-            env.evm_env.block_env.gas_limit = block.header.gas_limit;
+            env.evm_env.block_env.timestamp = U256::from(block.header.timestamp());
+            env.evm_env.block_env.beneficiary = block.header.beneficiary();
+            env.evm_env.block_env.difficulty = block.header.difficulty();
+            env.evm_env.block_env.prevrandao = Some(block.header.mix_hash().unwrap_or_default());
+            env.evm_env.block_env.basefee = block.header.base_fee_per_gas().unwrap_or_default();
+            env.evm_env.block_env.gas_limit = block.header.gas_limit();
 
-            // TODO: we need a smarter way to map the block to the corresponding evm_version for
-            // commonly used chains
-            if evm_version.is_none() {
-                // if the block has the excess_blob_gas field, we assume it's a Cancun block
-                if block.header.excess_blob_gas.is_some() {
-                    evm_version = Some(EvmVersion::Prague);
-                }
-            }
-            apply_chain_and_block_specific_env_changes::<AnyNetwork>(
+            apply_chain_and_block_specific_env_changes::<TempoNetwork>(
                 env.as_env_mut(),
                 block,
                 config.networks,
@@ -240,20 +224,24 @@ impl RunArgs {
                 };
 
                 for (index, tx) in txs.iter().enumerate() {
-                    // System transactions such as on L2s don't contain any pricing info so
-                    // we skip them otherwise this would cause
-                    // reverts
-                    if is_known_system_sender(tx.from())
-                        || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
-                    {
-                        pb.set_position((index + 1) as u64);
-                        continue;
-                    }
                     if tx.tx_hash() == tx_hash {
                         break;
                     }
 
-                    configure_tx_env(&mut env.as_env_mut(), &tx.inner);
+                    configure_tempo_tx_req_env(&mut env, tx)?;
+
+                    // System transactions may have zero or invalid gas limits from the RPC.
+                    // Override with a reasonable value to allow execution.
+                    if is_known_system_sender(tx.from())
+                        || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
+                    {
+                        env.evm_env.cfg_env.disable_block_gas_limit = true;
+                        env.evm_env.cfg_env.disable_balance_check = true;
+                        env.evm_env.cfg_env.disable_nonce_check = true;
+                        env.evm_env.cfg_env.disable_fee_charge = true;
+                        env.evm_env.cfg_env.disable_base_fee = true;
+                        env.tx.gas_limit = u64::MAX;
+                    }
 
                     env.evm_env.cfg_env.disable_balance_check = true;
 
@@ -294,8 +282,8 @@ impl RunArgs {
         let result = {
             executor.set_trace_printer(self.trace_printer);
 
-            configure_tx_env(&mut env.as_env_mut(), &tx.inner);
-            if is_impersonated_tx(tx.inner.inner.inner()) {
+            configure_tempo_tx_req_env(&mut env, &tx)?;
+            if is_impersonated_tx(tx.inner.inner()) {
                 env.evm_env.cfg_env.disable_balance_check = true;
             }
 
@@ -384,4 +372,33 @@ impl figment::Provider for RunArgs {
 
         Ok(Map::from([(Config::selected_profile(), map)]))
     }
+}
+
+pub fn configure_tempo_tx_req_env(
+    env: &mut Env,
+    tx: &alloy_rpc_types::Transaction<TempoTxEnvelope>,
+) -> eyre::Result<()> {
+    let from = tx.from();
+    let tx_req = match &tx.inner.inner() {
+        TempoTxEnvelope::AA(tx) => {
+            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
+        }
+        TempoTxEnvelope::Eip1559(tx) => {
+            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
+        }
+        TempoTxEnvelope::Eip2930(tx) => {
+            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
+        }
+        TempoTxEnvelope::Eip7702(tx) => {
+            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
+        }
+        TempoTxEnvelope::FeeToken(tx) => {
+            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
+        }
+        TempoTxEnvelope::Legacy(tx) => {
+            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
+        }
+    };
+    configure_tx_req_env(&mut env.as_env_mut(), tx_req, Some(from))?;
+    Ok(())
 }

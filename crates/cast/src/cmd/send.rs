@@ -8,8 +8,12 @@ use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::{Result, eyre};
-use foundry_cli::{opts::TransactionOpts, utils, utils::LoadConfig};
+use foundry_cli::{
+    opts::TransactionOpts,
+    utils::{self, LoadConfig, get_tempo_provider},
+};
 use foundry_wallets::WalletSigner;
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 use crate::{
     Cast,
@@ -84,8 +88,6 @@ impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
         let Self { to, mut sig, mut args, data, send_tx, tx, command, unlocked, path } = self;
 
-        let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
-
         if let Some(data) = data {
             sig = Some(data);
         }
@@ -103,13 +105,6 @@ impl SendTxArgs {
                     "EIP-7702 transactions can't be CREATE transactions and require a destination address"
                 ));
             }
-            // ensure we don't violate settings for transactions that can't be CREATE: 7702 and 4844
-            // which require mandatory target
-            if to.is_none() && blob_data.is_some() {
-                return Err(eyre!(
-                    "EIP-4844 transactions can't be CREATE transactions and require a destination address"
-                ));
-            }
 
             sig = constructor_sig;
             args = constructor_args;
@@ -119,19 +114,18 @@ impl SendTxArgs {
         };
 
         let config = send_tx.eth.load_config()?;
-        let provider = utils::get_provider(&config)?;
+        let provider = get_tempo_provider(&config)?;
 
         if let Some(interval) = send_tx.poll_interval {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
-        let builder = CastTxBuilder::new(&provider, tx, &config)
+        let builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?
             .with_code_sig_and_args(code, sig, args)
-            .await?
-            .with_blob_data(blob_data)?;
+            .await?;
 
         let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
 
@@ -159,11 +153,11 @@ impl SendTxArgs {
                 }
             }
 
-            let (tx, _) = builder.build(config.sender).await?;
+            let (tx, _) = builder.build(config.sender, send_tx.fee_token).await?;
 
             cast_send(
                 provider,
-                tx,
+                tx.inner,
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,
@@ -185,13 +179,13 @@ impl SendTxArgs {
             if send_tx.eth.wallet.browser
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
-                let (tx_request, _) = builder.build(from).await?;
+                let (tx_request, _) = builder.build(from, send_tx.fee_token).await?;
                 let tx_hash = browser_signer.send_transaction_via_browser(tx_request.inner).await?;
 
                 if send_tx.cast_async {
                     sh_println!("{tx_hash:#x}")?;
                 } else {
-                    let receipt = Cast::new(&provider)
+                    let receipt = CastTxSender::new(&provider)
                         .receipt(
                             format!("{tx_hash:#x}"),
                             None,
@@ -206,16 +200,16 @@ impl SendTxArgs {
                 return Ok(());
             }
 
-            let (tx_request, _) = builder.build(&signer).await?;
+            let (tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
 
             let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::<_, _, AnyNetwork>::default()
+            let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
                 .wallet(wallet)
                 .connect_provider(&provider);
 
             cast_send(
                 provider,
-                tx_request,
+                tx_request.inner,
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,
@@ -226,15 +220,15 @@ impl SendTxArgs {
     }
 }
 
-pub(crate) async fn cast_send<P: Provider<AnyNetwork>>(
+pub(crate) async fn cast_send<P: Provider<TempoNetwork>>(
     provider: P,
-    tx: WithOtherFields<TransactionRequest>,
+    tx: TempoTransactionRequest,
     cast_async: bool,
     sync: bool,
     confs: u64,
     timeout: u64,
 ) -> Result<()> {
-    let cast = Cast::new(&provider);
+    let cast = CastTxSender::new(&provider);
 
     if sync {
         // Send transaction and wait for receipt synchronously

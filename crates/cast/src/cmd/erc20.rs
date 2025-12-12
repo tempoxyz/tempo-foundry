@@ -302,9 +302,10 @@ impl Erc20Subcommand {
             // State-changing
             Self::Transfer { token, to, amount, send_tx, .. } => {
                 let provider = signing_provider(&send_tx).await?;
-                let tx = IERC20::new(token.resolve(&provider).await?, &provider)
+                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
+                tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
                     tx,
@@ -317,9 +318,10 @@ impl Erc20Subcommand {
             }
             Self::Approve { token, spender, amount, send_tx, .. } => {
                 let provider = signing_provider(&send_tx).await?;
-                let tx = IERC20::new(token.resolve(&provider).await?, &provider)
+                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
+                tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
                     tx,
@@ -332,9 +334,10 @@ impl Erc20Subcommand {
             }
             Self::Mint { token, to, amount, send_tx, .. } => {
                 let provider = signing_provider(&send_tx).await?;
-                let tx = IERC20::new(token.resolve(&provider).await?, &provider)
+                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
+                tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
                     tx,
@@ -347,9 +350,10 @@ impl Erc20Subcommand {
             }
             Self::Burn { token, amount, send_tx, .. } => {
                 let provider = signing_provider(&send_tx).await?;
-                let tx = IERC20::new(token.resolve(&provider).await?, &provider)
+                let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .burn(U256::from_str(&amount)?)
                     .into_transaction_request();
+                tx.fee_token = send_tx.fee_token;
                 cast_send(
                     provider,
                     tx,

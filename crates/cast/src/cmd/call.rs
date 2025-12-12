@@ -259,7 +259,7 @@ impl CallArgs {
             None
         };
 
-        let (tx, func) = CastTxBuilder::new(&provider, tx, &config)
+        let (tx, func) = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?

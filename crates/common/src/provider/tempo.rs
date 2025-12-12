@@ -1,92 +1,53 @@
-//! Provider-related instantiation and usage utilities.
-
-pub mod runtime_transport;
-pub mod tempo;
-
 use crate::{
-    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT, provider::runtime_transport::RuntimeTransportBuilder,
+    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT,
+    provider::{
+        DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME, POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR, resolve_path,
+        runtime_transport::RuntimeTransportBuilder,
+    },
 };
 use alloy_chains::NamedChain;
+use alloy_network::EthereumWallet;
 use alloy_provider::{
     Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
     fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
-    network::{AnyNetwork, EthereumWallet},
 };
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
-use eyre::{Result, WrapErr};
-use reqwest::Url;
-use std::{
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    str::FromStr,
-    time::Duration,
-};
-use url::ParseError;
+use eyre::WrapErr;
+use std::{net::SocketAddr, path::Path, str::FromStr, time::Duration};
+use tempo_alloy::TempoNetwork;
+use url::{ParseError, Url};
 
-/// The assumed block time for unknown chains.
-/// We assume that these are chains have a faster block time.
-const DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME: Duration = Duration::from_secs(3);
+/// Helper type alias for a Tempo retry provider
+pub type TempoRetryProvider<N = TempoNetwork> = RootProvider<N>;
 
-/// The factor to scale the block time by to get the poll interval.
-const POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR: f32 = 0.6;
-
-/// Helper type alias for a retry provider
-pub type RetryProvider<N = AnyNetwork> = RootProvider<N>;
-
-/// Helper type alias for a retry provider with a signer
-pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
+pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
     JoinFill<
-        JoinFill<
-            Identity,
-            JoinFill<
-                GasFiller,
-                JoinFill<
-                    alloy_provider::fillers::BlobGasFiller,
-                    JoinFill<NonceFiller, ChainIdFiller>,
-                >,
-            >,
-        >,
+        JoinFill<Identity, JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
         WalletFiller<EthereumWallet>,
     >,
     RootProvider<N>,
     N,
 >;
 
-/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
-/// an anvil or other dev node) and with the default, or 7 second otherwise.
-///
-/// See [`try_get_http_provider`] for more details.
-///
-/// # Panics
-///
-/// Panics if the URL is invalid.
-///
-/// # Examples
-///
-/// ```
-/// use foundry_common::provider::get_http_provider;
-///
-/// let retry_provider = get_http_provider("http://localhost:8545");
-/// ```
 #[inline]
 #[track_caller]
-pub fn get_http_provider(builder: impl AsRef<str>) -> RetryProvider {
-    try_get_http_provider(builder).unwrap()
+pub fn get_tempo_http_provider(builder: impl AsRef<str>) -> TempoRetryProvider {
+    try_get_tempo_http_provider(builder).unwrap()
 }
 
 /// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
 /// an anvil or other dev node) and with the default, or 7 second otherwise.
 #[inline]
-pub fn try_get_http_provider(builder: impl AsRef<str>) -> Result<RetryProvider> {
-    ProviderBuilder::new(builder.as_ref()).build()
+pub fn try_get_tempo_http_provider(builder: impl AsRef<str>) -> eyre::Result<TempoRetryProvider> {
+    TempoProviderBuilder::new(builder.as_ref()).build()
 }
 
 /// Helper type to construct a `RetryProvider`
 #[derive(Debug)]
-pub struct ProviderBuilder {
+pub struct TempoProviderBuilder {
     // Note: this is a result, so we can easily chain builder calls
-    url: Result<Url>,
+    url: eyre::Result<Url>,
     chain: NamedChain,
     max_retry: u32,
     initial_backoff: u64,
@@ -101,7 +62,7 @@ pub struct ProviderBuilder {
     accept_invalid_certs: bool,
 }
 
-impl ProviderBuilder {
+impl TempoProviderBuilder {
     /// Creates a new builder instance
     pub fn new(url_str: &str) -> Self {
         // a copy is needed for the next lines to work
@@ -253,7 +214,7 @@ impl ProviderBuilder {
     }
 
     /// Constructs the `RetryProvider` taking all configs into account.
-    pub fn build(self) -> Result<RetryProvider> {
+    pub fn build(self) -> eyre::Result<TempoRetryProvider> {
         let Self {
             url,
             chain,
@@ -291,14 +252,17 @@ impl ProviderBuilder {
             );
         }
 
-        let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
+        let provider = AlloyProviderBuilder::<_, _, TempoNetwork>::default()
             .connect_provider(RootProvider::new(client));
 
         Ok(provider)
     }
 
     /// Constructs the `RetryProvider` with a wallet.
-    pub fn build_with_wallet(self, wallet: EthereumWallet) -> Result<RetryProviderWithSigner> {
+    pub fn build_with_wallet(
+        self,
+        wallet: EthereumWallet,
+    ) -> eyre::Result<TempoRetryProviderWithSigner> {
         let Self {
             url,
             chain,
@@ -337,44 +301,11 @@ impl ProviderBuilder {
             );
         }
 
-        let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
+        let provider = AlloyProviderBuilder::<_, _, TempoNetwork>::default()
             .with_recommended_fillers()
             .wallet(wallet)
             .connect_provider(RootProvider::new(client));
 
         Ok(provider)
-    }
-}
-
-#[cfg(not(windows))]
-fn resolve_path(path: &Path) -> Result<PathBuf, ()> {
-    if path.is_absolute() {
-        Ok(path.to_path_buf())
-    } else {
-        std::env::current_dir().map(|d| d.join(path)).map_err(drop)
-    }
-}
-
-#[cfg(windows)]
-fn resolve_path(path: &Path) -> Result<PathBuf, ()> {
-    if let Some(s) = path.to_str()
-        && s.starts_with(r"\\.\pipe\")
-    {
-        return Ok(path.to_path_buf());
-    }
-    Err(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn can_auto_correct_missing_prefix() {
-        let builder = ProviderBuilder::new("localhost:8545");
-        assert!(builder.url.is_ok());
-
-        let url = builder.url.unwrap();
-        assert_eq!(url, Url::parse("http://localhost:8545").unwrap());
     }
 }

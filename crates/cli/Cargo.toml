@@ -31,6 +31,9 @@ alloy-rlp.workspace = true
 alloy-chains.workspace = true
 alloy-ens = { workspace = true, features = ["provider"] }
 
+# tempo
+tempo-precompiles.workspace = true
+
 cfg-if = "1.0"
 clap = { version = "4", features = ["derive", "env", "unicode", "wrap_help"] }
 clap_complete.workspace = true
