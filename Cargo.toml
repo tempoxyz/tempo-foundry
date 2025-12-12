@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "benches/",
     "crates/cast/",
     "crates/cheatcodes/",
     "crates/cheatcodes/spec/",
@@ -290,6 +291,15 @@ alloy-op-evm = "0.25.1"
 revm = { version = "33.1.0", default-features = false }
 revm-inspectors = { version = "0.33.0", features = ["serde"] }
 op-revm = { version = "14.1.0", default-features = false }
+
+# tempo
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "f9f539a" }
 
 ## cli
 anstream = "0.6"
