@@ -1,5 +1,4 @@
 use alloy_chains::Chain;
-use alloy_network::AnyTransactionReceipt;
 use alloy_primitives::{TxHash, U256, utils::format_units};
 use alloy_provider::{PendingTransactionBuilder, PendingTransactionError, Provider, WatchTxError};
 use eyre::{Result, eyre};
@@ -136,10 +135,6 @@ pub fn format_receipt(
                     .unwrap_or_else(|_| "N/A".into());
                 let gas_price =
                     format_units(U256::from(gas_price), 9).unwrap_or_else(|_| "N/A".into());
-                let token_symbol = NamedChain::try_from(chain)
-                    .unwrap_or_default()
-                    .native_currency_symbol()
-                    .unwrap_or("ETH");
                 format!(
                     "Paid: {} {} ({gas_used} gas * {} gwei)",
                     paid.trim_end_matches('0'),

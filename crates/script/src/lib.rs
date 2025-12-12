@@ -33,6 +33,7 @@ use foundry_cli::{
 use foundry_common::{
     CONTRACT_MAX_SIZE, ContractsByArtifact, SELECTOR_LEN,
     abi::{encode_function_args, get_func},
+    provider::tempo::TempoRetryProvider,
     shell,
 };
 use foundry_compilers::ArtifactId;
@@ -695,6 +696,7 @@ impl ScriptConfig {
                             self.evm_opts.clone(),
                             Some(known_contracts),
                             Some(target),
+                            self.fee_token,
                         )
                         .into(),
                     )

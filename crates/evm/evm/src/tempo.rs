@@ -56,12 +56,10 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
-    let mut storage_provider =
-        FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp);
+    let storage_provider = FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp);
 
     // Create PathUSD token: 0x20C0000000000000000000000000000000000000
     let path_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
         "PathUSD",
         "PathUSD",
         "USD",
@@ -73,7 +71,6 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     // Create AlphaUSD token: 0x20C0000000000000000000000000000000000001
     let _alpha_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
         "AlphaUSD",
         "AlphaUSD",
         "USD",
@@ -85,7 +82,6 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     // Create BetaUSD token: 0x20C0000000000000000000000000000000000002
     let _beta_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
         "BetaUSD",
         "BetaUSD",
         "USD",
@@ -97,7 +93,6 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     // Create ThetaUSD token: 0x20C0000000000000000000000000000000000003
     let _theta_usd_token_address = create_and_mint_token(
-        &mut storage_provider,
         "ThetaUSD",
         "ThetaUSD",
         "USD",
@@ -148,7 +143,6 @@ fn insert_contract(executor: &mut Executor, addr: Address, bytes: Bytes) {
 /// Helper function to create and mint a TIP20 token.
 #[expect(clippy::too_many_arguments)]
 fn create_and_mint_token(
-    storage_provider: &mut FoundryStorageProvider<'_>,
     symbol: &str,
     name: &str,
     currency: &str,
@@ -157,7 +151,7 @@ fn create_and_mint_token(
     recipient: Address,
     mint_amount: U256,
 ) -> Result<Address, TempoPrecompileError> {
-    let mut tip20_factory = TIP20Factory::new(storage_provider);
+    let mut tip20_factory = TIP20Factory::new();
     let token_address = tip20_factory.create_token(
         admin,
         ITIP20Factory::createTokenCall {
@@ -169,7 +163,7 @@ fn create_and_mint_token(
         },
     )?;
     let token_id = address_to_token_id_unchecked(token_address);
-    let mut token = TIP20Token::new(token_id, storage_provider);
+    let mut token = TIP20Token::new(token_id);
     token.grant_role_internal(admin, *ISSUER_ROLE)?;
     token.mint(admin, ITIP20::mintCall { to: recipient, amount: mint_amount })?;
 

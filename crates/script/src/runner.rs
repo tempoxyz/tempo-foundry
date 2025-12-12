@@ -13,6 +13,7 @@ use foundry_evm::{
     executors::{DeployResult, EvmError, ExecutionErr, Executor, RawCallResult},
     opts::EvmOpts,
     revm::interpreter::{InstructionResult, return_ok},
+    tempo::initialize_tempo_precompiles_and_contracts,
     traces::{TraceKind, Traces},
 };
 use std::collections::VecDeque;

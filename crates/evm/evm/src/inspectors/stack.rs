@@ -1,3 +1,5 @@
+use crate::inspectors::tempo_labels::TempoLabels;
+
 use super::{
     Cheatcodes, CheatsConfig, ChiselState, CustomPrintTracer, Fuzzer, LineCoverageCollector,
     LogCollector, RevertDiagnostic, ScriptExecutionInspector, TracingInspector,
@@ -764,6 +766,7 @@ impl InspectorStackRefMut<'_> {
                 (reason.into(), address, output.into_data())
             }
             ExecutionResult::Halt { reason, gas_used } => {
+                let _ = gas.record_cost(gas_used);
                 let instruction_result = match reason {
                     TempoHaltReason::Ethereum(halt) => halt.into(),
                     TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,

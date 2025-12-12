@@ -1,22 +1,20 @@
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{str::FromStr, time::Duration};
 
 use alloy_ens::NameOrAddress;
-use alloy_network::{AnyNetwork, EthereumWallet};
+use alloy_network::EthereumWallet;
 use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_types::TransactionRequest;
-use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::TransactionOpts,
-    utils::{self, LoadConfig, get_tempo_provider},
+    utils::{LoadConfig, get_tempo_provider},
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 use crate::{
-    Cast,
+    CastTxSender,
     tx::{self, CastTxBuilder, SendTxOpts},
 };
 
@@ -55,16 +53,6 @@ pub struct SendTxArgs {
 
     #[command(flatten)]
     tx: TransactionOpts,
-
-    /// The path of blob data to be sent.
-    #[arg(
-        long,
-        value_name = "BLOB_DATA_PATH",
-        conflicts_with = "legacy",
-        requires = "blob",
-        help_heading = "Transaction options"
-    )]
-    path: Option<PathBuf>,
 }
 
 #[derive(Debug, Parser)]
@@ -86,7 +74,7 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
-        let Self { to, mut sig, mut args, data, send_tx, tx, command, unlocked, path } = self;
+        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, data } = self;
 
         if let Some(data) = data {
             sig = Some(data);
@@ -180,7 +168,8 @@ impl SendTxArgs {
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
                 let (tx_request, _) = builder.build(from, send_tx.fee_token).await?;
-                let tx_hash = browser_signer.send_transaction_via_browser(tx_request.inner).await?;
+                let tx_hash =
+                    browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
 
                 if send_tx.cast_async {
                     sh_println!("{tx_hash:#x}")?;

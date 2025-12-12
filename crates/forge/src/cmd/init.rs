@@ -126,18 +126,6 @@ impl InitArgs {
                 // if not shallow, initialize and clone submodules (without fetching latest)
                 git.submodule_update(false, false, true, true, std::iter::empty::<PathBuf>())?;
             }
-        } else if tempo {
-            // write the contract file
-            let contract_path = src.join("Mail.sol");
-            fs::write(contract_path, include_str!("../../assets/tempo/MailTemplate.sol"))?;
-
-            // write the tests
-            let contract_path = test.join("Mail.t.sol");
-            fs::write(contract_path, include_str!("../../assets/tempo/MailTemplate.t.sol"))?;
-
-            // write the script
-            let contract_path = script.join("Mail.s.sol");
-            fs::write(contract_path, include_str!("../../assets/tempo/MailTemplate.s.sol"))?;
         } else {
             // if target is not empty
             if root.read_dir().is_ok_and(|mut i| i.next().is_some()) {
@@ -195,6 +183,24 @@ impl InitArgs {
                         contract_path,
                         include_str!("../../assets/vyper/CounterTemplate.s.sol"),
                     )?;
+                } else if tempo {
+                    // write the contract file
+                    let contract_path = src.join("Mail.sol");
+                    fs::write(contract_path, include_str!("../../assets/tempo/MailTemplate.sol"))?;
+
+                    // write the tests
+                    let contract_path = test.join("Mail.t.sol");
+                    fs::write(
+                        contract_path,
+                        include_str!("../../assets/tempo/MailTemplate.t.sol"),
+                    )?;
+
+                    // write the script
+                    let contract_path = script.join("Mail.s.sol");
+                    fs::write(
+                        contract_path,
+                        include_str!("../../assets/tempo/MailTemplate.s.sol"),
+                    )?;
                 } else {
                     // write the contract file
                     let contract_path = src.join("Counter.sol");
@@ -220,6 +226,7 @@ impl InitArgs {
             }
 
             // write the README.md
+            let readme_path = root.join("README.md");
             if tempo {
                 fs::write(readme_path, include_str!("../../assets/tempo/README.md"))?;
             } else {

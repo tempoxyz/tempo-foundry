@@ -14,7 +14,10 @@ use eyre::{Context, Result};
 use forge_verify::{RetryArgs, VerifierArgs, VerifyArgs};
 use foundry_cli::{
     opts::{BuildOpts, EthereumOpts, EtherscanOpts, TransactionOpts},
-    utils::{self, LoadConfig, find_contract_artifacts, read_constructor_args_file},
+    utils::{
+        self, LoadConfig, find_contract_artifacts, parse_fee_token_address,
+        read_constructor_args_file,
+    },
 };
 use foundry_common::{
     compile::{self},

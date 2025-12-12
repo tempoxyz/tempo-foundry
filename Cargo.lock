@@ -4351,7 +4351,7 @@ name = "forge-script"
 version = "1.5.0"
 dependencies = [
  "alloy-chains",
- "alloy-consensus",
+ "alloy-contract",
  "alloy-dyn-abi",
  "alloy-eips",
  "alloy-json-abi",
@@ -4361,6 +4361,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-serde",
  "alloy-signer",
+ "alloy-sol-types",
  "clap",
  "dialoguer",
  "dunce",

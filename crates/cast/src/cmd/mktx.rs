@@ -10,7 +10,7 @@ use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
     utils::{LoadConfig, get_tempo_provider, parse_fee_token_address},
 };
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 use tempo_alloy::rpc::TempoTransactionRequest;
 
 /// CLI arguments for `cast mktx`.
@@ -34,16 +34,6 @@ pub struct MakeTxArgs {
 
     #[command(flatten)]
     tx: TransactionOpts,
-
-    /// The path of blob data to be sent.
-    #[arg(
-        long,
-        value_name = "BLOB_DATA_PATH",
-        conflicts_with = "legacy",
-        requires = "blob",
-        help_heading = "Transaction options"
-    )]
-    path: Option<PathBuf>,
 
     #[command(flatten)]
     eth: EthereumOpts,
@@ -82,18 +72,8 @@ pub enum MakeTxSubcommands {
 
 impl MakeTxArgs {
     pub async fn run(self) -> Result<()> {
-        let Self {
-            to,
-            mut sig,
-            mut args,
-            command,
-            tx,
-            path,
-            eth,
-            raw_unsigned,
-            ethsign,
-            fee_token,
-        } = self;
+        let Self { to, mut sig, mut args, command, tx, eth, raw_unsigned, ethsign, fee_token } =
+            self;
 
         let code = if let Some(MakeTxSubcommands::Create {
             code,

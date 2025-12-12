@@ -1,16 +1,14 @@
 use std::{cmp::Ordering, sync::Arc, time::Duration};
 
-use alloy_chains::{Chain, NamedChain};
-use alloy_consensus::TxEnvelope;
+use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
-use alloy_network::{AnyNetwork, EthereumWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
     Address, TxHash,
     map::{AddressHashMap, AddressHashSet},
     utils::format_units,
 };
 use alloy_provider::{Provider, utils::Eip1559Estimation};
-use alloy_rpc_types::TransactionRequest;
 use alloy_serde::WithOtherFields;
 use eyre::{Context, Result, bail};
 use forge_verify::provider::VerificationProviderType;
@@ -30,8 +28,8 @@ use itertools::Itertools;
 use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
 
 use crate::{
-    ScriptArgs, ScriptConfig, build::LinkedBuildData, progress::ScriptProgress,
-    sequence::ScriptSequenceKind, verify::BroadcastedState,
+    ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
+    progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
 };
 
 pub async fn estimate_gas<P: Provider<TempoNetwork>>(
@@ -77,7 +75,7 @@ impl<'a> SendTransactionKind<'a> {
     /// 2. Gas estimation: Re-estimates gas right before broadcasting for chains that require it
     pub async fn prepare(
         &mut self,
-        provider: &RetryProvider,
+        provider: &TempoRetryProvider,
         sequential_broadcast: bool,
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
@@ -237,13 +235,16 @@ impl BundledState {
             .enumerate()
             .map(|(sequence_idx, sequence)| async move {
                 let rpc_url = sequence.rpc_url();
-                let provider = Arc::new(get_http_provider(rpc_url));
+                let provider = Arc::new(get_tempo_http_provider(rpc_url));
+                let fee_token_symbol =
+                    get_fee_token_symbol(&provider, self.script_config.fee_token).await;
                 progress_ref
                     .wait_for_pending(
                         sequence_idx,
                         sequence,
                         &provider,
                         self.script_config.config.transaction_timeout,
+                        fee_token_symbol,
                     )
                     .await
             })
@@ -491,6 +492,7 @@ impl BundledState {
                                 sequence,
                                 &provider,
                                 self.script_config.config.transaction_timeout,
+                                fee_token_symbol.clone(),
                             )
                             .await?
                     }

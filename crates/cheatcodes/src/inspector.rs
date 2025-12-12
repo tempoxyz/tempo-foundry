@@ -97,7 +97,7 @@ pub trait CheatcodesExecutor {
         &mut self,
         inputs: CreateInputs,
         ccx: &mut CheatsCtxt,
-    ) -> Result<CreateOutcome, EVMError<DatabaseError>> {
+    ) -> Result<CreateOutcome, EVMError<DatabaseError, TempoInvalidTransaction>> {
         with_evm(self, ccx, |evm| {
             evm.journaled_state.depth += 1;
 
@@ -129,7 +129,7 @@ fn with_evm<E, F, O>(
     executor: &mut E,
     ccx: &mut CheatsCtxt,
     f: F,
-) -> Result<O, EVMError<DatabaseError>>
+) -> Result<O, EVMError<DatabaseError, TempoInvalidTransaction>>
 where
     E: CheatcodesExecutor + ?Sized,
     F: for<'a, 'b> FnOnce(
@@ -1636,7 +1636,7 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
     fn create(&mut self, ecx: Ecx, mut input: &mut CreateInputs) -> Option<CreateOutcome> {
         // Apply custom execution evm version.
         if let Some(spec_id) = self.execution_evm_version {
-            ecx.cfg.spec = spec_id;
+            ecx.cfg.spec = spec_id.into();
         }
 
         let gas = Gas::new(input.gas_limit());
