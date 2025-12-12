@@ -141,7 +141,6 @@ fn insert_contract(executor: &mut Executor, addr: Address, bytes: Bytes) {
 }
 
 /// Helper function to create and mint a TIP20 token.
-#[expect(clippy::too_many_arguments)]
 fn create_and_mint_token(
     symbol: &str,
     name: &str,
