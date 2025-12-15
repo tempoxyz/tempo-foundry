@@ -133,16 +133,12 @@ casttest!(tempo_cast_run_aa, |_prj, cmd| {
     cmd.assert_success().stdout_eq(str![[r#"
 Executing previous transactions from the block.
 Traces:
-  [28449] 0x20C000000000000000000000000000000000042a::grantRole(0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122, 0x389077a7171cFb5613c009520B6Cf7cc74d77e06)
-    ├─  emit topic 0: 0x4811f35680ba814bed6b0b926a2949c8a1000f4f2443cfe9978745d46a251aec
-    │        topic 1: 0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122
-    │        topic 2: 0x000000000000000000000000389077a7171cfb5613c009520b6cf7cc74d77e06
-    │        topic 3: 0x000000000000000000000000389077a7171cfb5613c009520b6cf7cc74d77e06
-    │           data: 0x0000000000000000000000000000000000000000000000000000000000000001
-    └─ ← [Return]
+  [0] 0x0000000000000000000000000000000000000000::fallback()
+    ├─ [0] 0x20C000000000000000000000000000000000042a::grantRole(0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122, 0x389077a7171cFb5613c009520B6Cf7cc74d77e06)
+    │   └─ ← [PrecompileOOG] EvmError: PrecompileOOG
+    └─ ← [Stop]
 
 
-Transaction successfully executed.
 [GAS]
 
 "#]]);
