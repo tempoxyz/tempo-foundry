@@ -116,8 +116,6 @@ pub struct NodeConfig {
     pub disable_min_priority_fee: bool,
     /// Default blob excess gas and price
     pub blob_excess_gas_and_price: Option<BlobExcessGasAndPrice>,
-    /// The hardfork to use
-    pub hardfork: Option<FoundryHardfork>,
     /// Signer accounts that will be initialised with `genesis_balance` in the genesis block
     pub genesis_accounts: Vec<PrivateKeySigner>,
     /// Native token balance of every genesis account in the genesis block
@@ -726,13 +724,6 @@ impl NodeConfig {
         self.genesis_block_number
             .or_else(|| self.genesis.as_ref().and_then(|g| g.number))
             .unwrap_or(0)
-    }
-
-    /// Sets the hardfork
-    #[must_use]
-    pub fn with_hardfork(mut self, hardfork: Option<FoundryHardfork>) -> Self {
-        self.hardfork = hardfork;
-        self
     }
 
     /// Sets the genesis accounts

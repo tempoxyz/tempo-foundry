@@ -29,6 +29,7 @@ use foundry_config::{
 };
 use foundry_evm::{
     executors::TracingExecutor,
+    hardforks::FoundryHardfork,
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode},
 };
@@ -116,6 +117,11 @@ pub struct CallArgs {
     /// Can only be used with `--trace`.
     #[arg(long, requires = "trace")]
     evm_version: Option<EvmVersion>,
+
+    /// The EVM hardfork to use.
+    /// Can only be used with `--trace`.
+    #[arg(long, requires = "trace")]
+    pub hardfork: Option<FoundryHardfork>,
 
     /// The block height to query at.
     ///
@@ -224,6 +230,7 @@ impl CallArgs {
             block,
             trace,
             evm_version,
+            hardfork,
             debug,
             decode_internal,
             labels,
@@ -306,6 +313,7 @@ impl CallArgs {
                 env,
                 fork,
                 evm_version,
+                hardfork,
                 trace_mode,
                 networks,
                 create2_deployer,

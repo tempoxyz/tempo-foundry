@@ -22,7 +22,7 @@ pub struct FoundryStorageProvider<'a> {
     gas_refunded: i64,
     transient: HashMap<(Address, U256), U256>,
     beneficiary: Address,
-    spec: TempoHardfork,
+    hardfork: TempoHardfork,
 }
 
 impl<'a> FoundryStorageProvider<'a> {
@@ -30,7 +30,7 @@ impl<'a> FoundryStorageProvider<'a> {
         backend: &'a mut Backend,
         chain_id: u64,
         timestamp: U256,
-        spec: TempoHardfork,
+        hardfork: TempoHardfork,
     ) -> Self {
         Self {
             backend,
@@ -40,14 +40,14 @@ impl<'a> FoundryStorageProvider<'a> {
             gas_refunded: 0,
             transient: HashMap::new(),
             beneficiary: Address::ZERO,
-            spec,
+            hardfork,
         }
     }
 }
 
 impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn spec(&self) -> TempoHardfork {
-        self.spec
+        self.hardfork
     }
 
     fn chain_id(&self) -> u64 {

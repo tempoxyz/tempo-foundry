@@ -13,6 +13,7 @@ use foundry_common::{
     provider::{ProviderBuilder, RetryProvider},
 };
 use foundry_config::{Chain, Config, GasLimit};
+use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_networks::NetworkConfigs;
 use revm::context::{BlockEnv, TxEnv};
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,9 @@ pub struct EvmOpts {
     /// The EVM environment configuration.
     #[serde(flatten)]
     pub env: Env,
+
+    /// The hardfork to use for EVM execution.
+    pub hardfork: Option<FoundryHardfork>,
 
     /// Fetch state over a remote instead of starting from empty state.
     #[serde(rename = "eth_rpc_url")]
@@ -94,6 +98,7 @@ impl Default for EvmOpts {
     fn default() -> Self {
         Self {
             env: Env::default(),
+            hardfork: None,
             fork_url: None,
             fork_block_number: None,
             fork_retries: None,

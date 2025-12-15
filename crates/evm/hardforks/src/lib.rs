@@ -3,12 +3,13 @@ use std::str::FromStr;
 use alloy_rpc_types::BlockNumberOrTag;
 use op_revm::OpSpecId;
 use revm::primitives::hardfork::SpecId;
+use serde::{Deserialize, Serialize};
 
 pub use alloy_hardforks::EthereumHardfork;
 pub use alloy_op_hardforks::OpHardfork;
 pub use tempo_chainspec::hardfork::TempoHardfork;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum FoundryHardfork {
     Ethereum(EthereumHardfork),
     Optimism(OpHardfork),
@@ -20,26 +21,31 @@ impl FromStr for FoundryHardfork {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
-        let (ns, fork) = s.split_once(':').ok_or_else(|| {
-            format!("invalid hardfork '{s}': expected ethereum:<..>|optimism:<..>|tempo:<..>")
-        })?;
 
+        let Some((ns, fork)) = s.split_once(':') else {
+            return EthereumHardfork::from_str(s)
+                .map(Self::Ethereum)
+                .map_err(|_| format!("unknown ethereum hardfork '{s}'"));
+        };
+
+        let ns = ns.trim().to_ascii_lowercase();
         let fork = fork.trim();
 
-        match ns.trim().to_ascii_lowercase().as_str() {
-            "eth" | "ethereum" => Ok(Self::Ethereum(
-                EthereumHardfork::from_str(fork)
-                    .map_err(|_| format!("unknown ethereum hardfork '{fork}'"))?,
-            )),
-            "op" | "optimism" => Ok(Self::Optimism(
-                OpHardfork::from_str(fork)
-                    .map_err(|_| format!("unknown optimism hardfork '{fork}'"))?,
-            )),
-            "t" | "tempo" => Ok(Self::Tempo(
-                TempoHardfork::from_str(fork)
-                    .map_err(|_| format!("unknown tempo hardfork '{fork}'"))?,
-            )),
-            other => Err(format!("unknown namespace '{other}'")),
+        match ns.as_str() {
+            "eth" | "ethereum" => EthereumHardfork::from_str(fork)
+                .map(Self::Ethereum)
+                .map_err(|_| format!("unknown ethereum hardfork '{fork}'")),
+
+            "op" | "optimism" => OpHardfork::from_str(fork)
+                .map(Self::Optimism)
+                .map_err(|_| format!("unknown optimism hardfork '{fork}'")),
+
+            "t" | "tempo" => TempoHardfork::from_str(fork)
+                .map(Self::Tempo)
+                .map_err(|_| format!("unknown tempo hardfork '{fork}'")),
+            _ => EthereumHardfork::from_str(fork)
+                .map(Self::Ethereum)
+                .map_err(|_| format!("unknown hardfork '{s}'")),
         }
     }
 }
@@ -64,15 +70,42 @@ impl From<EthereumHardfork> for FoundryHardfork {
     }
 }
 
+impl From<FoundryHardfork> for EthereumHardfork {
+    fn from(fork: FoundryHardfork) -> Self {
+        match fork {
+            FoundryHardfork::Ethereum(hardfork) => hardfork,
+            _ => Self::default(),
+        }
+    }
+}
+
 impl From<OpHardfork> for FoundryHardfork {
     fn from(value: OpHardfork) -> Self {
         Self::Optimism(value)
     }
 }
 
+impl From<FoundryHardfork> for OpHardfork {
+    fn from(fork: FoundryHardfork) -> Self {
+        match fork {
+            FoundryHardfork::Optimism(hardfork) => hardfork,
+            _ => Self::default(),
+        }
+    }
+}
+
 impl From<TempoHardfork> for FoundryHardfork {
     fn from(value: TempoHardfork) -> Self {
         Self::Tempo(value)
+    }
+}
+
+impl From<FoundryHardfork> for TempoHardfork {
+    fn from(fork: FoundryHardfork) -> Self {
+        match fork {
+            FoundryHardfork::Tempo(hardfork) => hardfork,
+            _ => Self::default(),
+        }
     }
 }
 

@@ -429,6 +429,7 @@ dependencies = [
  "alloy-hardforks",
  "alloy-primitives",
  "auto_impl",
+ "serde",
 ]
 
 [[package]]
@@ -4811,6 +4812,7 @@ dependencies = [
  "figment",
  "foundry-block-explorers",
  "foundry-compilers",
+ "foundry-evm-hardforks",
  "foundry-evm-networks",
  "glob",
  "globset",
@@ -4885,7 +4887,6 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
- "tempo-chainspec",
  "tempo-contracts",
  "tempo-precompiles",
  "tempo-revm",
@@ -4929,6 +4930,7 @@ dependencies = [
  "foundry-common",
  "foundry-config",
  "foundry-evm-abi",
+ "foundry-evm-hardforks",
  "foundry-evm-networks",
  "foundry-fork-db",
  "foundry-test-utils",
@@ -5001,6 +5003,7 @@ dependencies = [
  "alloy-rpc-types",
  "op-revm",
  "revm",
+ "serde",
  "tempo-chainspec",
 ]
 

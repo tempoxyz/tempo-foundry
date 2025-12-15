@@ -1,5 +1,6 @@
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 use foundry_evm_core::{Env, backend::Backend};
+use foundry_evm_hardforks::FoundryHardfork;
 use revm::primitives::hardfork::SpecId;
 
 /// The builder that allows to configure an evm [`Executor`] which a stack of optional
@@ -16,6 +17,8 @@ pub struct ExecutorBuilder {
     stack: InspectorStackBuilder,
     /// The gas limit.
     gas_limit: Option<u64>,
+    /// The hardfork to use.
+    hardfork: Option<FoundryHardfork>,
     /// The spec ID.
     spec_id: SpecId,
     legacy_assertions: bool,
@@ -27,6 +30,7 @@ impl Default for ExecutorBuilder {
         Self {
             stack: InspectorStackBuilder::new(),
             gas_limit: None,
+            hardfork: None,
             spec_id: SpecId::default(),
             legacy_assertions: false,
         }
@@ -57,6 +61,13 @@ impl ExecutorBuilder {
         self
     }
 
+    /// Sets the EVM hardfork to use.
+    #[inline]
+    pub fn hardfork(mut self, hardfork: Option<FoundryHardfork>) -> Self {
+        self.hardfork = hardfork;
+        self
+    }
+
     /// Sets the executor gas limit.
     #[inline]
     pub fn gas_limit(mut self, gas_limit: u64) -> Self {
@@ -74,7 +85,7 @@ impl ExecutorBuilder {
     /// Builds the executor as configured.
     #[inline]
     pub fn build(self, env: Env, db: Backend) -> Executor {
-        let Self { mut stack, gas_limit, spec_id, legacy_assertions } = self;
+        let Self { mut stack, gas_limit, spec_id, legacy_assertions, hardfork } = self;
         if stack.block.is_none() {
             stack.block = Some(env.evm_env.block_env.clone());
         }
@@ -88,6 +99,6 @@ impl ExecutorBuilder {
             env.tx,
             spec_id,
         );
-        Executor::new(db, env, stack.build(), gas_limit, legacy_assertions)
+        Executor::new(db, env, stack.build(), gas_limit, legacy_assertions, hardfork)
     }
 }

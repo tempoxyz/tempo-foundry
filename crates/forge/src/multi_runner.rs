@@ -387,6 +387,7 @@ impl TestRunnerConfig {
                     .set_analysis(analysis)
             })
             .spec_id(self.spec_id)
+            .hardfork(self.config.hardfork)
             .gas_limit(self.evm_opts.gas_limit())
             .legacy_assertions(self.config.legacy_assertions)
             .build(self.env.clone(), db)

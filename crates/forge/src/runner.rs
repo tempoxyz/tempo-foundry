@@ -163,8 +163,9 @@ impl<'a> ContractRunner<'a> {
         self.executor.set_balance(address, self.initial_balance())?;
 
         // Initialize Tempo precompiles and contracts if we're not in fork mode.
+        let hardfork = self.executor.hardfork();
         if self.evm_opts.fork_url.is_none() {
-            initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
+            initialize_tempo_precompiles_and_contracts(&mut self.executor, hardfork)?;
         }
 
         // Deploy the test contract

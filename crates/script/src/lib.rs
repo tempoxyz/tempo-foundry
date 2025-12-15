@@ -685,6 +685,7 @@ impl ScriptConfig {
             })
             .spec_id(self.config.evm_spec_id())
             .gas_limit(self.evm_opts.gas_limit())
+            .hardfork(self.config.hardfork)
             .legacy_assertions(self.config.legacy_assertions);
 
         if let Some((known_contracts, script_wallets, target)) = cheats_data {

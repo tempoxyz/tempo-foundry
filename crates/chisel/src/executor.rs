@@ -227,6 +227,7 @@ impl SessionSource {
             })
             .gas_limit(self.config.evm_opts.gas_limit())
             .spec_id(self.config.foundry_config.evm_spec_id())
+            .hardfork(self.config.foundry_config.hardfork())
             .legacy_assertions(self.config.foundry_config.legacy_assertions)
             .build(env, backend);
 

@@ -27,6 +27,7 @@ use foundry_evm::{
     Env,
     core::env::AsEnvMut,
     executors::{EvmError, Executor, TracingExecutor},
+    hardforks::FoundryHardfork,
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode, Traces},
 };
@@ -84,6 +85,12 @@ pub struct RunArgs {
     /// Overrides the version specified in the config.
     #[arg(long)]
     evm_version: Option<EvmVersion>,
+
+    /// The EVM hardfork to use.
+    ///
+    /// Overrides the hardfork specified in the config.
+    #[arg(long)]
+    hardfork: Option<FoundryHardfork>,
 
     /// Sets the number of assumed available compute units per second for this provider
     ///
@@ -197,6 +204,7 @@ impl RunArgs {
             env.clone(),
             fork,
             evm_version,
+            self.hardfork,
             trace_mode,
             networks,
             create2_deployer,

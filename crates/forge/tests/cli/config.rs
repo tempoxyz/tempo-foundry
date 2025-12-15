@@ -1,6 +1,7 @@
 //! Contains various tests for checking forge commands related to config values
 
 use alloy_primitives::{Address, B256, U256};
+use forge::hardforks::{EthereumHardfork, FoundryHardfork};
 use foundry_cli::utils as forge_utils;
 use foundry_compilers::{
     artifacts::{BytecodeHash, OptimizerDetails, RevertStrings, YulDetails},
@@ -232,6 +233,7 @@ forgetest!(can_extract_config_values, |prj, cmd| {
         broadcast: "broadcast".into(),
         force: true,
         evm_version: EvmVersion::Byzantium,
+        hardfork: Some(FoundryHardfork::Ethereum(EthereumHardfork::London)),
         gas_reports: vec!["Contract".to_string()],
         gas_reports_ignore: vec![],
         gas_reports_include_tests: false,

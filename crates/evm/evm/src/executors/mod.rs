@@ -30,6 +30,7 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
+use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_traces::{SparsedTraceArena, TraceMode};
 use revm::{
     bytecode::Bytecode,
@@ -101,6 +102,8 @@ pub struct Executor {
     env: Env,
     /// The Revm inspector stack.
     inspector: InspectorStack,
+    /// The hardfork to use for execution.
+    hardfork: Option<FoundryHardfork>,
     /// The gas limit for calls and deployments.
     gas_limit: u64,
     /// Whether `failed()` should be called on the test contract to determine if the test failed.
@@ -122,6 +125,7 @@ impl Executor {
         inspector: InspectorStack,
         gas_limit: u64,
         legacy_assertions: bool,
+        hardfork: Option<FoundryHardfork>,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so `extcodesize` checks
         // do not fail.
@@ -136,7 +140,7 @@ impl Executor {
             },
         );
 
-        Self { backend, env, inspector, gas_limit, legacy_assertions }
+        Self { backend, env, inspector, gas_limit, legacy_assertions, hardfork }
     }
 
     fn clone_with_backend(&self, backend: Backend) -> Self {
@@ -146,7 +150,14 @@ impl Executor {
             self.env.tx.clone(),
             self.spec_id(),
         );
-        Self::new(backend, env, self.inspector().clone(), self.gas_limit, self.legacy_assertions)
+        Self::new(
+            backend,
+            env,
+            self.inspector().clone(),
+            self.gas_limit,
+            self.legacy_assertions,
+            self.hardfork,
+        )
     }
 
     /// Returns a reference to the EVM backend.
@@ -187,6 +198,16 @@ impl Executor {
     /// Sets the EVM spec ID.
     pub fn set_spec_id(&mut self, spec_id: SpecId) {
         self.env.evm_env.cfg_env.spec = spec_id.into();
+    }
+
+    /// Sets the EVM hardfork.
+    pub fn set_hardfork(&mut self, hardfork: Option<FoundryHardfork>) {
+        self.hardfork = hardfork;
+    }
+
+    /// Returns the EVM hardfork.
+    pub fn hardfork(&self) -> Option<FoundryHardfork> {
+        self.hardfork
     }
 
     /// Returns the gas limit for calls and deployments.

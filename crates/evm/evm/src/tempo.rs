@@ -3,8 +3,8 @@ use foundry_evm_core::{
     constants::{CALLER, TEST_CONTRACT_ADDRESS},
     tempo::FoundryStorageProvider,
 };
+use foundry_evm_hardforks::FoundryHardfork;
 use revm::state::Bytecode;
-use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_contracts::{
     ARACHNID_CREATE2_FACTORY_ADDRESS, CREATEX_ADDRESS, CreateX, MULTICALL_ADDRESS, Multicall,
     PERMIT2_ADDRESS, Permit2, SAFE_DEPLOYER_ADDRESS, SafeDeployer,
@@ -30,18 +30,24 @@ use crate::executors::Executor;
 /// Ref: <https://github.com/tempoxyz/tempo/blob/main/xtask/src/genesis_args.rs>
 pub fn initialize_tempo_precompiles_and_contracts(
     executor: &mut Executor,
+    hardfork: Option<FoundryHardfork>,
 ) -> Result<(), TempoPrecompileError> {
     let sender = CALLER;
     let admin = TEST_CONTRACT_ADDRESS;
 
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
-    let mut storage = FoundryStorageProvider::new(
-        executor.backend_mut(),
-        chain_id,
-        timestamp,
-        TempoHardfork::default(),
-    );
+    let hardfork = FoundryHardfork::tempo(
+        hardfork
+            .and_then(|hf| match hf {
+                FoundryHardfork::Tempo(t) => Some(t),
+                _ => None,
+            })
+            .unwrap_or_default(),
+    )
+    .into();
+    let mut storage =
+        FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp, hardfork);
 
     StorageCtx::enter(&mut storage, || -> Result<(), TempoPrecompileError> {
         let mut ctx = StorageCtx;

@@ -64,7 +64,10 @@ impl ScriptRunner {
 
         // Initialize Tempo precompiles and contracts if we're not in fork mode.
         if self.evm_opts.fork_url.is_none() {
-            initialize_tempo_precompiles_and_contracts(&mut self.executor)?;
+            initialize_tempo_precompiles_and_contracts(
+                &mut self.executor,
+                script_config.config.hardfork,
+            )?;
         }
 
         // Deploy libraries

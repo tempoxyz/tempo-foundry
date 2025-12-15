@@ -14,9 +14,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+alloy-hardforks = { workspace = true, features = ["serde"] }
+alloy-op-hardforks = { workspace = true, features = ["serde"] }
 alloy-rpc-types.workspace = true
 op-revm.workspace = true
 revm.workspace = true
-alloy-hardforks.workspace = true
-alloy-op-hardforks.workspace = true
+serde = { workspace = true, features = ["derive"] }
 tempo-chainspec.workspace = true

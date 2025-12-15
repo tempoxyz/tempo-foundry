@@ -278,6 +278,7 @@ pub async fn get_tracing_executor(
         env.clone(),
         fork,
         Some(fork_config.evm_version),
+        None,
         TraceMode::Call,
         networks,
         create2_deployer,
