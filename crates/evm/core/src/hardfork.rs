@@ -1,14 +1,47 @@
+use std::str::FromStr;
+
 use alloy_rpc_types::BlockNumberOrTag;
 use op_revm::OpSpecId;
 use revm::primitives::hardfork::SpecId;
 
 pub use alloy_hardforks::EthereumHardfork;
 pub use alloy_op_hardforks::OpHardfork;
+pub use tempo_chainspec::hardfork::TempoHardfork;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FoundryHardfork {
     Ethereum(EthereumHardfork),
     Optimism(OpHardfork),
+    Tempo(TempoHardfork),
+}
+
+impl FromStr for FoundryHardfork {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+        let (ns, fork) = s.split_once(':').ok_or_else(|| {
+            format!("invalid hardfork '{s}': expected ethereum:<..>|optimism:<..>|tempo:<..>")
+        })?;
+
+        let fork = fork.trim();
+
+        match ns.trim().to_ascii_lowercase().as_str() {
+            "eth" | "ethereum" => Ok(Self::Ethereum(
+                EthereumHardfork::from_str(fork)
+                    .map_err(|_| format!("unknown ethereum hardfork '{fork}'"))?,
+            )),
+            "op" | "optimism" => Ok(Self::Optimism(
+                OpHardfork::from_str(fork)
+                    .map_err(|_| format!("unknown optimism hardfork '{fork}'"))?,
+            )),
+            "t" | "tempo" => Ok(Self::Tempo(
+                TempoHardfork::from_str(fork)
+                    .map_err(|_| format!("unknown tempo hardfork '{fork}'"))?,
+            )),
+            other => Err(format!("unknown namespace '{other}'")),
+        }
+    }
 }
 
 impl FoundryHardfork {
@@ -18,6 +51,10 @@ impl FoundryHardfork {
 
     pub fn optimism(h: OpHardfork) -> Self {
         Self::Optimism(h)
+    }
+
+    pub fn tempo(h: TempoHardfork) -> Self {
+        Self::Tempo(h)
     }
 }
 
@@ -33,16 +70,23 @@ impl From<OpHardfork> for FoundryHardfork {
     }
 }
 
+impl From<TempoHardfork> for FoundryHardfork {
+    fn from(value: TempoHardfork) -> Self {
+        Self::Tempo(value)
+    }
+}
+
 impl From<FoundryHardfork> for SpecId {
     fn from(fork: FoundryHardfork) -> Self {
         match fork {
             FoundryHardfork::Ethereum(hardfork) => spec_id_from_ethereum_hardfork(hardfork),
             FoundryHardfork::Optimism(hardfork) => spec_id_from_optimism_hardfork(hardfork).into(),
+            FoundryHardfork::Tempo(hardfork) => spec_id_from_tempo_hardfork(hardfork),
         }
     }
 }
 
-/// Map an EthereumHardfork enum into its corresponding SpecId.
+/// Map an `EthereumHardfork` enum into its corresponding `SpecId`.
 pub fn spec_id_from_ethereum_hardfork(hardfork: EthereumHardfork) -> SpecId {
     match hardfork {
         EthereumHardfork::Frontier => SpecId::FRONTIER,
@@ -72,7 +116,7 @@ pub fn spec_id_from_ethereum_hardfork(hardfork: EthereumHardfork) -> SpecId {
     }
 }
 
-/// Map an OptimismHardfork enum into its corresponding OpSpecId.
+/// Map an `OptimismHardfork` enum into its corresponding `OpSpecId`.
 pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
     match hardfork {
         OpHardfork::Bedrock => OpSpecId::BEDROCK,
@@ -85,6 +129,17 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
         OpHardfork::Isthmus => OpSpecId::ISTHMUS,
         OpHardfork::Interop => OpSpecId::INTEROP,
         OpHardfork::Jovian => OpSpecId::JOVIAN,
+        f => unreachable!("unimplemented {}", f),
+    }
+}
+
+/// Map a `TempoHardfork` enum into its corresponding `SpecId`.
+pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
+    match hardfork {
+        TempoHardfork::Adagio => SpecId::OSAKA,
+        TempoHardfork::Moderato => SpecId::OSAKA,
+        TempoHardfork::Allegretto => SpecId::OSAKA,
+        TempoHardfork::AllegroModerato => SpecId::OSAKA,
         f => unreachable!("unimplemented {}", f),
     }
 }
@@ -123,6 +178,16 @@ mod tests {
         // Test latest hardforks
         assert_eq!(spec_id_from_optimism_hardfork(OpHardfork::Holocene), OpSpecId::HOLOCENE);
         assert_eq!(spec_id_from_optimism_hardfork(OpHardfork::Interop), OpSpecId::INTEROP);
+    }
+
+    #[test]
+    fn test_tempo_spec_id_mapping() {
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Adagio), SpecId::OSAKA);
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Moderato), SpecId::OSAKA);
+
+        // Test latest hardforks
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Allegretto), SpecId::OSAKA);
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::AllegroModerato), SpecId::OSAKA);
     }
 
     #[test]
