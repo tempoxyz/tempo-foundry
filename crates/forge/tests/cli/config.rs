@@ -1194,6 +1194,7 @@ forgetest_init!(test_default_config, |prj, cmd| {
   "skip": [],
   "force": false,
   "evm_version": "prague",
+  "hardfork": null,
   "gas_reports": [
     "*"
   ],
