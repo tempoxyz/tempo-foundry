@@ -20,32 +20,32 @@ impl FromStr for FoundryHardfork {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
+        let raw = s.trim();
 
-        let Some((ns, fork)) = s.split_once(':') else {
-            return EthereumHardfork::from_str(s)
+        let Some((ns, fork_raw)) = raw.split_once(':') else {
+            return EthereumHardfork::from_str(raw)
                 .map(Self::Ethereum)
-                .map_err(|_| format!("unknown ethereum hardfork '{s}'"));
+                .map_err(|_| format!("unknown ethereum hardfork '{raw}'"));
         };
 
         let ns = ns.trim().to_ascii_lowercase();
-        let fork = fork.trim();
+        let fork = fork_raw.trim().to_ascii_lowercase().replace(['-', ' '], "_");
 
         match ns.as_str() {
-            "eth" | "ethereum" => EthereumHardfork::from_str(fork)
+            "eth" | "ethereum" => EthereumHardfork::from_str(&fork)
                 .map(Self::Ethereum)
-                .map_err(|_| format!("unknown ethereum hardfork '{fork}'")),
+                .map_err(|_| format!("unknown ethereum hardfork '{fork_raw}'")),
 
-            "op" | "optimism" => OpHardfork::from_str(fork)
+            "op" | "optimism" => OpHardfork::from_str(&fork)
                 .map(Self::Optimism)
-                .map_err(|_| format!("unknown optimism hardfork '{fork}'")),
+                .map_err(|_| format!("unknown optimism hardfork '{fork_raw}'")),
 
-            "t" | "tempo" => TempoHardfork::from_str(fork)
+            "t" | "tempo" => TempoHardfork::from_str(&fork)
                 .map(Self::Tempo)
-                .map_err(|_| format!("unknown tempo hardfork '{fork}'")),
-            _ => EthereumHardfork::from_str(fork)
+                .map_err(|_| format!("unknown tempo hardfork '{fork_raw}'")),
+            _ => EthereumHardfork::from_str(&fork)
                 .map(Self::Ethereum)
-                .map_err(|_| format!("unknown hardfork '{s}'")),
+                .map_err(|_| format!("unknown hardfork '{raw}'")),
         }
     }
 }
