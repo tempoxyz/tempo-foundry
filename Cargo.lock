@@ -4875,6 +4875,7 @@ dependencies = [
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-fuzz",
+ "foundry-evm-hardforks",
  "foundry-evm-networks",
  "foundry-evm-traces",
  "indicatif",
@@ -4918,7 +4919,6 @@ dependencies = [
  "alloy-json-abi",
  "alloy-network",
  "alloy-op-evm",
- "alloy-op-hardforks",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
@@ -4990,6 +4990,18 @@ dependencies = [
  "solar-compiler",
  "thiserror 2.0.17",
  "tracing",
+]
+
+[[package]]
+name = "foundry-evm-hardforks"
+version = "1.5.0"
+dependencies = [
+ "alloy-hardforks",
+ "alloy-op-hardforks",
+ "alloy-rpc-types",
+ "op-revm",
+ "revm",
+ "tempo-chainspec",
 ]
 
 [[package]]
