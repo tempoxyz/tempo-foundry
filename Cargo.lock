@@ -4917,6 +4917,7 @@ dependencies = [
  "alloy-json-abi",
  "alloy-network",
  "alloy-op-evm",
+ "alloy-op-hardforks",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
