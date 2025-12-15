@@ -62,8 +62,15 @@ pub fn is_known_system_sender(sender: Address) -> bool {
 }
 
 pub fn is_impersonated_tx(tx: &TempoTxEnvelope) -> bool {
+    use tempo_primitives::{TempoSignature, transaction::PrimitiveSignature};
+
     match tx {
-        TempoTxEnvelope::AA(_) => false,
+        TempoTxEnvelope::AA(tx) => match tx.signature() {
+            TempoSignature::Primitive(PrimitiveSignature::Secp256k1(sig)) => {
+                is_impersonated_sig(sig, tx.ty())
+            }
+            _ => false,
+        },
         TempoTxEnvelope::Eip1559(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
         TempoTxEnvelope::Eip2930(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
         TempoTxEnvelope::Eip7702(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
