@@ -1,12 +1,13 @@
-use crate::debug::handle_traces;
+use crate::{debug::handle_traces, utils::apply_chain_and_block_specific_env_changes};
 use alloy_consensus::{BlockHeader, Transaction};
+use alloy_evm::tx::ToTxEnv;
 use alloy_network::TransactionResponse;
 use alloy_primitives::{
     Address, Bytes, U256,
     map::{AddressSet, HashMap},
 };
 use alloy_provider::Provider;
-use alloy_rpc_types::{BlockTransactions, TransactionRequest};
+use alloy_rpc_types::BlockTransactions;
 use clap::Parser;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
@@ -28,7 +29,6 @@ use foundry_evm::{
     executors::{EvmError, Executor, TracingExecutor},
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode, Traces},
-    utils::{apply_chain_and_block_specific_env_changes, configure_tx_req_env},
 };
 use futures::TryFutureExt;
 use revm::DatabaseRef;
@@ -378,27 +378,7 @@ pub fn configure_tempo_tx_req_env(
     env: &mut Env,
     tx: &alloy_rpc_types::Transaction<TempoTxEnvelope>,
 ) -> eyre::Result<()> {
-    let from = tx.from();
-    let tx_req = match &tx.inner.inner() {
-        TempoTxEnvelope::AA(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
-        TempoTxEnvelope::Eip1559(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
-        TempoTxEnvelope::Eip2930(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
-        TempoTxEnvelope::Eip7702(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
-        TempoTxEnvelope::FeeToken(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
-        TempoTxEnvelope::Legacy(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
-    };
-    configure_tx_req_env(&mut env.as_env_mut(), tx_req, Some(from))?;
+    env.tx = tx.inner.to_tx_env();
+
     Ok(())
 }
