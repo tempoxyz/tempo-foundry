@@ -155,6 +155,8 @@ fn create_and_mint_token(
     recipient: Address,
     mint_amount: U256,
 ) -> Result<Address, TempoPrecompileError> {
+    use tempo_precompiles::storage::Handler;
+
     let mut tip20_factory = TIP20Factory::new();
     let token_address = tip20_factory.create_token(
         admin,
@@ -170,6 +172,10 @@ fn create_and_mint_token(
     let mut token = TIP20Token::new(token_id);
     token.grant_role_internal(admin, *ISSUER_ROLE)?;
     token.mint(admin, ITIP20::mintCall { to: recipient, amount: mint_amount })?;
+
+    // NOTE(onbjerg): We need to set the last update time here so we don't fetch it from upstream
+    // when forking, otherwise we might run into arithmetic underflows.
+    token.last_update_time.write(0)?;
 
     Ok(token_address)
 }
