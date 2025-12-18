@@ -34,7 +34,7 @@ use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_traces::{SparsedTraceArena, TraceMode};
 use revm::{
     bytecode::Bytecode,
-    context::{BlockEnv, TxEnv},
+    context::TxEnv,
     context_interface::{
         result::{ExecutionResult, Output, ResultAndState},
         transaction::SignedAuthorization,
@@ -51,7 +51,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tempo_revm::{TempoBlockEnv, TempoHaltReason, TempoTxEnv};
+use tempo_revm::{TempoHaltReason, TempoTxEnv};
 
 mod builder;
 pub use builder::ExecutorBuilder;
@@ -720,6 +720,12 @@ impl Executor {
     /// If using a backend with cheatcodes, `tx.gas_price` and `block.number` will be overwritten by
     /// the cheatcode state in between calls.
     fn build_test_env(&self, caller: Address, kind: TxKind, data: Bytes, value: U256) -> Env {
+        // We always set the gas price to 0 so we can execute the transaction regardless of
+        // network conditions - the actual gas price is kept in `self.block` and is applied
+        // by the cheatcode handler if it is enabled
+        let mut block_env = self.env().evm_env.block_env.clone();
+        block_env.inner.basefee = 0;
+        block_env.inner.gas_limit = self.gas_limit;
         Env {
             evm_env: EvmEnv {
                 cfg_env: {
@@ -727,13 +733,7 @@ impl Executor {
                     cfg.spec = self.spec_id().into();
                     cfg
                 },
-                // We always set the gas price to 0 so we can execute the transaction regardless of
-                // network conditions - the actual gas price is kept in `self.block` and is applied
-                // by the cheatcode handler if it is enabled
-                block_env: TempoBlockEnv {
-                    inner: BlockEnv { basefee: 0, gas_limit: self.gas_limit, ..Default::default() },
-                    ..self.env().evm_env.block_env.clone()
-                },
+                block_env,
             },
             tx: TempoTxEnv {
                 inner: TxEnv {
