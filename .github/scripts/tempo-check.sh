@@ -79,3 +79,7 @@ cast send --fee-token 3 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d512
 echo -e "\n=== CAST MKTX WITH FEE TOKEN ==="
 cast mktx --fee-token 2 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
 cast mktx --fee-token 3 --rpc-url $TEMPO_RPC_URL 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key $PK
+
+echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
+cast send --rpc-url $TEMPO_RPC_URL 0xfeec000000000000000000000000000000000000 'setUserToken(address)' 0x20C0000000000000000000000000000000000002 --private-key $PK
+cast send --rpc-url $TEMPO_RPC_URL 0xfeec000000000000000000000000000000000000 'setUserToken(address)' 0x20C0000000000000000000000000000000000000 --private-key $PK
