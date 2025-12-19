@@ -7,6 +7,15 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+    inputs:
+      network:
+        description: "Tempo network to check"
+        required: true
+        type: choice
+        options:
+          - testnet
+          - devnet
+          - all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -41,6 +50,10 @@ jobs:
           cargo install --path ./crates/cast --profile dev --force --locked
 
       - name: Run Tempo check on testnet
+        if: |
+          github.event_name == 'pull_request' ||
+          github.event.inputs.network == 'testnet' ||
+          github.event.inputs.network == 'all'
         env:
           TEMPO_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
@@ -49,6 +62,10 @@ jobs:
           ./.github/scripts/tempo-check.sh
 
       - name: Run Tempo check on devnet
+        if: |
+          github.event_name == 'pull_request' ||
+          github.event.inputs.network == 'devnet' ||
+          github.event.inputs.network == 'all'
         env:
           TEMPO_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
         run: |
