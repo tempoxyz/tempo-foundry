@@ -1,8 +1,9 @@
 use crate::{
-    Cast, CastTxSender, SimpleCast,
+    Cast, SimpleCast,
     cmd::erc20::IERC20,
     opts::{Cast as CastArgs, CastSubcommand, ToBaseArgs},
     traces::identifier::SignaturesIdentifier,
+    tx::CastTxSender,
 };
 use alloy_consensus::{
     TxEnvelope,
