@@ -180,7 +180,6 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             TempoTypedTransaction::Eip1559(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
             TempoTypedTransaction::Eip7702(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
             TempoTypedTransaction::AA(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
-            TempoTypedTransaction::FeeToken(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
         }
     }
 

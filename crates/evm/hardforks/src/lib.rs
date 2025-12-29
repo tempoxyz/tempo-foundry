@@ -169,10 +169,7 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
 /// Map a `TempoHardfork` enum into its corresponding `SpecId`.
 pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
     match hardfork {
-        TempoHardfork::Adagio => SpecId::OSAKA,
-        TempoHardfork::Moderato => SpecId::OSAKA,
-        TempoHardfork::Allegretto => SpecId::OSAKA,
-        TempoHardfork::AllegroModerato => SpecId::OSAKA,
+        TempoHardfork::Genesis => SpecId::OSAKA,
         f => unreachable!("unimplemented {}", f),
     }
 }
@@ -215,12 +212,7 @@ mod tests {
 
     #[test]
     fn test_tempo_spec_id_mapping() {
-        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Adagio), SpecId::OSAKA);
-        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Moderato), SpecId::OSAKA);
-
-        // Test latest hardforks
-        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Allegretto), SpecId::OSAKA);
-        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::AllegroModerato), SpecId::OSAKA);
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Genesis), SpecId::OSAKA);
     }
 
     #[test]

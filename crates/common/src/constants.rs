@@ -74,7 +74,6 @@ pub fn is_impersonated_tx(tx: &TempoTxEnvelope) -> bool {
         TempoTxEnvelope::Eip1559(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
         TempoTxEnvelope::Eip2930(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
         TempoTxEnvelope::Eip7702(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
-        TempoTxEnvelope::FeeToken(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
         TempoTxEnvelope::Legacy(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
     }
 }
