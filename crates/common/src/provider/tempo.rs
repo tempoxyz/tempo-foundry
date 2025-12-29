@@ -23,7 +23,7 @@ pub type TempoRetryProvider<N = TempoNetwork> = RootProvider<N>;
 
 pub type TempoRetryProviderWithSigner<N = TempoNetwork> = FillProvider<
     JoinFill<
-        JoinFill<Identity, JoinFill<GasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
+        JoinFill<Identity, JoinFill<NonceFiller, JoinFill<GasFiller, ChainIdFiller>>>,
         WalletFiller<EthereumWallet>,
     >,
     RootProvider<N>,

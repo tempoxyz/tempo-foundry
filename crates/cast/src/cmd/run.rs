@@ -394,9 +394,6 @@ pub fn configure_tempo_tx_req_env(
         TempoTxEnvelope::Eip7702(tx) => {
             &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
         }
-        TempoTxEnvelope::FeeToken(tx) => {
-            &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
-        }
         TempoTxEnvelope::Legacy(tx) => {
             &TransactionRequest::from_transaction_with_sender(tx.clone(), from)
         }

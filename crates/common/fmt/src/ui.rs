@@ -400,48 +400,6 @@ value                {}",
                 self.tx_type().ty(),
                 self.value().pretty(),
             ),
-            Self::FeeToken(tx) => format!(
-                "
-feeToken             {}
-accessList           {}
-authorizationList    {}
-chainId              {}
-gasLimit             {}
-hash                 {}
-input                {}
-maxFeePerGas         {}
-maxPriorityFeePerGas {}
-nonce                {}
-r                    {}
-s                    {}
-to                   {}
-type                 {}
-value                {}
-yParity              {}",
-                tx.tx().fee_token.unwrap_or_default().pretty(),
-                self.access_list()
-                    .map(|a| a.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.authorization_list()
-                    .as_ref()
-                    .map(|l| l.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.chain_id().pretty(),
-                self.gas_limit().pretty(),
-                self.tx_hash().pretty(),
-                self.input().pretty(),
-                self.max_fee_per_gas().pretty(),
-                self.max_priority_fee_per_gas().pretty(),
-                self.nonce().pretty(),
-                FixedBytes::from(tx.signature().r()).pretty(),
-                FixedBytes::from(tx.signature().s()).pretty(),
-                self.to().pretty(),
-                self.tx_type().ty(),
-                self.value().pretty(),
-                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
-            ),
             Self::Eip2930(tx) => format!(
                 "
 accessList           {}
@@ -1466,7 +1424,7 @@ maxPriorityFeePerGas 20000000000
 nonce                300
 r                    0x396864e5f9132327defdb1449504252e1fa6bce73feb8cd6f348a342b198af34
 s                    0x44dbba72e6d3304104848277143252ee43627c82f02d1ef8e404e1bf97c70158
-to                   
+to
 transactionIndex     65
 type                 2
 value                0
@@ -1759,20 +1717,20 @@ value                0".to_string();
         let expected = r#"
 blockHash            0x54bafb12e8cea9bb355fbf03a4ac49e42a2a1a80fa6cf4364b342e2de6432b5d
 blockNumber          129084307
-contractAddress      
+contractAddress
 cumulativeGasUsed    7660675
 effectiveGasPrice    100705
 from                 0x2D815240A61731c75Fa01b2793E1D3eD09F289d0
 gasUsed              49698
 logs                 []
 logsBloom            0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-root                 
+root
 status               1 (success)
 transactionHash      0x91181b0dca3b29aa136eeb2f536be5ce7b0aebc949be1c44b5509093c516097d
 transactionIndex     16
 type                 2
-blobGasPrice         
-blobGasUsed          
+blobGasPrice
+blobGasUsed
 to                   0x4200000000000000000000000000000000000000
 l1BaseFeeScalar      5227
 l1BlobBaseFee        111685752
