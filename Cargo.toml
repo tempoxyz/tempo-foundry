@@ -386,13 +386,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "7482e75" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "2904d7c" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
@@ -465,3 +465,8 @@ solar = { package = "solar-compiler", git = "https://github.com/paradigmxyz/sola
 solar-interface = { package = "solar-interface", git = "https://github.com/paradigmxyz/solar.git", rev = "1f28069" }
 solar-ast = { package = "solar-ast", git = "https://github.com/paradigmxyz/solar.git", rev = "1f28069" }
 solar-sema = { package = "solar-sema", git = "https://github.com/paradigmxyz/solar.git", rev = "1f28069" }
+
+# commonware (match tempo's version for API compatibility)
+commonware-cryptography = { git = "https://github.com/commonwarexyz/monorepo", rev = "4a5fca0223772b1a1627138d970ce231f876e6ff" }
+commonware-codec = { git = "https://github.com/commonwarexyz/monorepo", rev = "4a5fca0223772b1a1627138d970ce231f876e6ff" }
+commonware-utils = { git = "https://github.com/commonwarexyz/monorepo", rev = "4a5fca0223772b1a1627138d970ce231f876e6ff" }
