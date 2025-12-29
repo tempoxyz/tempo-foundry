@@ -27,9 +27,8 @@ use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
 use std::{collections::BTreeMap, sync::OnceLock};
 use tempo_precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, PATH_USD_ADDRESS,
-    STABLECOIN_EXCHANGE_ADDRESS, TIP_ACCOUNT_REGISTRAR, TIP_FEE_MANAGER_ADDRESS,
-    TIP20_FACTORY_ADDRESS, TIP20_REWARDS_REGISTRY_ADDRESS, TIP403_REGISTRY_ADDRESS,
-    VALIDATOR_CONFIG_ADDRESS,
+    STABLECOIN_EXCHANGE_ADDRESS, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS,
+    TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
 };
 
 mod precompiles;
@@ -193,8 +192,6 @@ impl CallTraceDecoder {
                 (TIP_FEE_MANAGER_ADDRESS, "FeeManager".to_string()),
                 (TIP403_REGISTRY_ADDRESS, "TIP403Registry".to_string()),
                 (TIP20_FACTORY_ADDRESS, "TIP20Factory".to_string()),
-                (TIP20_REWARDS_REGISTRY_ADDRESS, "TIP20RewardsRegistry".to_string()),
-                (TIP_ACCOUNT_REGISTRAR, "TIPAccountRegistrar".to_string()),
                 (STABLECOIN_EXCHANGE_ADDRESS, "StablecoinExchange".to_string()),
                 (NONCE_PRECOMPILE_ADDRESS, "Nonce".to_string()),
                 (VALIDATOR_CONFIG_ADDRESS, "ValidatorConfig".to_string()),
@@ -216,14 +213,6 @@ impl CallTraceDecoder {
                 )
                 .chain(tempo_contracts::precompiles::ITIP20Factory::abi::functions().into_values())
                 .chain(
-                    tempo_contracts::precompiles::ITIP20RewardsRegistry::abi::functions()
-                        .into_values(),
-                )
-                .chain(
-                    tempo_contracts::precompiles::ITipAccountRegistrar::abi::functions()
-                        .into_values(),
-                )
-                .chain(
                     tempo_contracts::precompiles::IStablecoinExchange::abi::functions()
                         .into_values(),
                 )
@@ -244,13 +233,6 @@ impl CallTraceDecoder {
                 .chain(tempo_contracts::precompiles::ITIP20::abi::events().into_values())
                 .chain(tempo_contracts::precompiles::ITIP403Registry::abi::events().into_values())
                 .chain(tempo_contracts::precompiles::ITIP20Factory::abi::events().into_values())
-                .chain(
-                    tempo_contracts::precompiles::ITIP20RewardsRegistry::abi::events()
-                        .into_values(),
-                )
-                .chain(
-                    tempo_contracts::precompiles::ITipAccountRegistrar::abi::events().into_values(),
-                )
                 .chain(
                     tempo_contracts::precompiles::IStablecoinExchange::abi::events().into_values(),
                 )
