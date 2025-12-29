@@ -31,7 +31,7 @@ root
 status               true
 transactionHash      [..]
 transactionIndex     [..]
-type                 FeeToken
+type                 TempoTransaction
 to                   0x20C0000000000000000000000000000000000001
 
 "#]]);
@@ -66,7 +66,7 @@ root
 status               true
 transactionHash      [..]
 transactionIndex     [..]
-type                 FeeToken
+type                 TempoTransaction
 to                   0x20C0000000000000000000000000000000000001
 
 "#]]);
@@ -99,7 +99,7 @@ root
 status               true
 transactionHash      [..]
 transactionIndex     [..]
-type                 FeeToken
+type                 TempoTransaction
 to                   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D
 
 "#]]);
