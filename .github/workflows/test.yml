@@ -115,4 +115,5 @@ jobs:
           WS_ARCHIVE_URLS: ${{ secrets.WS_ARCHIVE_URLS }}
           ETHERSCAN_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
           ARBITRUM_RPC: ${{ secrets.ARBITRUM_RPC }}
+          TEMPO_TESTNET_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
         run: cargo nextest run -p forge -p cast ${{ matrix.flags }}

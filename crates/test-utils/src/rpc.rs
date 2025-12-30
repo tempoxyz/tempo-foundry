@@ -3,6 +3,7 @@
 use foundry_config::{
     NamedChain::{
         self, Arbitrum, Base, BinanceSmartChainTestnet, Celo, Mainnet, Optimism, Polygon, Sepolia,
+        TempoTestnet,
     },
     RpcEndpointUrl, RpcEndpoints,
 };
@@ -192,6 +193,14 @@ fn next_url_inner(is_ws: bool, chain: NamedChain) -> String {
         if !rpc_url.is_empty() {
             return rpc_url;
         }
+    }
+
+    if matches!(chain, TempoTestnet) {
+        let rpc_url = env::var("TEMPO_TESTNET_RPC_URL").unwrap_or_default();
+        if !rpc_url.is_empty() {
+            return rpc_url;
+        }
+        return "https://rpc.testnet.tempo.xyz".to_string();
     }
 
     let reth_works = true;

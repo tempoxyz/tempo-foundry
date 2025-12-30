@@ -1,6 +1,8 @@
-const TESTNET_URL: &str = "https://rpc.testnet.tempo.xyz";
+use alloy_chains::NamedChain;
+use foundry_test_utils::rpc::next_rpc_endpoint;
 
 casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
     cmd.args([
         "erc20",
         "transfer",
@@ -10,7 +12,7 @@ casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
         "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
         "1234567",
         "--rpc-url",
-        TESTNET_URL,
+        rpc.as_str(),
         "--private-key",
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     ]);
@@ -45,7 +47,7 @@ to                   0x20C0000000000000000000000000000000000001
         "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
         "1234567",
         "--rpc-url",
-        TESTNET_URL,
+        rpc.as_str(),
         "--private-key",
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     ]);
@@ -76,7 +78,7 @@ to                   0x20C0000000000000000000000000000000000001
         "--fee-token",
         "0x20c0000000000000000000000000000000000003",
         "--rpc-url",
-        TESTNET_URL,
+        rpc.as_str(),
         "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
         "increment()",
         "--private-key",
@@ -106,12 +108,13 @@ to                   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D
 });
 
 casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
     cmd.args([
         "mktx",
         "--fee-token",
         "0x20c0000000000000000000000000000000000003",
         "--rpc-url",
-        TESTNET_URL,
+        rpc.as_str(),
         "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
         "increment()",
         "--private-key",
@@ -123,12 +126,14 @@ casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
 "#]]);
 });
 
-casttest!(tempo_cast_run_aa, |_prj, cmd| {
+// Regression tests using testnet txes.
+casttest!(tempo_testnet_cast_aa, |_prj, cmd| {
+    let rpc = "https://rpc.testnet.tempo.xyz";
     cmd.args([
         "run",
         "0x6fb40b6ce389c4493512164fdf01d30a43554d6f70b4fad9dc8e7578b6a8eda2",
         "--rpc-url",
-        TESTNET_URL,
+        rpc,
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
 Executing previous transactions from the block.
@@ -142,14 +147,12 @@ Traces:
 [GAS]
 
 "#]]);
-});
 
-casttest!(tempo_cast_aa_receipt, |_prj, cmd| {
-    cmd.args([
+    cmd.cast_fuse().args([
         "receipt",
         "0x6fb40b6ce389c4493512164fdf01d30a43554d6f70b4fad9dc8e7578b6a8eda2",
         "--rpc-url",
-        TESTNET_URL,
+        rpc,
     ]);
     cmd.assert_success().stdout_eq(str![[r#"
 

@@ -62,7 +62,6 @@ jobs:
 
       - name: Run Tempo check on testnet
         if: |
-          github.event_name == 'pull_request' ||
           github.event.inputs.network == 'testnet' ||
           github.event.inputs.network == 'all'
         env:
