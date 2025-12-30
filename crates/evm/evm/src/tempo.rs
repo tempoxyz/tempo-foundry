@@ -6,7 +6,7 @@ use foundry_evm_core::{
 use foundry_evm_hardforks::FoundryHardfork;
 use revm::state::Bytecode;
 use tempo_contracts::{
-    ARACHNID_CREATE2_FACTORY_ADDRESS, CREATEX_ADDRESS, CreateX, MULTICALL_ADDRESS, Multicall,
+    ARACHNID_CREATE2_FACTORY_ADDRESS, CREATEX_ADDRESS, CreateX, MULTICALL3_ADDRESS, Multicall3,
     PERMIT2_ADDRESS, Permit2, SAFE_DEPLOYER_ADDRESS, SafeDeployer,
     contracts::ARACHNID_CREATE2_FACTORY_BYTECODE,
 };
@@ -118,8 +118,8 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
         // Set bytecode for all contracts
         ctx.set_code(
-            MULTICALL_ADDRESS,
-            Bytecode::new_legacy(Bytes::from_static(&Multicall::DEPLOYED_BYTECODE)),
+            MULTICALL3_ADDRESS,
+            Bytecode::new_legacy(Bytes::from_static(&Multicall3::DEPLOYED_BYTECODE)),
         )?;
         ctx.set_code(
             CREATEX_ADDRESS,
