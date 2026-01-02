@@ -16,7 +16,7 @@ use tempo_precompiles::{
     VALIDATOR_CONFIG_ADDRESS,
     error::TempoPrecompileError,
     storage::StorageCtx,
-    tip20::{ISSUER_ROLE, ITIP20, TIP20Token, address_to_token_id_unchecked},
+    tip20::{ISSUER_ROLE, ITIP20, TIP20Token},
     tip20_factory::{ITIP20Factory, TIP20Factory},
     validator_config,
 };
@@ -165,8 +165,7 @@ fn create_and_mint_token(
             admin,
         },
     )?;
-    let token_id = address_to_token_id_unchecked(token_address);
-    let mut token = TIP20Token::new(token_id);
+    let mut token = TIP20Token::from_address(token_address)?;
     token.grant_role_internal(admin, *ISSUER_ROLE)?;
     token.mint(admin, ITIP20::mintCall { to: recipient, amount: mint_amount })?;
 
