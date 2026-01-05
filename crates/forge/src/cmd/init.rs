@@ -263,7 +263,7 @@ impl InitArgs {
                         sh_warn!("\"lib/tempo-std\" already exists, skipping install...")?;
                         self.install.install(&mut config, vec![]).await?;
                     } else {
-                        let dep = "https://github.com/tempoxyz/tempo-std".parse()?;
+                        let dep = "https://github.com/tempoxyz/tempo-std@master".parse()?;
                         self.install.install(&mut config, vec![dep]).await?;
                     }
                 }
