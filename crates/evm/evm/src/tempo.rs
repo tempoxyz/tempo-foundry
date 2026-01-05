@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, Bytes, U256, address};
 use foundry_evm_core::{
     constants::{CALLER, TEST_CONTRACT_ADDRESS},
     tempo::FoundryStorageProvider,
@@ -17,7 +17,7 @@ use tempo_precompiles::{
     error::TempoPrecompileError,
     storage::StorageCtx,
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token},
-    tip20_factory::{ITIP20Factory, TIP20Factory},
+    tip20_factory::TIP20Factory,
     validator_config,
 };
 
@@ -67,6 +67,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
         // Create PathUSD token: 0x20C0000000000000000000000000000000000000
         let path_usd_token_address = create_and_mint_token(
+            address!("20C0000000000000000000000000000000000000"),
             "PathUSD",
             "PathUSD",
             "USD",
@@ -78,6 +79,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
         // Create AlphaUSD token: 0x20C0000000000000000000000000000000000001
         let _alpha_usd_token_address = create_and_mint_token(
+            address!("20C0000000000000000000000000000000000001"),
             "AlphaUSD",
             "AlphaUSD",
             "USD",
@@ -89,6 +91,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
         // Create BetaUSD token: 0x20C0000000000000000000000000000000000002
         let _beta_usd_token_address = create_and_mint_token(
+            address!("20C0000000000000000000000000000000000002"),
             "BetaUSD",
             "BetaUSD",
             "USD",
@@ -100,6 +103,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
         // Create ThetaUSD token: 0x20C0000000000000000000000000000000000003
         let _theta_usd_token_address = create_and_mint_token(
+            address!("20C0000000000000000000000000000000000003"),
             "ThetaUSD",
             "ThetaUSD",
             "USD",
@@ -145,7 +149,9 @@ pub fn initialize_tempo_precompiles_and_contracts(
 }
 
 /// Helper function to create and mint a TIP20 token.
+#[allow(clippy::too_many_arguments)]
 fn create_and_mint_token(
+    address: Address,
     symbol: &str,
     name: &str,
     currency: &str,
@@ -155,16 +161,16 @@ fn create_and_mint_token(
     mint_amount: U256,
 ) -> Result<Address, TempoPrecompileError> {
     let mut tip20_factory = TIP20Factory::new();
-    let token_address = tip20_factory.create_token(
+
+    let token_address = tip20_factory.create_token_reserved_address(
+        address,
+        name,
+        symbol,
+        currency,
+        quote_token,
         admin,
-        ITIP20Factory::createTokenCall {
-            name: name.to_string(),
-            symbol: symbol.to_string(),
-            currency: currency.to_string(),
-            quoteToken: quote_token,
-            admin,
-        },
     )?;
+
     let mut token = TIP20Token::from_address(token_address)?;
     token.grant_role_internal(admin, *ISSUER_ROLE)?;
     token.mint(admin, ITIP20::mintCall { to: recipient, amount: mint_amount })?;

@@ -6,7 +6,6 @@ use foundry_common::provider::tempo::{
 use foundry_config::Config;
 use foundry_wallets::WalletSigner;
 use std::{str::FromStr, time::Duration};
-use tempo_precompiles::tip20::token_id_to_address;
 
 /// Returns a [foundry_common::provider::RetryProvider] instantiated using [Config]'s
 /// RPC
@@ -48,6 +47,6 @@ pub fn get_tempo_provider_builder(config: &Config) -> eyre::Result<TempoProvider
 }
 
 /// Parses a fee token address.
-pub fn parse_fee_token_address(address_or_id: &str) -> eyre::Result<Address> {
-    Address::from_str(address_or_id).or_else(|_| Ok(token_id_to_address(address_or_id.parse()?)))
+pub fn parse_fee_token_address(address: &str) -> eyre::Result<Address> {
+    Ok(Address::from_str(address)?)
 }
