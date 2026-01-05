@@ -18,7 +18,7 @@ contract MailScript is Script {
 
         ITIP20 token = ITIP20(
             StdPrecompiles.TIP20_FACTORY
-                .createToken("testUSD", "tUSD", "USD", StdTokens.PATH_USD, msg.sender, bytes32(0))
+                .createToken("testUSD", "tUSD", "USD", StdTokens.PATH_USD, msg.sender, bytes32(block.timestamp))
         );
 
         ITIP20RolesAuth(address(token)).grantRole(token.ISSUER_ROLE(), msg.sender);
