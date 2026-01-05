@@ -76,10 +76,14 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
         address: Address,
         f: &mut dyn FnMut(&AccountInfo),
     ) -> Result<(), TempoPrecompileError> {
-        let info =
-            self.backend.basic(address).map_err(|e| TempoPrecompileError::Fatal(e.to_string()))?;
-        f(&info);
-        Ok(())
+        if let Some(info) =
+            self.backend.basic(address).map_err(|e| TempoPrecompileError::Fatal(e.to_string()))?
+        {
+            f(&info);
+            Ok(())
+        } else {
+            TempoPrecompileError::Fatal(format!("account '{address}' not found"))
+        }
     }
 
     fn sstore(
