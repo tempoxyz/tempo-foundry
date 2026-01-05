@@ -82,7 +82,7 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
             f(&info);
             Ok(())
         } else {
-            TempoPrecompileError::Fatal(format!("account '{address}' not found"))
+            Err(TempoPrecompileError::Fatal(format!("account '{address}' not found")))
         }
     }
 
