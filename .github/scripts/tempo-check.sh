@@ -11,7 +11,7 @@ echo -e "\n=== FORGE TEST (LOCAL) ==="
 forge test
 
 echo -e "\n=== FORGE SCRIPT (LOCAL) ==="
-forge script script/Mail.s.sol
+forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
 
 echo -e "\n=== START TEMPO FORK TESTS ==="
 
@@ -22,7 +22,7 @@ echo -e "\n=== FORGE TEST (FORK) ==="
 forge test --rpc-url "$TEMPO_RPC_URL"
 
 echo -e "\n=== FORGE SCRIPT (FORK) ==="
-forge script script/Mail.s.sol --rpc-url "$TEMPO_RPC_URL"
+forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url "$TEMPO_RPC_URL"
 
 echo -e "\n=== CREATE AND FUND ADDRESS ==="
 wallet_json="$(cast wallet new --json)"
@@ -62,11 +62,11 @@ echo -e "\n=== ADD ThetaUSD FEE TOKEN LIQUIDITY ==="
 cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000003 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$TEMPO_RPC_URL"
 
 echo -e "\n=== FORGE SCRIPT DEPLOY ==="
-forge script script/Mail.s.sol --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
+forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
 
 echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
-forge script --fee-token 2 script/Mail.s.sol --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
-forge script --fee-token 3 script/Mail.s.sol --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
+forge script --fee-token 2 script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
+forge script --fee-token 3 script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}"
 
 echo -e "\n=== FORGE CREATE DEPLOY ==="
 forge create src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast "${VERIFY_ARGS[@]}" --constructor-args 0x20c0000000000000000000000000000000000000
