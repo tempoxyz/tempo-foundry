@@ -27,7 +27,7 @@ use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
 use std::{collections::BTreeMap, sync::OnceLock};
 use tempo_precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, PATH_USD_ADDRESS,
-    STABLECOIN_EXCHANGE_ADDRESS, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS,
+    STABLECOIN_DEX_ADDRESS, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS,
     TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS,
 };
 
@@ -192,7 +192,7 @@ impl CallTraceDecoder {
                 (TIP_FEE_MANAGER_ADDRESS, "FeeManager".to_string()),
                 (TIP403_REGISTRY_ADDRESS, "TIP403Registry".to_string()),
                 (TIP20_FACTORY_ADDRESS, "TIP20Factory".to_string()),
-                (STABLECOIN_EXCHANGE_ADDRESS, "StablecoinExchange".to_string()),
+                (STABLECOIN_DEX_ADDRESS, "StablecoinDex".to_string()),
                 (NONCE_PRECOMPILE_ADDRESS, "Nonce".to_string()),
                 (VALIDATOR_CONFIG_ADDRESS, "ValidatorConfig".to_string()),
                 (ACCOUNT_KEYCHAIN_ADDRESS, "AccountKeychain".to_string()),
@@ -213,7 +213,7 @@ impl CallTraceDecoder {
                 )
                 .chain(tempo_contracts::precompiles::ITIP20Factory::abi::functions().into_values())
                 .chain(
-                    tempo_contracts::precompiles::IStablecoinExchange::abi::functions()
+                    tempo_contracts::precompiles::IStablecoinDEX::abi::functions()
                         .into_values(),
                 )
                 .chain(tempo_contracts::precompiles::INonce::abi::functions().into_values())
@@ -234,7 +234,7 @@ impl CallTraceDecoder {
                 .chain(tempo_contracts::precompiles::ITIP403Registry::abi::events().into_values())
                 .chain(tempo_contracts::precompiles::ITIP20Factory::abi::events().into_values())
                 .chain(
-                    tempo_contracts::precompiles::IStablecoinExchange::abi::events().into_values(),
+                    tempo_contracts::precompiles::IStablecoinDEX::abi::events().into_values(),
                 )
                 .chain(tempo_contracts::precompiles::INonce::abi::events().into_values())
                 .chain(tempo_contracts::precompiles::IValidatorConfig::abi::events().into_values())

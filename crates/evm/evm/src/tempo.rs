@@ -11,7 +11,7 @@ use tempo_contracts::{
     contracts::ARACHNID_CREATE2_FACTORY_BYTECODE,
 };
 use tempo_precompiles::{
-    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_EXCHANGE_ADDRESS,
+    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_DEX_ADDRESS,
     TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS,
     VALIDATOR_CONFIG_ADDRESS,
     error::TempoPrecompileError,
@@ -55,7 +55,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
         let sentinel = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
         for precompile in [
             NONCE_PRECOMPILE_ADDRESS,
-            STABLECOIN_EXCHANGE_ADDRESS,
+            STABLECOIN_DEX_ADDRESS,
             TIP20_FACTORY_ADDRESS,
             TIP403_REGISTRY_ADDRESS,
             TIP_FEE_MANAGER_ADDRESS,
