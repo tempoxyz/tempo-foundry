@@ -3,8 +3,10 @@
 use crate::{
     BroadcastableTransaction, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Error, Result,
     Vm::*,
+    env::FORGE_CONTEXT,
     inspector::{Ecx, RecordDebugStepInfo},
 };
+use alloy_evm::evm::Evm as EvmTrait;
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_network::eip2718::EIP4844_TX_TYPE_ID;
 use alloy_primitives::{
@@ -22,19 +24,20 @@ use foundry_common::{
 };
 use foundry_compilers::artifacts::EvmVersion;
 use foundry_evm_core::{
-    ContextExt,
+    AsEnvMut, ContextExt,
     backend::{DatabaseExt, RevertStateSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
-    utils::get_blob_base_fee_update_fraction_by_spec_id,
+    evm::new_evm_with_inspector,
+    utils::{configure_tx_req_env, get_blob_base_fee_update_fraction_by_spec_id},
 };
 use foundry_evm_traces::TraceMode;
 use itertools::Itertools;
 use rand::Rng;
 use revm::{
     bytecode::Bytecode,
-    context::{Block, JournalTr},
+    context::{Block, JournalTr, result::ExecutionResult},
     primitives::{KECCAK_EMPTY, hardfork::SpecId},
-    state::Account,
+    state::{Account, AccountStatus},
 };
 use std::{
     collections::{BTreeMap, HashSet, btree_map::Entry},
@@ -1049,6 +1052,122 @@ impl Cheatcode for setBlockhashCall {
         ccx.ecx.journaled_state.database.set_blockhash(blockNumber, blockHash);
 
         Ok(Default::default())
+    }
+}
+
+impl Cheatcode for executeTransactionCall {
+    fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
+        // Check if we're in a forge script context
+        if let Some(ctx) = FORGE_CONTEXT.get()
+            && *ctx == ForgeContext::ScriptGroup
+        {
+            return Err(fmt_err!("executeTransaction is not allowed in forge script"));
+        }
+
+        // Decode the RLP-encoded transaction
+        let tx = TempoTxEnvelope::decode(&mut self.rawTx.as_ref())
+            .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
+
+        // Recover the sender from the transaction signature
+        use alloy_consensus::transaction::SignerRecoverable;
+        let sender =
+            tx.recover_signer().map_err(|err| fmt_err!("failed to recover signer: {err}"))?;
+
+        // Convert to transaction request
+        let tx_req: tempo_alloy::rpc::TempoTransactionRequest = tx.into();
+
+        // Get inspector
+        let mut inspector = executor.get_inspector(ccx.state);
+
+        let res = {
+            let (db, journal, mut env) = ccx.ecx.as_db_env_and_journal();
+
+            // Cache the original environment for restoration
+            let cached_env = env.to_owned();
+
+            // Configure the transaction environment, passing the recovered sender
+            configure_tx_req_env(&mut env.as_env_mut(), &tx_req.inner, Some(sender))
+                .map_err(|e| fmt_err!("{e}"))?;
+
+            // Set basefee to 0 for isolated execution
+            env.block.basefee = 0;
+            env.tx.gas_price = 0;
+
+            let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);
+
+            // Clone the journaled state and mark all accounts/slots cold
+            evm.journaled_state.state = {
+                let mut state = journal.state.clone();
+
+                for (addr, acc_mut) in &mut state {
+                    // Mark all accounts cold, besides preloaded addresses
+                    if journal.warm_addresses.is_cold(addr) {
+                        acc_mut.mark_cold();
+                    }
+
+                    // Mark all slots cold and reset original values
+                    for slot_mut in acc_mut.storage.values_mut() {
+                        slot_mut.is_cold = true;
+                        slot_mut.original_value = slot_mut.present_value;
+                    }
+                }
+
+                state
+            };
+
+            // Set depth to 1 for proper trace collection
+            evm.journaled_state.depth = 1;
+
+            let res = evm.transact(env.tx.clone());
+
+            // Restore original environment
+            *env.tx = cached_env.tx;
+            env.block.basefee = cached_env.evm_env.block_env.basefee;
+
+            res
+        };
+
+        // Handle execution error
+        let res = res.map_err(|e| fmt_err!("transaction execution failed: {e}"))?;
+
+        // Merge state diff back into parent journaled state
+        for (addr, mut acc) in res.state {
+            let Some(acc_mut) = ccx.ecx.journaled_state.state.get_mut(&addr) else {
+                ccx.ecx.journaled_state.state.insert(addr, acc);
+                continue;
+            };
+
+            // Make sure accounts that were warmed earlier do not become cold
+            if acc.status.contains(AccountStatus::Cold)
+                && !acc_mut.status.contains(AccountStatus::Cold)
+            {
+                acc.status -= AccountStatus::Cold;
+            }
+            acc_mut.info = acc.info;
+            acc_mut.status |= acc.status;
+
+            for (key, val) in acc.storage {
+                let Some(slot_mut) = acc_mut.storage.get_mut(&key) else {
+                    acc_mut.storage.insert(key, val);
+                    continue;
+                };
+                slot_mut.present_value = val.present_value;
+                slot_mut.is_cold &= val.is_cold;
+            }
+        }
+
+        // Extract output from execution result
+        let output = match res.result {
+            ExecutionResult::Success { output, .. } => output.into_data(),
+            ExecutionResult::Halt { reason, .. } => {
+                return Err(fmt_err!("transaction halted: {reason:?}"));
+            }
+            ExecutionResult::Revert { output, .. } => {
+                return Err(fmt_err!("transaction reverted: {}", hex::encode_prefixed(&output)));
+            }
+        };
+
+        Ok(output.abi_encode())
     }
 }
 
