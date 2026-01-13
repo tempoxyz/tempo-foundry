@@ -1,0 +1,65 @@
+name: Nightly Tempo Compatibility
+
+permissions: {}
+
+on:
+  schedule:
+    # Run every night at 2:00 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
+
+jobs:
+  check-tempo-main:
+    name: Build with tempo@main
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
+        with:
+          toolchain: stable
+
+      - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
+      - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
+      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
+
+      # Override tempo dependencies to use main branch
+      - name: Patch Cargo.toml to use tempo@main
+        run: |
+          cat >> Cargo.toml << 'EOF'
+
+          # Nightly CI: Override tempo dependencies to use main branch
+          [patch."https://github.com/tempoxyz/tempo"]
+          tempo-alloy = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          tempo-contracts = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          tempo-revm = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          tempo-evm = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          tempo-primitives = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", branch = "main" }
+          EOF
+
+      - name: Update Cargo.lock
+        run: cargo update tempo-alloy tempo-contracts tempo-revm tempo-evm tempo-chainspec tempo-primitives tempo-precompiles
+
+      - name: Build workspace
+        run: cargo build --workspace --all-targets
+
+      - name: Run tests
+        run: cargo nextest run -E 'kind(test) & !test(/\b(issue|ext_integration)/)'
+
+      - name: Run doc tests
+        run: cargo test --doc --workspace
