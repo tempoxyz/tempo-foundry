@@ -14,7 +14,8 @@ contract MailScript is Script {
     function run(string memory salt) public {
         vm.startBroadcast();
 
-        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdTokens.ALPHA_USD_ADDRESS);
+        address feeToken = vm.envOr("TEMPO_FEE_TOKEN", StdTokens.ALPHA_USD_ADDRESS);
+        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(feeToken);
 
         ITIP20 token = ITIP20(
             StdPrecompiles.TIP20_FACTORY

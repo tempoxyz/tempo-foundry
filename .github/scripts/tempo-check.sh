@@ -26,6 +26,9 @@ forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
 
 echo -e "\n=== START TEMPO FORK TESTS ==="
 
+# Export fee token for fork tests (templates use vm.envOr to read it)
+export TEMPO_FEE_TOKEN="$FEE_TOKEN"
+
 echo -e "\n=== TEMPO VERSION ==="
 cast client --rpc-url "$TEMPO_RPC_URL"
 
