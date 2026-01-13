@@ -24,11 +24,11 @@ use foundry_common::{
 };
 use foundry_compilers::artifacts::EvmVersion;
 use foundry_evm_core::{
-    AsEnvMut, ContextExt,
+    ContextExt,
     backend::{DatabaseExt, RevertStateSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
     evm::new_evm_with_inspector,
-    utils::{configure_tx_req_env, get_blob_base_fee_update_fraction_by_spec_id},
+    utils::get_blob_base_fee_update_fraction_by_spec_id,
 };
 use foundry_evm_traces::TraceMode;
 use itertools::Itertools;
@@ -47,11 +47,13 @@ use std::{
 };
 
 mod record_debug_step;
+use alloy_evm::FromRecoveredTx;
 use foundry_common::fmt::format_token_raw;
 use foundry_config::evm_spec_id;
 use record_debug_step::{convert_call_trace_ctx_to_debug_step, flatten_call_trace};
 use serde::Serialize;
 use tempo_alloy::primitives::TempoTxEnvelope;
+use tempo_revm::TempoTxEnv;
 
 mod fork;
 pub(crate) mod mapping;
@@ -1073,25 +1075,25 @@ impl Cheatcode for executeTransactionCall {
         let sender =
             tx.recover_signer().map_err(|err| fmt_err!("failed to recover signer: {err}"))?;
 
-        // Convert to transaction request
-        let tx_req: tempo_alloy::rpc::TempoTransactionRequest = tx.into();
-
         // Get inspector
         let mut inspector = executor.get_inspector(ccx.state);
 
         let res = {
-            let (db, journal, mut env) = ccx.ecx.as_db_env_and_journal();
+            let (db, journal, env) = ccx.ecx.as_db_env_and_journal();
 
             // Cache the original environment for restoration
             let cached_env = env.to_owned();
 
-            // Configure the transaction environment, passing the recovered sender
-            configure_tx_req_env(&mut env.as_env_mut(), &tx_req.inner, Some(sender))
-                .map_err(|e| fmt_err!("{e}"))?;
+            // Convert the TempoTxEnvelope to TempoTxEnv, preserving all AA-specific fields
+            // including nonce_key for 2D nonce support
+            let mut tempo_tx_env = TempoTxEnv::from_recovered_tx(&tx, sender);
 
             // Set basefee to 0 for isolated execution
             env.block.basefee = 0;
-            env.tx.gas_price = 0;
+            tempo_tx_env.gas_price = 0;
+
+            // Update the environment's tx with the properly converted TempoTxEnv
+            *env.tx = tempo_tx_env;
 
             let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);
 
