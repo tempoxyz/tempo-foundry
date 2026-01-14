@@ -19,10 +19,10 @@ forge init -n tempo tempo-check
 cd tempo-check
 
 echo -e "\n=== FORGE TEST (LOCAL) ==="
-forge test
+TEMPO_FEE_TOKEN= forge test
 
 echo -e "\n=== FORGE SCRIPT (LOCAL) ==="
-forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
+TEMPO_FEE_TOKEN= forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
 
 echo -e "\n=== START TEMPO FORK TESTS ==="
 
@@ -91,31 +91,45 @@ echo -e "\n=== FORGE SCRIPT DEPLOY ==="
 forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
 
 echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
-forge script --fee-token 0x20C0000000000000000000000000000000000002 script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
-forge script --fee-token 0x20C0000000000000000000000000000000000003 script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
+forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
 
 echo -e "\n=== FORGE CREATE DEPLOY ==="
 forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
 
 echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
-forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
-forge create --fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+  forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+  forge create --fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+else
+  forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$TEMPO_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+fi
 
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
-cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
-cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+  cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+  cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+else
+  cast erc20 transfer ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} "${FEE_TOKEN}" 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+fi
 
 echo -e "\n=== CAST ERC20 APPROVE WITH FEE TOKEN ==="
-cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
-cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+  cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+  cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$TEMPO_RPC_URL" --private-key "$PK"
+else
+  echo "skipped (custom fee token set)"
+fi
 
 echo -e "\n=== CAST SEND WITH FEE TOKEN ==="
-cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
-cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+  cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+  cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+else
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+fi
 
 echo -e "\n=== CAST MKTX WITH FEE TOKEN ==="
-cast mktx --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
-cast mktx --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$TEMPO_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
