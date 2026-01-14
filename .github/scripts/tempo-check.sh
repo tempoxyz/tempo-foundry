@@ -19,10 +19,10 @@ forge init -n tempo tempo-check
 cd tempo-check
 
 echo -e "\n=== FORGE TEST (LOCAL) ==="
-TEMPO_FEE_TOKEN= forge test
+TEMPO_FEE_TOKEN='' forge test
 
 echo -e "\n=== FORGE SCRIPT (LOCAL) ==="
-TEMPO_FEE_TOKEN= forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
+TEMPO_FEE_TOKEN='' forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
 
 echo -e "\n=== START TEMPO FORK TESTS ==="
 
