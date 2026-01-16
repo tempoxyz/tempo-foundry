@@ -460,12 +460,17 @@ impl<'a> InvariantExecutor<'a> {
 
                     // Determine if test can continue or should exit.
                     // Check invariants based on check_interval to improve deep run performance.
+                    // - check_interval=0: only assert on the last call
                     // - check_interval=1 (default): assert after every call
                     // - check_interval=N: assert every N calls AND always on the last call
                     let is_last_call = current_run.depth == self.config.depth - 1;
-                    let should_check_invariant = self.config.check_interval <= 1
-                        || (current_run.depth + 1).is_multiple_of(self.config.check_interval)
-                        || is_last_call;
+                    let should_check_invariant = if self.config.check_interval == 0 {
+                        is_last_call
+                    } else {
+                        self.config.check_interval == 1
+                            || (current_run.depth + 1).is_multiple_of(self.config.check_interval)
+                            || is_last_call
+                    };
 
                     let result = if should_check_invariant {
                         can_continue(
