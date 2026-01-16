@@ -102,7 +102,20 @@ if [[ -n "$TEMPO_REV" ]]; then
 fi
 echo ""
 
-LLVM_BIN="$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin"
+# Find LLVM tools - try multiple locations
+LLVM_BIN=""
+for toolchain_dir in "$HOME/.rustup/toolchains"/stable-*; do
+    candidate="$toolchain_dir/lib/rustlib/$(rustc -vV | grep host | cut -d' ' -f2)/bin"
+    if [[ -x "$candidate/llvm-profdata" ]]; then
+        LLVM_BIN="$candidate"
+        break
+    fi
+done
+
+# Fallback to explicit path
+if [[ -z "$LLVM_BIN" ]]; then
+    LLVM_BIN="$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin"
+fi
 
 # Check llvm tools exist
 if [[ ! -x "$LLVM_BIN/llvm-profdata" ]]; then
@@ -110,6 +123,8 @@ if [[ ! -x "$LLVM_BIN/llvm-profdata" ]]; then
     echo "Install with: rustup component add llvm-tools-preview"
     exit 1
 fi
+
+echo "Using LLVM tools from: $LLVM_BIN"
 
 # Verify foundry dir
 if [[ ! -f "$FOUNDRY_DIR/Cargo.toml" ]]; then

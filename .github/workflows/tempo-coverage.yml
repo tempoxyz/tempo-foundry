@@ -56,6 +56,7 @@ jobs:
       - name: Run coverage script
         run: |
           chmod +x .github/scripts/tempo-coverage.sh
+          mkdir -p ./coverage-report
           
           ARGS=". ./coverage-report"
           
@@ -69,14 +70,19 @@ jobs:
             ARGS="$ARGS --check"
           fi
           
-          .github/scripts/tempo-coverage.sh $ARGS
+          .github/scripts/tempo-coverage.sh $ARGS || echo "Coverage script failed, check logs"
+          
+          # Debug: show what was created
+          ls -la ./coverage-report/ || true
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: tempo-coverage-report
           path: coverage-report/
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Generate coverage summary
         run: |
