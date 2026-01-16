@@ -373,7 +373,7 @@ tower-http = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"
-vergen = { version = "8", default-features = false }
+vergen = { version = "=9.0.6", default-features = false, features = ["build", "cargo"] }
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 path-slash = "0.2"
 jiff = { version = "0.2", default-features = false, features = [
@@ -386,15 +386,20 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "b250f1a9bdbc122d127898815633cd4eb94f8a60" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "75a3923750e0b06ea92fb0797102a595fcadf81d" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
+
+# Pin vergen-lib to 0.1.6 to avoid version conflict with vergen-git2
+# vergen 9.1.0 uses vergen-lib 9.1.0, but vergen-git2 1.0.x uses vergen-lib 0.1.x
+vergen-lib = "=0.1.6"
+vergen-git2 = "=1.0.5"
 
 # testing
 snapbox = { version = "0.6", features = ["json", "regex", "term-svg"] }
