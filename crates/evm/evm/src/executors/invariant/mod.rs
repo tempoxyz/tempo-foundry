@@ -464,7 +464,7 @@ impl<'a> InvariantExecutor<'a> {
                     // - check_interval=N: assert every N calls AND always on the last call
                     let is_last_call = current_run.depth == self.config.depth - 1;
                     let should_check_invariant = self.config.check_interval <= 1
-                        || (current_run.depth + 1) % self.config.check_interval == 0
+                        || (current_run.depth + 1).is_multiple_of(self.config.check_interval)
                         || is_last_call;
 
                     let result = if should_check_invariant {
