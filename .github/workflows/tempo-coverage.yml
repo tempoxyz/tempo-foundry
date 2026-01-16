@@ -1,19 +1,13 @@
 name: Tempo Precompiles Coverage
 
 on:
-  # Run on PRs that touch tempo dependencies
+  # Run on all PRs
   pull_request:
-    paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/cheatcodes/**'
-      - 'crates/evm/**'
   
-  # Run on tempo branch pushes
+  # Run on tempo branch pushes only
   push:
     branches:
       - tempo
-      - master
   
   # Allow manual trigger with optional tempo revision
   workflow_dispatch:
