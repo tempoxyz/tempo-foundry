@@ -1,0 +1,152 @@
+name: Tempo Precompiles Coverage
+
+on:
+  # Run on PRs that touch tempo dependencies
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/cheatcodes/**'
+      - 'crates/evm/**'
+  
+  # Run on tempo branch pushes
+  push:
+    branches:
+      - tempo
+      - master
+  
+  # Allow manual trigger with optional tempo revision
+  workflow_dispatch:
+    inputs:
+      tempo_rev:
+        description: 'Tempo revision to test against (leave empty for current)'
+        required: false
+        type: string
+      check_mode:
+        description: 'Use minimal invariant config (runs=1, depth=1)'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: Tempo Precompiles Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout tempo-foundry
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-coverage-
+
+      - name: Run coverage script
+        run: |
+          chmod +x .github/scripts/tempo-coverage.sh
+          
+          ARGS=". ./coverage-report"
+          
+          # Add tempo revision if specified
+          if [[ -n "${{ github.event.inputs.tempo_rev }}" ]]; then
+            ARGS="$ARGS ${{ github.event.inputs.tempo_rev }}"
+          fi
+          
+          # Add --check flag if enabled (default for workflow_dispatch)
+          if [[ "${{ github.event.inputs.check_mode }}" == "true" ]] || [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+            ARGS="$ARGS --check"
+          fi
+          
+          .github/scripts/tempo-coverage.sh $ARGS
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tempo-coverage-report
+          path: coverage-report/
+          retention-days: 30
+
+      - name: Generate coverage summary
+        run: |
+          echo "## Tempo Precompiles Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          LLVM_BIN="$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin"
+          
+          # Get tempo revision from Cargo.lock
+          TEMPO_REV=$(grep -A5 'name = "tempo-precompiles"' Cargo.lock | grep 'source.*tempo.*#' | sed 's/.*#//' | head -c 7 || echo "unknown")
+          echo "**Tempo Revision:** \`$TEMPO_REV\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -f "coverage-report/combined.profdata" ]]; then
+            echo "### Combined Coverage (Unit + Invariant)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            $LLVM_BIN/llvm-cov report \
+              --instr-profile=coverage-report/combined.profdata \
+              --object=target/release/forge \
+              --sources ~/.cargo/git/checkouts/tempo-*/*/crates/precompiles 2>/dev/null | tail -20 >> $GITHUB_STEP_SUMMARY || echo "Coverage report generation failed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Full HTML report available in artifacts**" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read the step summary for coverage info
+            let body = '## 📊 Tempo Precompiles Coverage\n\n';
+            body += 'Coverage report generated. Download the artifact for detailed HTML report.\n\n';
+            body += '| Report | Download |\n';
+            body += '|--------|----------|\n';
+            body += '| Combined (Unit + Invariant) | [tempo-coverage-report](../actions/runs/${{ github.run_id }}) |\n';
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Tempo Precompiles Coverage')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
