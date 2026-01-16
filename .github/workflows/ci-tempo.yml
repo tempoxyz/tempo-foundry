@@ -56,7 +56,7 @@ jobs:
           github.event.inputs.network == 'devnet' ||
           github.event.inputs.network == 'all'
         env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
+          ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
 
@@ -65,7 +65,7 @@ jobs:
           github.event.inputs.network == 'testnet' ||
           github.event.inputs.network == 'all'
         env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
+          ETH_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
@@ -75,7 +75,7 @@ jobs:
           github.event.inputs.network == 'mainnet' ||
           github.event.inputs.network == 'all'
         env:
-          TEMPO_RPC_URL: ${{ secrets.TEMPO_MAINNET_RPC_URL }}
+          ETH_RPC_URL: ${{ secrets.TEMPO_MAINNET_RPC_URL }}
           TEMPO_FEE_TOKEN: "0x20c000000000000000000000033abb6ac7d235e5"
         run: |
           ./.github/scripts/tempo-check.sh
