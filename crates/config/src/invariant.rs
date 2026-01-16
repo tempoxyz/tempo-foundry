@@ -44,7 +44,8 @@ pub struct InvariantConfig {
     /// Number of calls to execute between invariant assertions.
     /// Default is 1 (assert after every call). Higher values improve performance for deep runs.
     /// The invariant is always asserted on the last call of each run regardless of this setting.
-    /// Example: `check_interval = 10` means assert invariant after calls 10, 20, 30, ... and the last call.
+    /// Example: `check_interval = 10` means assert invariant after calls 10, 20, 30, ... and the
+    /// last call.
     pub check_interval: u32,
 }
 
