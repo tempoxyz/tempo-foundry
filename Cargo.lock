@@ -5175,8 +5175,9 @@ dependencies = [
 
 [[package]]
 name = "foundry-fork-db"
-version = "0.21.0"
-source = "git+https://github.com/rakita/foundry-fork-db?branch=staging-revm#ad83d540c383a01ecc93f076efb0899fcc2bb58b"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8a94e30b64a91d72bbda706e3e13774b7f660015eb1246d73fc03e405fd75e7"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
