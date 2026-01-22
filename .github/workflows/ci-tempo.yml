@@ -60,7 +60,7 @@ jobs:
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-verify.sh
+          ./.github/scripts/tempo-deploy.sh
 
       - name: Run Tempo check on testnet
         if: |
@@ -71,7 +71,7 @@ jobs:
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-verify.sh
+          ./.github/scripts/tempo-deploy.sh
 
       - name: Run Tempo check on mainnet
         if: |
@@ -83,4 +83,4 @@ jobs:
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-verify.sh
+          ./.github/scripts/tempo-deploy.sh

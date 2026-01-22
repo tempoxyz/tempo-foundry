@@ -83,23 +83,6 @@ else
   echo "skipped (custom fee token set)"
 fi
 
-echo -e "\n=== FORGE SCRIPT DEPLOY ==="
-forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast
-
-echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
-forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast
-
-echo -e "\n=== FORGE CREATE DEPLOY ==="
-forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast --constructor-args "$FEE_TOKEN"
-
-echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast --constructor-args "$FEE_TOKEN"
-  forge create --fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast --constructor-args "$FEE_TOKEN"
-else
-  forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast --constructor-args "$FEE_TOKEN"
-fi
-
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
