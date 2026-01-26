@@ -7,11 +7,7 @@ yanked = "warn"
 ignore = [
     # https://rustsec.org/advisories/RUSTSEC-2024-0436 paste! is unmaintained
     "RUSTSEC-2024-0436",
-    # https://rustsec.org/advisories/RUSTSEC-2024-0437 protobuf! Crash due to uncontrolled recursion in protobuf crate.
-    "RUSTSEC-2024-0437",
-    # https://rustsec.org/advisories/RUSTSEC-2026-0002 lru IterMut unsoundness. alloy-provider doesn't use the vulnerable API
-    "RUSTSEC-2026-0002",
-    # https://rustsec.org/advisories/RUSTSEC-2025-0141 bincode unmaintained. reth dep, v1.3.3 considered complete
+    # https://rustsec.org/advisories/RUSTSEC-2025-0141 bincode is unmaintained
     "RUSTSEC-2025-0141",
 ]
 
@@ -72,6 +68,8 @@ exceptions = [
     { allow = ["CC0-1.0"], name = "notify" },
     { allow = ["CC0-1.0"], name = "dunce" },
     { allow = ["CC0-1.0"], name = "aurora-engine-modexp" },
+    # Rendered mdBook HTML source code includes attribution as required by CC-BY-4.0
+    { allow = ["CC-BY-4.0", "MIT"], name = "font-awesome-as-a-crate" },
 ]
 # copyleft = "deny"
 
@@ -99,16 +97,16 @@ unknown-registry = "warn"
 # in the allow list is encountered
 unknown-git = "deny"
 allow-git = [
-    # Foundry
     "https://github.com/alloy-rs/alloy",
     "https://github.com/foundry-rs/compilers",
     "https://github.com/foundry-rs/foundry-fork-db",
     "https://github.com/paradigmxyz/revm-inspectors",
     "https://github.com/paradigmxyz/solar",
     "https://github.com/bluealloy/revm",
-    # Tempo
-    "https://github.com/paradigmxyz/reth",
-    "https://github.com/tempoxyz/tempo",
     # Only for tests.
     "https://github.com/rust-cli/rexpect",
+    # Tempo
+    "https://github.com/tempoxyz/tempo",
+    # Transitive dependency of Tempo
+    "https://github.com/paradigmxyz/reth",
 ]
