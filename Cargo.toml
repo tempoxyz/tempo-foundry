@@ -468,7 +468,7 @@ op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "0dc217a9d2c470
 revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "fccc4ac50775f5eac9a766725507dc3d6a47804b" }
 
 ## foundry
-foundry-fork-db = { git = "https://github.com/rakita/foundry-fork-db", branch = "staging-revm" }
+foundry-fork-db = { git = "https://github.com/rakita/foundry-fork-db", branch = "staging" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
 
