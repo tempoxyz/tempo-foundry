@@ -1647,7 +1647,7 @@ contract ATest is Test {
 
     cmd.args(["test"]).with_no_redact().assert_success().stdout_eq(str![[r#"
 ...
-[PASS] test_negativeGas() (gas: 96)
+[PASS] test_negativeGas() (gas: 25040)
 ...
 "#]]);
 });
@@ -1849,17 +1849,18 @@ contract ATest is DSTest {
 
     cmd.args(["test"]).with_no_redact().assert_success().stdout_eq(str![[r#"
 ...
-[PASS] testResetGas() (gas: 96)
-[PASS] testResetGas1() (gas: 96)
-[PASS] testResetGas2() (gas: 96)
+[PASS] testMemoryOnReset(uint8[1]) (runs: [..], μ: [..], ~: [..])
+[PASS] testResetGas() (gas: 25040)
+[PASS] testResetGas1() (gas: 25040)
+[PASS] testResetGas2() (gas: 25040)
 [PASS] testResetGas3() (gas: [..])
 [PASS] testResetGas4() (gas: [..])
-[PASS] testResetGas5() (gas: 96)
-[PASS] testResetGas6() (gas: 96)
-[PASS] testResetGas7() (gas: 96)
+[PASS] testResetGas5() (gas: 25040)
+[PASS] testResetGas6() (gas: 25040)
+[PASS] testResetGas7() (gas: 25040)
 [PASS] testResetGas8() (gas: [..])
-[PASS] testResetGas9() (gas: 96)
-[PASS] testResetNegativeGas() (gas: 96)
+[PASS] testResetGas9() (gas: 25040)
+[PASS] testResetNegativeGas() (gas: 25040)
 ...
 "#]]);
 });
@@ -2796,7 +2797,7 @@ contract ContractTest {
 ...
 Failing tests:
 Encountered 1 failing test in test/Foo.t.sol:ContractTest
-[FAIL: EVM error; transaction validation error: call [GAS_COST] exceeds the [GAS_LIMIT]] setUp() ([GAS])
+[FAIL: EVM error; transaction validation error: insufficient gas for intrinsic cost: gas_limit 100 < intrinsic_gas [..]] setUp() ([GAS])
 
 Encountered a total of 1 failing tests, 0 tests succeeded
 
