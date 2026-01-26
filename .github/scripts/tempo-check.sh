@@ -124,8 +124,9 @@ ACCESS_KEY="$(jq -r '.[0].private_key' <<<"$access_wallet_json")"
 cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
 
 echo -e "\n=== CAST SEND WITH ACCESS-KEY ==="
-# Note: This will fail at execution since the access key isn't authorized, but it tests CLI parsing
-cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR" || echo "Expected failure: access key not authorized on-chain"
+# Note: This will fail at execution since the access key isn't authorized on-chain
+# We only test that the transaction is signed and submitted (--async), not that it succeeds
+cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR" --async
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
