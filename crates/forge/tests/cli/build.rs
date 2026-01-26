@@ -432,7 +432,8 @@ contract ContractB {
    "#,
     );
 
-    cmd.args(["build", "src/ContractWithInvalidNatspec.sol"]).assert_success().stderr_eq(str![[r#"
+    cmd.args(["build", "src/ContractWithInvalidNatspec.sol"]).assert_success().stderr_eq(str![[
+        r#"
 warning: invalid natspec tag '@deprecated', custom tags must use format '@custom:name'
   [FILE]:5:5
   │
@@ -450,5 +451,6 @@ warning: invalid natspec tag '@note', custom tags must use format '@custom:name'
 ...
 
 
-"#]]);
+"#
+    ]]);
 });

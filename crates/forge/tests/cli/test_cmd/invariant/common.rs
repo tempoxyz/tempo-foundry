@@ -1348,5 +1348,8 @@ contract HandlerWarpAndRoll {
 "#,
     );
 
-    cmd.forge_fuse().args(["test", "--mt", "invariant_handler"]).assert_failure().stdout_eq(str![""]);
+    cmd.forge_fuse()
+        .args(["test", "--mt", "invariant_handler"])
+        .assert_failure()
+        .stdout_eq(str![""]);
 });

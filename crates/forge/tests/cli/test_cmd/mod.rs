@@ -2722,9 +2722,9 @@ contract SuppressTracesTest is Test {
     );
 
     // Show traces and logs for failed test only.
-    cmd.args(["test", "--mc", "SuppressTracesTest", "-vvvvv", "-s"]).assert_failure().stdout_eq(
-        str![""],
-    );
+    cmd.args(["test", "--mc", "SuppressTracesTest", "-vvvvv", "-s"])
+        .assert_failure()
+        .stdout_eq(str![""]);
 
     // Show traces and logs for all tests.
     cmd.forge_fuse()
