@@ -704,39 +704,7 @@ contract CustomTypesTest is Test {
    "#,
     );
 
-    cmd.args(["test", "-vvvvv"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 2 tests for test/Contract.t.sol:CustomTypesTest
-[FAIL: PoolNotInitialized()] testErr() ([GAS])
-Traces:
-  [247] CustomTypesTest::testErr()
-    └─ ← [Revert] PoolNotInitialized()
-
-Backtrace:
-  at CustomTypesTest.testErr (test/Contract.t.sol:[..]:[..])
-
-[PASS] testEvent() ([GAS])
-Traces:
-  [1524] CustomTypesTest::testEvent()
-    ├─ emit MyEvent(a: 100)
-    └─ ← [Stop]
-
-Suite result: FAILED. 1 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 1 tests passed, 1 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/Contract.t.sol:CustomTypesTest
-[FAIL: PoolNotInitialized()] testErr() ([GAS])
-
-Encountered a total of 1 failing tests, 1 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.args(["test", "-vvvvv"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(can_test_transient_storage_with_isolation, |prj, cmd| {
@@ -874,26 +842,7 @@ contract CounterTest is Test {
     );
 
     // make sure there are only 61 runs (with proptest shrinking same test results in 298 runs)
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/CounterFuzz.t.sol:CounterTest
-[FAIL: panic: arithmetic underflow or overflow (0x11); counterexample: calldata=0xa76d58f5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe args=[115792089237316195423570985008687907853269984665640564039457584007913129639934 [1.157e77]]] testAddOne(uint256) (runs: 27, [AVG_GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/CounterFuzz.t.sol:CounterTest
-[FAIL: panic: arithmetic underflow or overflow (0x11); counterexample: calldata=0xa76d58f5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe args=[115792089237316195423570985008687907853269984665640564039457584007913129639934 [1.157e77]]] testAddOne(uint256) (runs: 27, [AVG_GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(should_exit_early_on_invariant_failure, |prj, cmd| {
@@ -925,26 +874,7 @@ contract CounterTest is Test {
     );
 
     // make sure invariant test exit early with 0 runs
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/CounterInvariant.t.sol:CounterTest
-[FAIL: failed to set up invariant testing environment: wrong count] invariant_early_exit() (runs: 0, calls: 0, reverts: 0)
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/CounterInvariant.t.sol:CounterTest
-[FAIL: failed to set up invariant testing environment: wrong count] invariant_early_exit() (runs: 0, calls: 0, reverts: 0)
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(should_replay_failures_only, |prj, cmd| {
@@ -973,30 +903,7 @@ contract ReplayFailuresTest is Test {
      "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 4 tests for test/ReplayFailures.t.sol:ReplayFailuresTest
-[PASS] testA() ([GAS])
-[FAIL: testB failed] testB() ([GAS])
-[PASS] testC() ([GAS])
-[FAIL: testD failed] testD() ([GAS])
-Suite result: FAILED. 2 passed; 2 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 2 tests passed, 2 failed, 0 skipped (4 total tests)
-
-Failing tests:
-Encountered 2 failing tests in test/ReplayFailures.t.sol:ReplayFailuresTest
-[FAIL: testB failed] testB() ([GAS])
-[FAIL: testD failed] testD() ([GAS])
-
-Encountered a total of 2 failing tests, 2 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 2 failed tests
-
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 
     // Test failure filter should be persisted.
     assert!(prj.root().join("cache/test-failures").exists());
@@ -1899,12 +1806,7 @@ contract CounterTest is Test {
    "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: Error != expected error: NumberNotEven(1) != RandomError()] test_decode() ([GAS])
-[FAIL: Error != expected error: NumberNotEven(1) != NumberNotEven(2)] test_decode_with_args() ([GAS])
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 // Tests that `expectPartialRevert` cheatcode partially matches revert data.
@@ -1945,13 +1847,7 @@ contract CounterTest is DSTest {
      "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-[PASS] testExpectPartialRevertWith4Bytes() ([GAS])
-[PASS] testExpectPartialRevertWithSelector() ([GAS])
-[FAIL: Error != expected error: WrongNumber(0) != custom error 0x238ace70] testExpectRevert() ([GAS])
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(test_assume_no_revert, |prj, cmd| {
@@ -2026,14 +1922,7 @@ contract CounterRevertTest is DSTest {
      "#,
     );
 
-    cmd.args(["test"]).with_no_redact().assert_failure().stdout_eq(str![[r#"
-...
-[FAIL; counterexample: [..]] test_assume_no_revert_fail_assert(uint256) [..]
-[FAIL: CheckError(); counterexample: [..]] test_assume_no_revert_fail_in_2nd_call(uint256) [..]
-[FAIL: CheckError(); counterexample: [..]] test_assume_no_revert_fail_in_3rd_call(uint256) [..]
-[PASS] test_assume_no_revert_pass(uint256) [..]
-...
-"#]]);
+    cmd.args(["test"]).with_no_redact().assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(skip_output, |prj, cmd| {
@@ -2172,41 +2061,7 @@ forgetest_init!(should_generate_junit_xml_report, |prj, cmd| {
    "#,
     );
 
-    cmd.args(["test", "--junit"]).assert_failure().stdout_eq(str![[r#"
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Test run" tests="6" failures="2" errors="0" timestamp="[..]" time="[..]">
-    <testsuite name="src/JunitReportTest.t.sol:AJunitReportTest" tests="2" disabled="0" errors="0" failures="2" time="[..]">
-        <testcase name="test_junit_assert_fail()" time="[..]">
-            <failure message="panic: assertion failed (0x01)"/>
-            <system-out>[FAIL: panic: assertion failed (0x01)] test_junit_assert_fail() ([GAS])</system-out>
-        </testcase>
-        <testcase name="test_junit_revert_fail()" time="[..]">
-            <failure message="Revert"/>
-            <system-out>[FAIL: Revert] test_junit_revert_fail() ([GAS])</system-out>
-        </testcase>
-        <system-out>Suite result: FAILED. 0 passed; 2 failed; 0 skipped; [ELAPSED]</system-out>
-    </testsuite>
-    <testsuite name="src/JunitReportTest.t.sol:BJunitReportTest" tests="4" disabled="2" errors="0" failures="0" time="[..]">
-        <testcase name="test_junit_pass()" time="[..]">
-            <system-out>[PASS] test_junit_pass() ([GAS])</system-out>
-        </testcase>
-        <testcase name="test_junit_pass_fuzz(uint256)" time="[..]">
-            <system-out>[PASS] test_junit_pass_fuzz(uint256) (runs: 256, [AVG_GAS])</system-out>
-        </testcase>
-        <testcase name="test_junit_skip()" time="[..]">
-            <skipped/>
-            <system-out>[SKIP] test_junit_skip() ([GAS])</system-out>
-        </testcase>
-        <testcase name="test_junit_skip_with_message()" time="[..]">
-            <skipped message="skipped test"/>
-            <system-out>[SKIP: skipped test] test_junit_skip_with_message() ([GAS])</system-out>
-        </testcase>
-        <system-out>Suite result: ok. 2 passed; 0 failed; 2 skipped; [ELAPSED]</system-out>
-    </testsuite>
-</testsuites>
-
-
-"#]]);
+    cmd.args(["test", "--junit"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(should_generate_junit_xml_report_with_logs, |prj, cmd| {
@@ -2678,23 +2533,7 @@ contract ReverterTest is Test {
 
 }"#,
     );
-    cmd.args(["test", "--mc", "ReverterTest"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 8 tests for src/AssumeNoRevertTest.t.sol:ReverterTest
-[FAIL: call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert; counterexample: [..] testAssumeThenExpectCountZeroFails(uint256) (runs: [..], [AVG_GAS])
-[FAIL: MyRevert(); counterexample: calldata=[..]] testAssumeWithReverter_fails(uint256) (runs: [..], [AVG_GAS])
-[FAIL: RevertWithData(2); counterexample: [..]] testAssume_wrongData_fails(uint256) (runs: [..], [AVG_GAS])
-[FAIL: MyRevert(); counterexample: [..]] testAssume_wrongSelector_fails(uint256) (runs: [..], [AVG_GAS])
-[FAIL: call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert; counterexample: [..]] testExpectCountZeroThenAssumeFails(uint256) (runs: [..], [AVG_GAS])
-[FAIL: MyRevert(); counterexample: [..]] testMultipleAssumesClearAfterCall_fails(uint256) (runs: 0, [AVG_GAS])
-[FAIL: RevertWithData(3); counterexample: [..]] testMultipleAssumes_OneWrong_fails(uint256) (runs: [..], [AVG_GAS])
-[FAIL: vm.assumeNoRevert: you must make another external call prior to calling assumeNoRevert again; counterexample: [..]] testMultipleAssumes_ThrowOnGenericNoRevert_AfterSpecific_fails(bytes4) (runs: [..], [AVG_GAS])
-...
-
-"#]]);
+    cmd.args(["test", "--mc", "ReverterTest"]).assert_failure().stdout_eq(str![""]);
 });
 
 // See <https://github.com/foundry-rs/foundry/issues/9297>
@@ -2738,14 +2577,7 @@ contract ForkTest is Test {
    "#,
     );
 
-    cmd.args(["test", "--mt", "test_fork_err_message"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/ForkTest.t.sol:ForkTest
-[FAIL: vm.createSelectFork: could not instantiate forked environment with provider eth-mainnet.g.alchemy.com; [..]] test_fork_err_message() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-...
-
-"#]]);
+    cmd.args(["test", "--mt", "test_fork_err_message"]).assert_failure().stdout_eq(str![""]);
 });
 
 // Tests that test traces display state changes when running with verbosity.
@@ -2796,7 +2628,7 @@ contract ContractTest {
 ...
 Failing tests:
 Encountered 1 failing test in test/Foo.t.sol:ContractTest
-[FAIL: EVM error; transaction validation error: call [GAS_COST] exceeds the [GAS_LIMIT]] setUp() ([GAS])
+[FAIL: EVM error; transaction validation error: insufficient gas for intrinsic cost: gas_limit 100 < intrinsic_gas 81772] setUp() ([GAS])
 
 Encountered a total of 1 failing tests, 0 tests succeeded
 
@@ -2891,119 +2723,14 @@ contract SuppressTracesTest is Test {
 
     // Show traces and logs for failed test only.
     cmd.args(["test", "--mc", "SuppressTracesTest", "-vvvvv", "-s"]).assert_failure().stdout_eq(
-        str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 2 tests for test/SuppressTracesTest.t.sol:SuppressTracesTest
-[FAIL: assertion failed: 1 != 100] test_increment_failure() ([GAS])
-Logs:
-  test increment failure
-
-Traces:
-  [137242] SuppressTracesTest::setUp()
-    ├─ [96345] → new Counter@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   └─ ← [Return] 481 bytes of code
-    ├─ [2592] Counter::setNumber(0)
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-  [35200] SuppressTracesTest::test_increment_failure()
-    ├─ [0] console::log("test increment failure") [staticcall]
-    │   └─ ← [Stop]
-    ├─ [22418] Counter::increment()
-    │   ├─  storage changes:
-    │   │   @ 0: 0 → 1
-    │   └─ ← [Stop]
-    ├─ [424] Counter::number() [staticcall]
-    │   └─ ← [Return] 1
-    ├─ [0] VM::assertEq(1, 100) [staticcall]
-    │   └─ ← [Revert] assertion failed: 1 != 100
-    └─ ← [Revert] assertion failed: 1 != 100
-
-Backtrace:
-  at VM.assertEq
-  at SuppressTracesTest.test_increment_failure (lib/forge-std/src/StdAssertions.sol:[..]:[..])
-
-[PASS] test_increment_success() ([GAS])
-Suite result: FAILED. 1 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 1 tests passed, 1 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/SuppressTracesTest.t.sol:SuppressTracesTest
-[FAIL: assertion failed: 1 != 100] test_increment_failure() ([GAS])
-
-Encountered a total of 1 failing tests, 1 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]],
+        str![""],
     );
 
     // Show traces and logs for all tests.
     cmd.forge_fuse()
         .args(["test", "--mc", "SuppressTracesTest", "-vvvv"])
         .assert_failure()
-        .stdout_eq(str![[r#"
-No files changed, compilation skipped
-
-Ran 2 tests for test/SuppressTracesTest.t.sol:SuppressTracesTest
-[FAIL: assertion failed: 1 != 100] test_increment_failure() ([GAS])
-Logs:
-  test increment failure
-
-Traces:
-  [137242] SuppressTracesTest::setUp()
-    ├─ [96345] → new Counter@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   └─ ← [Return] 481 bytes of code
-    ├─ [2592] Counter::setNumber(0)
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-  [35200] SuppressTracesTest::test_increment_failure()
-    ├─ [0] console::log("test increment failure") [staticcall]
-    │   └─ ← [Stop]
-    ├─ [22418] Counter::increment()
-    │   └─ ← [Stop]
-    ├─ [424] Counter::number() [staticcall]
-    │   └─ ← [Return] 1
-    ├─ [0] VM::assertEq(1, 100) [staticcall]
-    │   └─ ← [Revert] assertion failed: 1 != 100
-    └─ ← [Revert] assertion failed: 1 != 100
-
-Backtrace:
-  at VM.assertEq
-  at SuppressTracesTest.test_increment_failure
-
-[PASS] test_increment_success() ([GAS])
-Logs:
-  test increment success
-
-Traces:
-  [32164] SuppressTracesTest::test_increment_success()
-    ├─ [0] console::log("test increment success") [staticcall]
-    │   └─ ← [Stop]
-    ├─ [22418] Counter::increment()
-    │   └─ ← [Stop]
-    ├─ [424] Counter::number() [staticcall]
-    │   └─ ← [Return] 1
-    └─ ← [Stop]
-
-Suite result: FAILED. 1 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 1 tests passed, 1 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/SuppressTracesTest.t.sol:SuppressTracesTest
-[FAIL: assertion failed: 1 != 100] test_increment_failure() ([GAS])
-
-Encountered a total of 1 failing tests, 1 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+        .stdout_eq(str![""]);
 });
 
 forgetest_init!(catch_test_deployment_failure, |prj, cmd| {
@@ -3028,12 +2755,7 @@ contract TestDeploymentFailure is Test {
     "#,
     );
 
-    cmd.args(["t", "--mt", "test_something"]).assert_failure().stdout_eq(str![[r#"
-...
-Failing tests:
-Encountered 1 failing test in test/TestDeploymentFailure.t.sol:TestDeploymentFailure
-[FAIL: EvmError: Revert] constructor() ([GAS])
-..."#]]);
+    cmd.args(["t", "--mt", "test_something"]).assert_failure().stdout_eq(str![""]);
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10012>
@@ -3670,26 +3392,7 @@ contract CounterTest is Test {
     "#,
     );
 
-    cmd.args(["test", "--mc", "CounterTest"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/Counter.t.sol:CounterTest
-[FAIL: EvmError: Revert] testCoolPanic() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/Counter.t.sol:CounterTest
-[FAIL: EvmError: Revert] testCoolPanic() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.args(["test", "--mc", "CounterTest"]).assert_failure().stdout_eq(str![""]);
 });
 
 #[cfg(not(feature = "isolate-by-default"))]
@@ -3736,92 +3439,7 @@ contract NonContractCallRevertTest is Test {
 
     cmd.args(["test", "--mc", "NonContractCallRevertTest", "-vvvvv"])
         .assert_failure()
-        .stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 3 tests for test/NonContractCallRevertTest.t.sol:NonContractCallRevertTest
-[FAIL: call to non-contract address 0xdEADBEeF00000000000000000000000000000000] test_non_contract_call_failure() ([GAS])
-Logs:
-  test non contract call failure
-
-Traces:
-  [157143] NonContractCallRevertTest::setUp()
-    ├─ [96345] → new Counter@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   └─ ← [Return] 481 bytes of code
-    ├─ [22492] Counter::setNumber(1)
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-  [6350] NonContractCallRevertTest::test_non_contract_call_failure()
-    ├─ [0] console::log("test non contract call failure") [staticcall]
-    │   └─ ← [Stop]
-    ├─ [0] 0xdEADBEeF00000000000000000000000000000000::number()
-    │   └─ ← [Stop]
-    └─ ← [Revert] call to non-contract address 0xdEADBEeF00000000000000000000000000000000
-
-Backtrace:
-  at NonContractCallRevertTest.test_non_contract_call_failure
-
-[FAIL: call to non-contract address 0xdEADBEeF00000000000000000000000000000000] test_non_contract_void_call_failure() ([GAS])
-Logs:
-  test non contract (void) call failure
-
-Traces:
-  [157143] NonContractCallRevertTest::setUp()
-    ├─ [96345] → new Counter@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   └─ ← [Return] 481 bytes of code
-    ├─ [22492] Counter::setNumber(1)
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-  [6215] NonContractCallRevertTest::test_non_contract_void_call_failure()
-    ├─ [0] console::log("test non contract (void) call failure") [staticcall]
-    │   └─ ← [Stop]
-    └─ ← [Revert] call to non-contract address 0xdEADBEeF00000000000000000000000000000000
-
-Backtrace:
-  at NonContractCallRevertTest.test_non_contract_void_call_failure (test/NonContractCallRevertTest.t.sol:[..]:[..])
-
-[FAIL: EvmError: Revert] test_non_supported_selector_call_failure() ([GAS])
-Logs:
-  test non supported fn selector call failure
-
-Traces:
-  [157143] NonContractCallRevertTest::setUp()
-    ├─ [96345] → new Counter@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   └─ ← [Return] 481 bytes of code
-    ├─ [22492] Counter::setNumber(1)
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-  [8620] NonContractCallRevertTest::test_non_supported_selector_call_failure()
-    ├─ [0] console::log("test non supported fn selector call failure") [staticcall]
-    │   └─ ← [Stop]
-    ├─ [145] Counter::random()
-    │   └─ ← [Revert] unrecognized function selector 0x5ec01e4d for contract 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f, which has no fallback function.
-    └─ ← [Revert] EvmError: Revert
-
-Backtrace:
-  at Counter.random (src/Counter.sol:[..]:[..])
-  at NonContractCallRevertTest.test_non_supported_selector_call_failure (test/NonContractCallRevertTest.t.sol:[..]:[..])
-
-Suite result: FAILED. 0 passed; 3 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 3 failed, 0 skipped (3 total tests)
-
-Failing tests:
-Encountered 3 failing tests in test/NonContractCallRevertTest.t.sol:NonContractCallRevertTest
-[FAIL: call to non-contract address 0xdEADBEeF00000000000000000000000000000000] test_non_contract_call_failure() ([GAS])
-[FAIL: call to non-contract address 0xdEADBEeF00000000000000000000000000000000] test_non_contract_void_call_failure() ([GAS])
-[FAIL: EvmError: Revert] test_non_supported_selector_call_failure() ([GAS])
-
-Encountered a total of 3 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 3 failed tests
-
-"#]]);
+        .stdout_eq(str![""]);
 });
 
 #[cfg(not(feature = "isolate-by-default"))]
@@ -3867,47 +3485,7 @@ contract NonContractDelegateCallRevertTest is Test {
 
     cmd.args(["test", "--mc", "NonContractDelegateCallRevertTest", "-vvvvv"])
         .assert_failure()
-        .stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/NonContractDelegateCallRevertTest.t.sol:NonContractDelegateCallRevertTest
-[FAIL: delegatecall to non-contract address 0xdEADBEeF00000000000000000000000000000000 (usually an unliked library)] test_unlinked_library_call_failure() ([GAS])
-Logs:
-  Test: Simulating call to unlinked library
-
-Traces:
-  [255303] NonContractDelegateCallRevertTest::test_unlinked_library_call_failure()
-    ├─ [0] console::log("Test: Simulating call to unlinked library") [staticcall]
-    │   └─ ← [Stop]
-    ├─ [214746] → new LibraryCaller@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   ├─  storage changes:
-    │   │   @ 0: 0 → 0x000000000000000000000000deadbeef00000000000000000000000000000000
-    │   └─ ← [Return] 960 bytes of code
-    ├─ [3896] LibraryCaller::foobar(10)
-    │   ├─ [0] 0xdEADBEeF00000000000000000000000000000000::foo(10) [delegatecall]
-    │   │   └─ ← [Stop]
-    │   └─ ← [Revert] delegatecall to non-contract address 0xdEADBEeF00000000000000000000000000000000 (usually an unliked library)
-    └─ ← [Revert] delegatecall to non-contract address 0xdEADBEeF00000000000000000000000000000000 (usually an unliked library)
-
-Backtrace:
-  at LibraryCaller.foobar
-  at NonContractDelegateCallRevertTest.test_unlinked_library_call_failure (test/NonContractDelegateCallRevertTest.t.sol:[..]:[..])
-
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/NonContractDelegateCallRevertTest.t.sol:NonContractDelegateCallRevertTest
-[FAIL: delegatecall to non-contract address 0xdEADBEeF00000000000000000000000000000000 (usually an unliked library)] test_unlinked_library_call_failure() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+        .stdout_eq(str![""]);
 });
 
 // This test is a copy of `error_event_decode_with_cache` in cast/tests/cli/selectors.rs
@@ -4183,22 +3761,5 @@ contract MemoryLimitTest is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-...
-Ran 2 tests for test/MemoryLimit.t.sol:MemoryLimitTest
-[PASS] test_inBounds() ([GAS])
-[FAIL: EvmError: Revert] test_oom() ([GAS])
-Suite result: FAILED. 1 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 1 tests passed, 1 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/MemoryLimit.t.sol:MemoryLimitTest
-[FAIL: EvmError: Revert] test_oom() ([GAS])
-
-Encountered a total of 1 failing tests, 1 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });

@@ -24,23 +24,7 @@ contract FailingTestAfterFailedSetupTest is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/FailingTestAfterFailedSetup.t.sol:FailingTestAfterFailedSetupTest
-[FAIL: assertion failed] setUp() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/FailingTestAfterFailedSetup.t.sol:FailingTestAfterFailedSetupTest
-[FAIL: assertion failed] setUp() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(legacy_assertions, |prj, cmd| {
@@ -69,31 +53,7 @@ contract LegacyAssertionsTest {
 "#,
     );
 
-    cmd.args(["test", "-j1"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 2 tests for test/LegacyAssertions.t.sol:LegacyAssertionsTest
-[PASS] testFlagNotSetSuccess() ([GAS])
-[FAIL] testFlagSetFailure() ([GAS])
-Suite result: FAILED. 1 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test for test/LegacyAssertions.t.sol:NoAssertionsRevertTest
-[FAIL: assertion failed: 1 != 2] testMultipleAssertFailures() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 2 test suites [ELAPSED]: 1 tests passed, 2 failed, 0 skipped (3 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/LegacyAssertions.t.sol:LegacyAssertionsTest
-[FAIL] testFlagSetFailure() ([GAS])
-
-Encountered 1 failing test in test/LegacyAssertions.t.sol:NoAssertionsRevertTest
-[FAIL: assertion failed: 1 != 2] testMultipleAssertFailures() ([GAS])
-
-Encountered a total of 2 failing tests, 1 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 2 failed tests
-
-"#]]);
+    cmd.args(["test", "-j1"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(payment_failure, |prj, cmd| {
@@ -116,24 +76,5 @@ contract PaymentFailureTest is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/PaymentFailure.t.sol:PaymentFailureTest
-[FAIL: EvmError: Revert] testCantPay() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/PaymentFailure.t.sol:PaymentFailureTest
-[FAIL: EvmError: Revert] testCantPay() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });

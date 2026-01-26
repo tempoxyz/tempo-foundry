@@ -201,25 +201,51 @@ forgetest!(expect_emit_tests_should_fail, |prj, cmd| {
     cmd.forge_fuse().arg("build").assert_success();
     cmd.forge_fuse().args(["selectors", "cache"]).assert_success();
 
-    cmd.forge_fuse().args(["test", "--mc", "ExpectEmitFailureTest"]).assert_failure().stdout_eq(str![[r#"No files changed, compilation skipped
-...
-[FAIL: E != expected A] testShouldFailCanMatchConsecutiveEvents() ([GAS])
-[FAIL: log != expected SomethingElse] testShouldFailDifferentIndexedParameters() ([GAS])
+    cmd.forge_fuse().args(["test", "--mc", "ExpectEmitFailureTest"]).assert_failure().stdout_eq(str![[r#"
+No files changed, compilation skipped
+
+Ran 15 tests for src/ExpectEmitFailures.sol:ExpectEmitFailureTest
+[FAIL: log != expected log] testShouldFailCanMatchConsecutiveEvents() ([GAS])
+[FAIL: log != expected log] testShouldFailDifferentIndexedParameters() ([GAS])
 [FAIL: log != expected log] testShouldFailEmitOnlyAppliesToNextCall() ([GAS])
 [FAIL: next call did not revert as expected] testShouldFailEmitWindowWithRevertDisallowed() ([GAS])
-[FAIL: E != expected A] testShouldFailEventsOnTwoCalls() ([GAS])
-[FAIL: Something param mismatch at [..]: expected=[..], got=[..]; counterexample: calldata=[..] args=[..]] testShouldFailExpectEmit(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (runs: 0, [AVG_GAS])
-[FAIL: log emitter mismatch: expected=[..], got=[..]] testShouldFailExpectEmitAddress() ([GAS])
-[FAIL: log emitter mismatch: expected=[..], got=[..]] testShouldFailExpectEmitAddressWithArgs() ([GAS])
-[FAIL: Something != expected SomethingElse] testShouldFailExpectEmitCanMatchWithoutExactOrder() ([GAS])
+[FAIL: log != expected log] testShouldFailEventsOnTwoCalls() ([GAS])
+[FAIL: log mismatch at param 0: expected=0x0000000000000000000000000000000000000000000000000000000000001076, got=0x0000000000000000000000000000000000000000000000000000000000001077, param 2: expected=0x0000000000000000000000000000000000000000000000000000000000001478, got=0x0000000000000000000000000000000000000000000000000000000000001479, param 3: expected=0x00000000000000000000000000000000000000000000000000000000000017c7, got=0x00000000000000000000000000000000000000000000000000000000000017c8; counterexample: calldata=0xbe48f365000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000010760000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000147800000000000000000000000000000000000000000000000000000000000017c7 args=[true, false, true, true, 4214, 5, 5240, 6087]] testShouldFailExpectEmit(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (runs: 0, [AVG_GAS])
+[FAIL: log emitter mismatch: expected=0x0000000000000000000000000000000000000000, got=0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f] testShouldFailExpectEmitAddress() ([GAS])
+[FAIL: log emitter mismatch: expected=0x0000000000000000000000000000000000000000, got=0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f] testShouldFailExpectEmitAddressWithArgs() ([GAS])
+[FAIL: log != expected log] testShouldFailExpectEmitCanMatchWithoutExactOrder() ([GAS])
 [FAIL: expected an emit, but no logs were emitted afterwards. you might have mismatched events or not enough events were emitted] testShouldFailExpectEmitDanglingNoReference() ([GAS])
 [FAIL: expected an emit, but no logs were emitted afterwards. you might have mismatched events or not enough events were emitted] testShouldFailExpectEmitDanglingWithReference() ([GAS])
-[FAIL: Something param mismatch at [..]: expected=[..], got=[..]; counterexample: calldata=[..] args=[..]] testShouldFailExpectEmitNested(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (runs: 0, [AVG_GAS])
+[FAIL: log mismatch at param 1: expected=0x00000000000000000000000000000000000000020fde6f0ee6be0cbd150eee19, got=0x00000000000000000000000000000000000000020fde6f0ee6be0cbd150eee1a, param 3: expected=0x000000000000000000000000000000000000000000000000000000000000041e, got=0x000000000000000000000000000000000000000000000000000000000000041f; counterexample: calldata=0xf3b193b80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000020fde6f0ee6be0cbd150eee1900000000000000000000000000000000000000000004aa8553063b6d34cece96000000000000000000000000000000000000000000000000000000000000041e args=[false, true, false, true, 14, 163367506165364055337836932633 [1.633e29], 5640964980042654987243158 [5.64e24], 1054]] testShouldFailExpectEmitNested(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (runs: 0, [AVG_GAS])
 [FAIL: log != expected log] testShouldFailLowLevelWithoutEmit() ([GAS])
 [FAIL: log != expected log] testShouldFailMatchRepeatedEventsOutOfOrder() ([GAS])
 [FAIL: log != expected log] testShouldFailNoEmitDirectlyOnNextCall() ([GAS])
 Suite result: FAILED. 0 passed; 15 failed; 0 skipped; [ELAPSED]
-...
+
+Ran 1 test suite [ELAPSED]: 0 tests passed, 15 failed, 0 skipped (15 total tests)
+
+Failing tests:
+Encountered 15 failing tests in src/ExpectEmitFailures.sol:ExpectEmitFailureTest
+[FAIL: log != expected log] testShouldFailCanMatchConsecutiveEvents() ([GAS])
+[FAIL: log != expected log] testShouldFailDifferentIndexedParameters() ([GAS])
+[FAIL: log != expected log] testShouldFailEmitOnlyAppliesToNextCall() ([GAS])
+[FAIL: next call did not revert as expected] testShouldFailEmitWindowWithRevertDisallowed() ([GAS])
+[FAIL: log != expected log] testShouldFailEventsOnTwoCalls() ([GAS])
+[FAIL: log mismatch at param 0: expected=0x0000000000000000000000000000000000000000000000000000000000001076, got=0x0000000000000000000000000000000000000000000000000000000000001077, param 2: expected=0x0000000000000000000000000000000000000000000000000000000000001478, got=0x0000000000000000000000000000000000000000000000000000000000001479, param 3: expected=0x00000000000000000000000000000000000000000000000000000000000017c7, got=0x00000000000000000000000000000000000000000000000000000000000017c8; counterexample: calldata=0xbe48f365000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000010760000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000147800000000000000000000000000000000000000000000000000000000000017c7 args=[true, false, true, true, 4214, 5, 5240, 6087]] testShouldFailExpectEmit(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (runs: 0, [AVG_GAS])
+[FAIL: log emitter mismatch: expected=0x0000000000000000000000000000000000000000, got=0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f] testShouldFailExpectEmitAddress() ([GAS])
+[FAIL: log emitter mismatch: expected=0x0000000000000000000000000000000000000000, got=0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f] testShouldFailExpectEmitAddressWithArgs() ([GAS])
+[FAIL: log != expected log] testShouldFailExpectEmitCanMatchWithoutExactOrder() ([GAS])
+[FAIL: expected an emit, but no logs were emitted afterwards. you might have mismatched events or not enough events were emitted] testShouldFailExpectEmitDanglingNoReference() ([GAS])
+[FAIL: expected an emit, but no logs were emitted afterwards. you might have mismatched events or not enough events were emitted] testShouldFailExpectEmitDanglingWithReference() ([GAS])
+[FAIL: log mismatch at param 1: expected=0x00000000000000000000000000000000000000020fde6f0ee6be0cbd150eee19, got=0x00000000000000000000000000000000000000020fde6f0ee6be0cbd150eee1a, param 3: expected=0x000000000000000000000000000000000000000000000000000000000000041e, got=0x000000000000000000000000000000000000000000000000000000000000041f; counterexample: calldata=0xf3b193b80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000020fde6f0ee6be0cbd150eee1900000000000000000000000000000000000000000004aa8553063b6d34cece96000000000000000000000000000000000000000000000000000000000000041e args=[false, true, false, true, 14, 163367506165364055337836932633 [1.633e29], 5640964980042654987243158 [5.64e24], 1054]] testShouldFailExpectEmitNested(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (runs: 0, [AVG_GAS])
+[FAIL: log != expected log] testShouldFailLowLevelWithoutEmit() ([GAS])
+[FAIL: log != expected log] testShouldFailMatchRepeatedEventsOutOfOrder() ([GAS])
+[FAIL: log != expected log] testShouldFailNoEmitDirectlyOnNextCall() ([GAS])
+
+Encountered a total of 15 failing tests, 0 tests succeeded
+
+Tip: Run `forge test --rerun` to retry only the 15 failed tests
+
 "#]]);
 
     cmd.forge_fuse()

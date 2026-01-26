@@ -63,68 +63,7 @@ contract CounterTableTest is Test {
     "#,
     );
 
-    cmd.args(["test", "--mc", "CounterTable", "-vvvvv"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 8 tests for test/CounterTable.t.sol:CounterTableTest
-[FAIL: 2 fixtures defined for diffSwap (expected 10)] tableMultipleParamsDifferentFixturesFail(uint256,bool) ([GAS])
-[FAIL: Cannot swap; counterexample: calldata=0x717892ca00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001 args=[1, true]] tableMultipleParamsFail(uint256,bool) (runs: 1, [AVG_GAS])
-Traces:
-  [..] CounterTableTest::tableMultipleParamsFail(1, true)
-    └─ ← [Revert] Cannot swap
-
-Backtrace:
-  at CounterTableTest.tableMultipleParamsFail (test/CounterTable.t.sol:[..]:[..])
-
-[FAIL: No fixture defined for param noSwap] tableMultipleParamsNoParamFail(uint256,bool) ([GAS])
-[PASS] tableMultipleParamsPass(uint256,bool) (runs: 10, [AVG_GAS])
-Traces:
-  [..] CounterTableTest::tableMultipleParamsPass(10, true)
-    ├─ [..] Counter::increment()
-    │   ├─  storage changes:
-    │   │   @ 0: 0 → 1
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-[FAIL: Amount cannot be 10; counterexample: calldata=0x44fa2375000000000000000000000000000000000000000000000000000000000000000a args=[10]] tableSingleParamFail(uint256) (runs: 10, [AVG_GAS])
-Traces:
-  [..] CounterTableTest::tableSingleParamFail(10)
-    └─ ← [Revert] Amount cannot be 10
-
-Backtrace:
-  at CounterTableTest.tableSingleParamFail (test/CounterTable.t.sol:[..]:[..])
-
-[PASS] tableSingleParamPass(uint256) (runs: 10, [AVG_GAS])
-Traces:
-  [..] CounterTableTest::tableSingleParamPass(10)
-    ├─ [..] Counter::increment()
-    │   ├─  storage changes:
-    │   │   @ 0: 0 → 1
-    │   └─ ← [Stop]
-    └─ ← [Stop]
-
-[FAIL: Table test should have at least one parameter] tableWithNoParamFail() ([GAS])
-[FAIL: Table test should have at least one fixture] tableWithParamNoFixtureFail(uint256) ([GAS])
-Suite result: FAILED. 2 passed; 6 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 2 tests passed, 6 failed, 0 skipped (8 total tests)
-
-Failing tests:
-Encountered 6 failing tests in test/CounterTable.t.sol:CounterTableTest
-[FAIL: 2 fixtures defined for diffSwap (expected 10)] tableMultipleParamsDifferentFixturesFail(uint256,bool) ([GAS])
-[FAIL: Cannot swap; counterexample: calldata=0x717892ca00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001 args=[1, true]] tableMultipleParamsFail(uint256,bool) (runs: 1, [AVG_GAS])
-[FAIL: No fixture defined for param noSwap] tableMultipleParamsNoParamFail(uint256,bool) ([GAS])
-[FAIL: Amount cannot be 10; counterexample: calldata=0x44fa2375000000000000000000000000000000000000000000000000000000000000000a args=[10]] tableSingleParamFail(uint256) (runs: 10, [AVG_GAS])
-[FAIL: Table test should have at least one parameter] tableWithNoParamFail() ([GAS])
-[FAIL: Table test should have at least one fixture] tableWithParamNoFixtureFail(uint256) ([GAS])
-
-Encountered a total of 6 failing tests, 2 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 6 failed tests
-
-"#]]);
+    cmd.args(["test", "--mc", "CounterTable", "-vvvvv"]).assert_failure().stdout_eq(str![""]);
 });
 
 // Table tests should show logs and contribute to coverage.

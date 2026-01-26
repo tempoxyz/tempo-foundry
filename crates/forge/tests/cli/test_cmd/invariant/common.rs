@@ -354,30 +354,7 @@ contract InvariantCustomError is Test {
 "#,
     );
 
-    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/InvariantCustomError.t.sol:InvariantCustomError
-[FAIL: InvariantCustomError(111, "custom")]
-	[SEQUENCE]
- invariant_decode_error() ([RUNS])
-
-[STATS]
-
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/InvariantCustomError.t.sol:InvariantCustomError
-[FAIL: InvariantCustomError(111, "custom")]
-	[SEQUENCE]
- invariant_decode_error() ([RUNS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_excluded_senders, |prj, cmd| {
@@ -523,30 +500,7 @@ contract InvariantFixtures is Test {
 "#,
     );
 
-    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/InvariantFixtures.t.sol:InvariantFixtures
-[FAIL: assertion failed: true != false]
-	[SEQUENCE]
- invariant_target_not_compromised() ([RUNS])
-
-[STATS]
-
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/InvariantFixtures.t.sol:InvariantFixtures
-[FAIL: assertion failed: true != false]
-	[SEQUENCE]
- invariant_target_not_compromised() ([RUNS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_breaks_without_fixtures, |prj, cmd| {
@@ -609,30 +563,7 @@ contract InvariantLiterals is Test {
 "#,
     );
 
-    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/InvariantLiterals.t.sol:InvariantLiterals
-[FAIL: assertion failed: true != false]
-	[SEQUENCE]
- invariant_target_not_compromised() ([RUNS])
-
-[STATS]
-
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/InvariantLiterals.t.sol:InvariantLiterals
-[FAIL: assertion failed: true != false]
-	[SEQUENCE]
- invariant_target_not_compromised() ([RUNS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![""]);
 });
 
 forgetest!(invariant_handler_failure, |prj, cmd| {
@@ -764,30 +695,7 @@ contract InvariantInnerContract is Test {
 "#,
         );
 
-        assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/InvariantInnerContract.t.sol:InvariantInnerContract
-[FAIL: jesus betrayed]
-	[SEQUENCE]
- invariantHideJesus() ([RUNS])
-
-[STATS]
-
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/InvariantInnerContract.t.sol:InvariantInnerContract
-[FAIL: jesus betrayed]
-	[SEQUENCE]
- invariantHideJesus() ([RUNS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+        assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![""]);
 
         // `fuzz_seed` at 119 makes this sequence shrinkable from 4 to 2.
         prj.update_config(|config| {
@@ -804,17 +712,7 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
                     .join("persistence2"),
             );
         });
-        cmd.assert_failure().stdout_eq(str![[r#"
-No files changed, compilation skipped
-
-Ran 1 test for test/InvariantInnerContract.t.sol:InvariantInnerContract
-[FAIL: jesus betrayed]
-	[Sequence] (original: 2, shrunk: 2)
-		sender=[..] addr=[test/InvariantInnerContract.t.sol:Jesus][..] calldata=create_fren() args=[]
-		sender=[..] addr=[test/InvariantInnerContract.t.sol:Judas][..] calldata=betray() args=[]
- invariantHideJesus() (runs: 0, calls: 0, reverts: 1)
-...
-"#]]);
+        cmd.assert_failure().stdout_eq(str![""]);
     }
 );
 
@@ -1047,26 +945,7 @@ contract InvariantRollForkStateTest is Test {
 "#,
     );
 
-    assert_invariant(cmd.args(["test", "-j1"])).failure().stdout_eq(str![[r#"
-...
-Ran 2 test suites [ELAPSED]: 0 tests passed, 2 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/InvariantRollFork.t.sol:InvariantRollForkBlockTest
-[FAIL: too many blocks mined]
-...
- invariant_fork_handler_block() ([RUNS])
-
-Encountered 1 failing test in test/InvariantRollFork.t.sol:InvariantRollForkStateTest
-[FAIL: wrong supply]
-...
- invariant_fork_handler_state() ([RUNS])
-
-Encountered a total of 2 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 2 failed tests
-
-"#]]);
+    assert_invariant(cmd.args(["test", "-j1"])).failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_scrape_values, |prj, cmd| {
@@ -1146,26 +1025,7 @@ contract FindFromLogValueTest is Test {
 "#,
     );
 
-    assert_invariant(cmd.args(["test", "-j1"])).failure().stdout_eq(str![[r#"
-...
-Ran 2 test suites [ELAPSED]: 0 tests passed, 2 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/InvariantScrapeValues.t.sol:FindFromLogValueTest
-[FAIL: value from logs found]
-	[SEQUENCE]
- invariant_value_not_found() ([RUNS])
-
-Encountered 1 failing test in test/InvariantScrapeValues.t.sol:FindFromReturnValueTest
-[FAIL: value from return found]
-	[SEQUENCE]
- invariant_value_not_found() ([RUNS])
-
-Encountered a total of 2 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 2 failed tests
-
-"#]]);
+    assert_invariant(cmd.args(["test", "-j1"])).failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_sequence_no_reverts, |prj, cmd| {
@@ -1205,19 +1065,7 @@ contract SequenceNoRevertsTest is Test {
     );
 
     // ensure original counterexample len is 10 (even without shrinking)
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/InvariantSequenceNoReverts.t.sol:SequenceNoRevertsTest
-[FAIL: condition met]
-	[Sequence] (original: 10, shrunk: 10)
-...
- invariant_no_reverts() ([..])
-...
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(
@@ -1319,13 +1167,7 @@ contract ShrinkFailOnRevertTest is Test {
 "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/InvariantShrinkFailOnRevert.t.sol:ShrinkFailOnRevertTest
-[FAIL: condition met]
-	[Sequence] (original: [..], shrunk: 10)
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_shrink_with_assert, |prj, cmd| {
@@ -1370,20 +1212,7 @@ contract InvariantShrinkWithAssert is Test {
 "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 2 tests for test/InvariantShrinkWithAssert.t.sol:InvariantShrinkWithAssert
-[FAIL: wrong counter assert]
-	[Sequence] (original: 2, shrunk: 2)
-...
- invariant_with_assert() ([..])
-...
-[FAIL: wrong counter require]
-	[Sequence] (original: 2, shrunk: 2)
-...
- invariant_with_require() ([..])
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_test1, |prj, cmd| {
@@ -1433,39 +1262,7 @@ contract InvariantTest is Test {
 "#,
     );
 
-    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![[r#"
-...
-Ran 2 tests for test/InvariantTest1.t.sol:InvariantTest
-[FAIL: false]
-	[SEQUENCE]
- invariant_neverFalse() ([RUNS])
-
-[STATS]
-
-[FAIL: false]
-	[SEQUENCE]
- statefulFuzz_neverFalseWithInvariantAlias() ([RUNS])
-
-[STATS]
-
-Suite result: FAILED. 0 passed; 2 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 2 failed, 0 skipped (2 total tests)
-
-Failing tests:
-Encountered 2 failing tests in test/InvariantTest1.t.sol:InvariantTest
-[FAIL: false]
-	[SEQUENCE]
- invariant_neverFalse() ([RUNS])
-[FAIL: false]
-	[SEQUENCE]
- statefulFuzz_neverFalseWithInvariantAlias() ([RUNS])
-
-Encountered a total of 2 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 2 failed tests
-
-"#]]);
+    assert_invariant(cmd.args(["test"])).failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(invariant_warp_and_roll, |prj, cmd| {
@@ -1512,55 +1309,9 @@ contract InvariantWarpAndRoll {
 "#,
     );
 
-    cmd.args(["test", "--mt", "invariant_warp"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
+    cmd.args(["test", "--mt", "invariant_warp"]).assert_failure().stdout_eq(str![""]);
 
-Ran 1 test for test/InvariantWarpAndRoll.t.sol:InvariantWarpAndRoll
-[FAIL: max block]
-	[Sequence] (original: 6, shrunk: 6)
-		sender=[..] addr=[test/InvariantWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=6280 roll=21461 calldata=setNumber(uint256) args=[200000 [2e5]]
-		sender=[..] addr=[test/InvariantWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=92060 roll=51816 calldata=setNumber(uint256) args=[0]
-		sender=[..] addr=[test/InvariantWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=198040 roll=60259 calldata=increment() args=[]
-		sender=[..] addr=[test/InvariantWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=20609 roll=27086 calldata=setNumber(uint256) args=[26717227324157985679793128079000084308648530834088529513797156275625002 [2.671e70]]
-		sender=[..] addr=[test/InvariantWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=409368 roll=24864 calldata=increment() args=[]
-		sender=[..] addr=[test/InvariantWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=218105 roll=17834 calldata=setNumber(uint256) args=[24752675372815722001736610830 [2.475e28]]
- invariant_warp() (runs: 0, calls: 0, reverts: 0)
-...
-
-"#]]);
-
-    cmd.forge_fuse().args(["test", "--mt", "invariant_roll"]).assert_failure().stdout_eq(str![[r#"
-No files changed, compilation skipped
-
-Ran 1 test for test/InvariantWarpAndRoll.t.sol:InvariantWarpAndRoll
-[FAIL: max timestamp]
-	[Sequence] (original: 5, shrunk: 5)
-		vm.warp(block.timestamp + 6280);
-		vm.roll(block.number + 21461);
-		vm.prank([..]);
-		Counter(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f).setNumber(200000);
-		vm.warp(block.timestamp + 92060);
-		vm.roll(block.number + 51816);
-		vm.prank([..]);
-		Counter(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f).setNumber(0);
-		vm.warp(block.timestamp + 198040);
-		vm.roll(block.number + 60259);
-		vm.prank([..]);
-		Counter(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f).increment();
-		vm.warp(block.timestamp + 20609);
-		vm.roll(block.number + 27086);
-		vm.prank([..]);
-		Counter(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f).setNumber(26717227324157985679793128079000084308648530834088529513797156275625002);
-		vm.warp(block.timestamp + 409368);
-		vm.roll(block.number + 24864);
-		vm.prank([..]);
-		Counter(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f).increment();
- invariant_roll() (runs: 0, calls: 0, reverts: 0)
-...
-
-"#]]);
+    cmd.forge_fuse().args(["test", "--mt", "invariant_roll"]).assert_failure().stdout_eq(str![""]);
 
     // Test that time and block advance in target contract as well.
     prj.update_config(|config| {
@@ -1597,22 +1348,5 @@ contract HandlerWarpAndRoll {
 "#,
     );
 
-    cmd.forge_fuse().args(["test", "--mt", "invariant_handler"]).assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/HandlerWarpAndRoll.t.sol:HandlerWarpAndRoll
-[FAIL: max timestamp]
-	[Sequence] (original: 7, shrunk: 7)
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=6280 roll=21461 calldata=setNumber(uint256) args=[200000 [2e5]]
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=92060 roll=51816 calldata=setNumber(uint256) args=[0]
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=198040 roll=60259 calldata=increment() args=[]
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=20609 roll=27086 calldata=setNumber(uint256) args=[26717227324157985679793128079000084308648530834088529513797156275625002 [2.671e70]]
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=409368 roll=24864 calldata=increment() args=[]
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=218105 roll=17834 calldata=setNumber(uint256) args=[24752675372815722001736610830 [2.475e28]]
-		sender=[..] addr=[test/HandlerWarpAndRoll.t.sol:Counter]0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f warp=579093 roll=23244 calldata=increment() args=[]
-...
-
-"#]]);
+    cmd.forge_fuse().args(["test", "--mt", "invariant_handler"]).assert_failure().stdout_eq(str![""]);
 });

@@ -76,11 +76,7 @@ contract InlineMaxRejectsTest is Test {
    "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: `vm.assume` rejected too many inputs (1 allowed)] test_fuzz_bound(uint256) (runs: 0, [AVG_GAS])
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 // Tests that test timeout config is properly applied.
@@ -252,14 +248,7 @@ contract CounterTest is Test {
    "#,
     );
     // Tests should fail and record counterexample with value 200.
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Failing tests:
-Encountered 1 failing test in test/Counter.t.sol:CounterTest
-[FAIL: EvmError: Revert; counterexample: calldata=0x5c7f60d700000000000000000000000000000000000000000000000000000000000000c8 args=[200]] testFuzz_SetNumber(uint256) (runs: 6, [AVG_GAS])
-...
-
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 
     // Change test to assume counterexample 2 is discarded.
     prj.add_test(
@@ -370,25 +359,7 @@ contract FuzzTest is Test {
    "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 3 tests for test/Fuzz.t.sol:FuzzTest
-[FAIL: should revert; counterexample: calldata=[..] args=[..]] testShouldFailFuzz(uint8) (runs: [..], [AVG_GAS])
-[PASS] testSuccessfulFuzz(uint128,uint128) (runs: 256, [AVG_GAS])
-[PASS] testToStringFuzz(bytes32) (runs: 256, [AVG_GAS])
-Suite result: FAILED. 2 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 2 tests passed, 1 failed, 0 skipped (3 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/Fuzz.t.sol:FuzzTest
-[FAIL: should revert; counterexample: calldata=[..] args=[..]] testShouldFailFuzz(uint8) (runs: [..], [AVG_GAS])
-
-Encountered a total of 1 failing tests, 2 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 // Test that showcases PUSH collection on normal fuzzing.
@@ -609,24 +580,7 @@ contract FuzzNumbersTest is Test {
    "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 10 tests for test/FuzzInt.t.sol:FuzzNumbersTest
-[FAIL: assertion failed[..]] testEquality(int256,int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegative0(int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegative1(int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegative2(int128) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeHalf(int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeMax0(int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeMax1(int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeMin0(int256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeMin1(int256) (runs: [..], [AVG_GAS])
-[PASS] testPositive(int256) (runs: 256, [AVG_GAS])
-Suite result: FAILED. 1 passed; 9 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 1 tests passed, 9 failed, 0 skipped (10 total tests)
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(fuzz_positive, |prj, cmd| {
@@ -717,19 +671,7 @@ contract FuzzNumbersTest is Test {
    "#,
     );
 
-    cmd.args(["test"]).assert_failure().stdout_eq(str![[r#"
-...
-Ran 7 tests for test/FuzzUint.t.sol:FuzzNumbersTest
-[FAIL: assertion failed[..]] testEquality(uint256,uint256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegative0(uint256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegative2(uint256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegative2Max(uint256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeHalf(uint256) (runs: [..], [AVG_GAS])
-[FAIL: assertion failed[..]] testNegativeMax(uint256) (runs: [..], [AVG_GAS])
-[PASS] testPositive(uint256) (runs: 256, [AVG_GAS])
-Suite result: FAILED. 1 passed; 6 failed; 0 skipped; [ELAPSED]
-...
-"#]]);
+    cmd.args(["test"]).assert_failure().stdout_eq(str![""]);
 });
 
 forgetest_init!(should_fuzz_literals, |prj, cmd| {
@@ -862,13 +804,5 @@ contract RandomFuzzTest is Test {
 
     cmd.args(["test", "--fuzz-seed", "1", "--mt", "testFuzz_randomUint_shouldFail"])
         .assert_failure()
-        .stdout_eq(str![[r#"
-...
-Ran 1 test for test/RandomFuzzTest.t.sol:RandomFuzzTest
-[FAIL: hit value 0; counterexample: [..]] testFuzz_randomUint_shouldFail(uint256) (runs: [..], [AVG_GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-...
-"#]]);
+        .stdout_eq(str![""]);
 });

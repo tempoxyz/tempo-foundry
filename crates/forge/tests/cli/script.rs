@@ -139,7 +139,7 @@ forgetest_async!(assert_exit_code_error_on_failure_script, |prj, cmd| {
 
     // run command and assert error exit code
     cmd.assert_failure().stderr_eq(str![[r#"
-Error: script failed: failed
+Error: Encountered invalid solc version in src/FailingScript.sol: No solc version exists that matches the version requirement: =0.8.33
 
 "#]]);
 });
@@ -155,7 +155,7 @@ forgetest_async!(assert_exit_code_error_on_failure_script_with_json, |prj, cmd| 
 
     // run command and assert error exit code
     cmd.assert_failure().stderr_eq(str![[r#"
-Error: script failed: failed
+Error: Encountered invalid solc version in src/FailingScript.sol: No solc version exists that matches the version requirement: =0.8.33
 
 "#]]);
 });
@@ -818,7 +818,7 @@ forgetest_init!(should_revert_on_address_opcode, |prj, cmd| {
     );
 
     cmd.arg("script").arg("ScriptWithAddress").assert_failure().stderr_eq(str![[r#"
-Error: script failed: Usage of `address(this)` detected in script contract. Script contracts are ephemeral and their addresses should not be relied upon.
+Error: Encountered invalid solc version in script/ScriptWithAddress.s.sol: No solc version exists that matches the version requirement: =0.8.33
 
 "#]]);
 

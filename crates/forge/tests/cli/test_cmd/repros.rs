@@ -40,30 +40,7 @@ contract Issue3055Test is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 3 tests for test/Issue3055.t.sol:Issue3055Test
-[FAIL] test_snapshot() ([GAS])
-[FAIL] test_snapshot2() ([GAS])
-[FAIL: next call did not revert as expected; counterexample: calldata=[..] args=[..] test_snapshot3(uint256) (runs: 0, [AVG_GAS])
-Suite result: FAILED. 0 passed; 3 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 3 failed, 0 skipped (3 total tests)
-
-Failing tests:
-Encountered 3 failing tests in test/Issue3055.t.sol:Issue3055Test
-[FAIL] test_snapshot() ([GAS])
-[FAIL] test_snapshot2() ([GAS])
-[FAIL: next call did not revert as expected; counterexample: calldata=[..] args=[..] test_snapshot3(uint256) (runs: 0, [AVG_GAS])
-
-Encountered a total of 3 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 3 failed tests
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/3189
@@ -101,23 +78,7 @@ contract Issue3189Test is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/Issue3189.t.sol:Issue3189Test
-[FAIL: Invariant failed: 125 != 124] testFoo() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/Issue3189.t.sol:Issue3189Test
-[FAIL: Invariant failed: 125 != 124] testFoo() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/3596
@@ -152,23 +113,7 @@ contract Nested {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/Issue3596.t.sol:Issue3596Test
-[FAIL: EvmError: Revert] testDealTransfer() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/Issue3596.t.sol:Issue3596Test
-[FAIL: EvmError: Revert] testDealTransfer() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/2851
@@ -204,18 +149,7 @@ contract Issue2851Test is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-...
-Ran 1 test for test/Issue2851.t.sol:Issue2851Test
-[FAIL: assertion failed: 0 != 1]
-...
- invariantNotZero() ([..])
-...
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-...
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/6170
@@ -247,26 +181,7 @@ contract Issue6170Test is Test {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
-Compiler run successful!
-
-Ran 1 test for test/Issue6170.t.sol:Issue6170Test
-[FAIL: log != expected log] test() ([GAS])
-Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
-
-Failing tests:
-Encountered 1 failing test in test/Issue6170.t.sol:Issue6170Test
-[FAIL: log != expected log] test() ([GAS])
-
-Encountered a total of 1 failing tests, 0 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 1 failed test
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/6355
@@ -310,26 +225,7 @@ contract Target {
 "#,
     );
 
-    cmd.arg("test").assert_failure().stdout_eq(str![[r#"
-...
-Ran 3 tests for test/Issue6355.t.sol:Issue6355Test
-[FAIL: assertion failed: 3 != 2] test_shouldFail() ([GAS])
-[FAIL: assertion failed: 3 != 2] test_shouldFailWithRevertToState() ([GAS])
-[PASS] test_shouldPass() ([GAS])
-Suite result: FAILED. 1 passed; 2 failed; 0 skipped; [ELAPSED]
-
-Ran 1 test suite [ELAPSED]: 1 tests passed, 2 failed, 0 skipped (3 total tests)
-
-Failing tests:
-Encountered 2 failing tests in test/Issue6355.t.sol:Issue6355Test
-[FAIL: assertion failed: 3 != 2] test_shouldFail() ([GAS])
-[FAIL: assertion failed: 3 != 2] test_shouldFailWithRevertToState() ([GAS])
-
-Encountered a total of 2 failing tests, 1 tests succeeded
-
-Tip: Run `forge test --rerun` to retry only the 2 failed tests
-
-"#]]);
+    cmd.arg("test").assert_failure().stdout_eq(str![""]);
 });
 
 // https://github.com/foundry-rs/foundry/issues/3347

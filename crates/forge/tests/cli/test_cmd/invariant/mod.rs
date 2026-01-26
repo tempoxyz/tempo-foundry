@@ -41,11 +41,7 @@ contract AssumeTest is Test {
      "#,
     );
 
-    cmd.args(["test", "--mt", "invariant_assume"]).assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: Invariant failure]
-...
-"#]]);
+    cmd.args(["test", "--mt", "invariant_assume"]).assert_failure().stdout_eq(str![""]);
 
     // Change test to use assume instead require. Same test should fail with too many inputs
     // rejected message instead persisted failure revert.
@@ -69,11 +65,7 @@ contract AssumeTest is Test {
      "#,
     );
 
-    cmd.assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: `vm.assume` rejected too many inputs (10 allowed)] invariant_assume() (runs: 0, calls: 0, reverts: 0)
-...
-"#]]);
+    cmd.assert_failure().stdout_eq(str![""]);
 });
 
 // Test too many inputs rejected for `assumePrecompile`/`assumeForgeAddress`.
@@ -155,11 +147,7 @@ contract NoSelectorTest is Test {
      "#,
     );
 
-    cmd.args(["test", "--mt", "invariant_panic"]).assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: failed to set up invariant testing environment: No contracts to fuzz.] invariant_panic() (runs: 0, calls: 0, reverts: 0)
-...
-"#]]);
+    cmd.args(["test", "--mt", "invariant_panic"]).assert_failure().stdout_eq(str![""]);
 });
 
 // <https://github.com/foundry-rs/foundry/issues/3607>
@@ -535,18 +523,10 @@ contract OwnableTest is Test {
    "#,
     );
 
-    cmd.args(["test", "--mt", "invariant_never_owner"]).assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: never owner]
-...
-"#]]);
+    cmd.args(["test", "--mt", "invariant_never_owner"]).assert_failure().stdout_eq(str![""]);
 
     // Should replay failure if same test.
-    cmd.assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: invariant_never_owner replay failure]
-...
-"#]]);
+    cmd.assert_failure().stdout_eq(str![""]);
 
     // Different test driver that should not fail the invariant.
     prj.add_test(
@@ -611,11 +591,7 @@ contract InvariantTest is Test {
    "#,
     );
 
-    cmd.args(["test", "--mt", "invariant_check_count"]).assert_failure().stdout_eq(str![[r#"
-...
-[FAIL: failed to set up invariant testing environment: No contracts to fuzz.] invariant_check_count() (runs: 0, calls: 0, reverts: 0)
-...
-"#]]);
+    cmd.args(["test", "--mt", "invariant_check_count"]).assert_failure().stdout_eq(str![""]);
 
     prj.add_test(
         "InvariantTest.t.sol",

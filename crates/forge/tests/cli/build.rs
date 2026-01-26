@@ -398,8 +398,6 @@ Unable to resolve imports:
       "/badpath/B.sol" in "[..]"
 with remappings:
       forge-std/=[..]
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
 
 "#]]);
     cmd.forge_fuse().args(["build", "src/CContract.sol"]).assert_failure().stdout_eq(str![[r#"
@@ -407,8 +405,6 @@ Unable to resolve imports:
       "badpath/B.sol" in "[..]"
 with remappings:
       forge-std/=[..]
-[COMPILING_FILES] with [SOLC_VERSION]
-[SOLC_VERSION] [ELAPSED]
 
 "#]]);
 });
@@ -436,25 +432,23 @@ contract ContractB {
    "#,
     );
 
-    cmd.args(["build", "src/ContractWithInvalidNatspec.sol"]).assert_success().stderr_eq(str![[
-        r#"
+    cmd.args(["build", "src/ContractWithInvalidNatspec.sol"]).assert_success().stderr_eq(str![[r#"
 warning: invalid natspec tag '@deprecated', custom tags must use format '@custom:name'
- [FILE]:5:5
-  |
-5 |     /// @deprecated quoteExactOutputSingle and exactOutput. Use QuoterV2 instead.
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
+  [FILE]:5:5
+  │
+5 │     /// @deprecated quoteExactOutputSingle and exactOutput. Use QuoterV2 instead.
+  │     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │
 ...
 
 warning: invalid natspec tag '@note', custom tags must use format '@custom:name'
- [FILE]:9:1
-  |
-9 | /// @note foo bar
-  | ^^^^^^^^^^^^^^^^^
-  |
+  [FILE]:9:1
+  │
+9 │ /// @note foo bar
+  │ ━━━━━━━━━━━━━━━━━
+  │
 ...
 
 
-"#
-    ]]);
+"#]]);
 });

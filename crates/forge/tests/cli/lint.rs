@@ -128,12 +128,12 @@ forgetest!(can_use_config, |prj, cmd| {
     });
     cmd.arg("lint").assert_success().stderr_eq(str![[r#"
 warning[divide-before-multiply]: multiplication should occur before division to avoid loss of precision
-  [FILE]:16:9
-   |
-16 |         (1 / 2) * 3;
-   |         ^^^^^^^^^^^
-   |
-   = help: https://book.getfoundry.sh/reference/forge/forge-lint#divide-before-multiply
+   [FILE]:16:9
+   │
+16 │         (1 / 2) * 3;
+   │         ━━━━━━━━━━━
+   │
+   ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#divide-before-multiply
 
 
 "#]]);
@@ -155,12 +155,12 @@ forgetest!(can_use_config_ignore, |prj, cmd| {
     });
     cmd.arg("lint").assert_success().stderr_eq(str![[r#"
 note[mixed-case-function]: function names should use mixedCase
- [FILE]:9:14
-  |
-9 |     function functionMIXEDCaseInfo() public {}
-  |              ^^^^^^^^^^^^^^^^^^^^^ help: consider using: `functionMixedCaseInfo`
-  |
-  = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+  [FILE]:9:14
+  │
+9 │     function functionMIXEDCaseInfo() public {}
+  │              ━━━━━━━━━━━━━━━━━━━━━ help: consider using: `functionMixedCaseInfo`
+  │
+  ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
 
 
 "#]]);
@@ -211,12 +211,12 @@ forgetest!(can_override_config_severity, |prj, cmd| {
     });
     cmd.arg("lint").args(["--severity", "info"]).assert_success().stderr_eq(str![[r#"
 note[mixed-case-function]: function names should use mixedCase
- [FILE]:9:14
-  |
-9 |     function functionMIXEDCaseInfo() public {}
-  |              ^^^^^^^^^^^^^^^^^^^^^ help: consider using: `functionMixedCaseInfo`
-  |
-  = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+  [FILE]:9:14
+  │
+9 │     function functionMIXEDCaseInfo() public {}
+  │              ━━━━━━━━━━━━━━━━━━━━━ help: consider using: `functionMixedCaseInfo`
+  │
+  ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
 
 
 "#]]);
@@ -238,12 +238,12 @@ forgetest!(can_override_config_path, |prj, cmd| {
     });
     cmd.arg("lint").arg("src/ContractWithLints.sol").assert_success().stderr_eq(str![[r#"
 warning[divide-before-multiply]: multiplication should occur before division to avoid loss of precision
-  [FILE]:16:9
-   |
-16 |         (1 / 2) * 3;
-   |         ^^^^^^^^^^^
-   |
-   = help: https://book.getfoundry.sh/reference/forge/forge-lint#divide-before-multiply
+   [FILE]:16:9
+   │
+16 │         (1 / 2) * 3;
+   │         ━━━━━━━━━━━
+   │
+   ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#divide-before-multiply
 
 
 "#]]);
@@ -263,19 +263,17 @@ forgetest!(can_override_config_lint, |prj, cmd| {
             ..Default::default()
         };
     });
-    cmd.arg("lint").args(["--only-lint", "incorrect-shift"]).assert_success().stderr_eq(str![[
-        r#"
+    cmd.arg("lint").args(["--only-lint", "incorrect-shift"]).assert_success().stderr_eq(str![[r#"
 warning[incorrect-shift]: the order of args in a shift operation is incorrect
-  [FILE]:13:26
-   |
-13 |         uint256 result = 8 >> localValue;
-   |                          ^^^^^^^^^^^^^^^
-   |
-   = help: https://book.getfoundry.sh/reference/forge/forge-lint#incorrect-shift
+   [FILE]:13:26
+   │
+13 │         uint256 result = 8 >> localValue;
+   │                          ━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#incorrect-shift
 
 
-"#
-    ]]);
+"#]]);
 });
 
 forgetest!(build_runs_linter_by_default, |prj, cmd| {
@@ -295,12 +293,12 @@ forgetest!(build_runs_linter_by_default, |prj, cmd| {
     // Run forge build and expect linting output before compilation
     cmd.arg("build").assert_success().stderr_eq(str![[r#"
 warning[divide-before-multiply]: multiplication should occur before division to avoid loss of precision
-  [FILE]:16:9
-   |
-16 |         (1 / 2) * 3;
-   |         ^^^^^^^^^^^
-   |
-   = help: https://book.getfoundry.sh/reference/forge/forge-lint#divide-before-multiply
+   [FILE]:16:9
+   │
+16 │         (1 / 2) * 3;
+   │         ━━━━━━━━━━━
+   │
+   ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#divide-before-multiply
 
 
 "#]]).stdout_eq(str![[r#"
@@ -456,12 +454,12 @@ forgetest!(can_use_only_lint_with_multilint_passes, |prj, cmd| {
     prj.add_source("OnlyImports", ONLY_IMPORTS);
     cmd.arg("lint").args(["--only-lint", "unused-import"]).assert_success().stderr_eq(str![[r#"
 note[unused-import]: unused imports should be removed
- [FILE]:8:10
-  |
-8 | import { _PascalCaseInfo } from "./ContractWithLints.sol";
-  |          ^^^^^^^^^^^^^^^
-  |
-  = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+  [FILE]:8:10
+  │
+8 │ import { _PascalCaseInfo } from "./ContractWithLints.sol";
+  │          ━━━━━━━━━━━━━━━
+  │
+  ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
 
 
 "#]]);
@@ -488,12 +486,12 @@ note[mixed-case-variable]: mutable variables should use mixedCase
     let args = ["build", "src/CounterBWithLints.sol"];
     cmd.forge_fuse().args(args).assert_success().stderr_eq(str![[r#"
 note[mixed-case-variable]: mutable variables should use mixedCase
- [FILE]:6:20
-  |
-6 |     uint256 public CounterB_Fail_Lint;
-  |                    ^^^^^^^^^^^^^^^^^^ help: consider using: `counterBFailLint`
-  |
-  = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+  [FILE]:6:20
+  │
+6 │     uint256 public CounterB_Fail_Lint;
+  │                    ━━━━━━━━━━━━━━━━━━ help: consider using: `counterBFailLint`
+  │
+  ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
 
 
 "#]]);
@@ -548,113 +546,113 @@ forgetest!(lint_json_output_no_ansi_escape_codes, |prj, cmd| {
     cmd.arg("lint").arg("--json").assert_json_stderr(true,
         str![[r#"
 {
-    "$message_type": "diagnostic",
-    "message": "wrap modifier logic to reduce code size",
-    "code": {
+  "$message_type": "diagnostic",
+  "message": "wrap modifier logic to reduce code size",
+  "code": {
     "code": "unwrapped-modifier-logic",
     "explanation": null
-    },
-    "level": "note",
-    "spans": [
+  },
+  "level": "note",
+  "spans": [
     {
-        "file_name": "src/UnwrappedModifierTest.sol",
-        "byte_start": 174,
-        "byte_end": 355,
-        "line_start": 8,
-        "line_end": 12,
-        "column_start": 13,
-        "column_end": 14,
-        "is_primary": true,
-        "text": [
+      "file_name": "src/UnwrappedModifierTest.sol",
+      "byte_start": 174,
+      "byte_end": 355,
+      "line_start": 8,
+      "line_end": 12,
+      "column_start": 13,
+      "column_end": 14,
+      "is_primary": true,
+      "text": [
         {
-            "text": "            modifier onlyOwner() {",
-            "highlight_start": 13,
-            "highlight_end": 35
+          "text": "            modifier onlyOwner() {",
+          "highlight_start": 13,
+          "highlight_end": 35
         },
         {
-            "text": "                require(isOwner[msg.sender], \"Not owner\");",
-            "highlight_start": 1,
-            "highlight_end": 59
+          "text": "                require(isOwner[msg.sender], \"Not owner\");",
+          "highlight_start": 1,
+          "highlight_end": 59
         },
         {
-            "text": "                require(msg.sender != address(0), \"Zero address\");",
-            "highlight_start": 1,
-            "highlight_end": 67
+          "text": "                require(msg.sender != address(0), \"Zero address\");",
+          "highlight_start": 1,
+          "highlight_end": 67
         },
         {
-            "text": "                _;",
-            "highlight_start": 1,
-            "highlight_end": 19
+          "text": "                _;",
+          "highlight_start": 1,
+          "highlight_end": 19
         },
         {
-            "text": "            }",
-            "highlight_start": 1,
-            "highlight_end": 14
+          "text": "            }",
+          "highlight_start": 1,
+          "highlight_end": 14
         }
-        ],
-        "label": null,
-        "suggested_replacement": null
+      ],
+      "label": null,
+      "suggested_replacement": null
     }
-    ],
-    "children": [
+  ],
+  "children": [
     {
-        "message": "https://book.getfoundry.sh/reference/forge/forge-lint#unwrapped-modifier-logic",
-        "code": null,
-        "level": "help",
-        "spans": [],
-        "children": [],
-        "rendered": null
+      "message": "https://book.getfoundry.sh/reference/forge/forge-lint#unwrapped-modifier-logic",
+      "code": null,
+      "level": "help",
+      "spans": [],
+      "children": [],
+      "rendered": null
     },
     {
-        "message": "wrap modifier logic to reduce code size",
-        "code": null,
-        "level": "help",
-        "spans": [
+      "message": "wrap modifier logic to reduce code size",
+      "code": null,
+      "level": "help",
+      "spans": [
         {
-            "file_name": "src/UnwrappedModifierTest.sol",
-            "byte_start": 174,
-            "byte_end": 355,
-            "line_start": 8,
-            "line_end": 12,
-            "column_start": 13,
-            "column_end": 14,
-            "is_primary": true,
-            "text": [
+          "file_name": "src/UnwrappedModifierTest.sol",
+          "byte_start": 174,
+          "byte_end": 355,
+          "line_start": 8,
+          "line_end": 12,
+          "column_start": 13,
+          "column_end": 14,
+          "is_primary": true,
+          "text": [
             {
-                "text": "            modifier onlyOwner() {",
-                "highlight_start": 13,
-                "highlight_end": 35
+              "text": "            modifier onlyOwner() {",
+              "highlight_start": 13,
+              "highlight_end": 35
             },
             {
-                "text": "                require(isOwner[msg.sender], \"Not owner\");",
-                "highlight_start": 1,
-                "highlight_end": 59
+              "text": "                require(isOwner[msg.sender], \"Not owner\");",
+              "highlight_start": 1,
+              "highlight_end": 59
             },
             {
-                "text": "                require(msg.sender != address(0), \"Zero address\");",
-                "highlight_start": 1,
-                "highlight_end": 67
+              "text": "                require(msg.sender != address(0), \"Zero address\");",
+              "highlight_start": 1,
+              "highlight_end": 67
             },
             {
-                "text": "                _;",
-                "highlight_start": 1,
-                "highlight_end": 19
+              "text": "                _;",
+              "highlight_start": 1,
+              "highlight_end": 19
             },
             {
-                "text": "            }",
-                "highlight_start": 1,
-                "highlight_end": 14
+              "text": "            }",
+              "highlight_start": 1,
+              "highlight_end": 14
             }
-            ],
-            "label": null,
-            "suggested_replacement": "modifier onlyOwner() {\n                _onlyOwner();\n                _;\n            }\n\n            function _onlyOwner() internal {\n                require(isOwner[msg.sender], \"Not owner\");\n                require(msg.sender != address(0), \"Zero address\");\n            }"
+          ],
+          "label": null,
+          "suggested_replacement": "modifier onlyOwner() {\n                _onlyOwner();\n                _;\n            }\n\n            function _onlyOwner() internal {\n                require(isOwner[msg.sender], \"Not owner\");\n                require(msg.sender != address(0), \"Zero address\");\n            }"
         }
-        ],
-        "children": [],
-        "rendered": null
+      ],
+      "children": [],
+      "rendered": null
     }
-    ],
-    "rendered": "note[unwrapped-modifier-logic]: wrap modifier logic to reduce code size\n\n  --> src/UnwrappedModifierTest.sol:8:13\n   |\n 8 | /             modifier onlyOwner() {\n 9 | |                 require(isOwner[msg.sender], \"Not owner\");\n10 | |                 require(msg.sender != address(0), \"Zero address\");\n11 | |                 _;\n12 | |             }\n   | |_____________^\n   |\nhelp: wrap modifier logic to reduce code size\n   |\n 8 ~             modifier onlyOwner() {\n 9 +                 _onlyOwner();\n10 +                 _;\n11 +             }\n12 + \n13 +             function _onlyOwner() internal {\n14 +                 require(isOwner[msg.sender], \"Not owner\");\n15 +                 require(msg.sender != address(0), \"Zero address\");\n16 +             }\n   |\n   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unwrapped-modifier-logic\n"
+  ],
+  "rendered": "note[unwrapped-modifier-logic]: wrap modifier logic to reduce code size\n\nhelp: wrap modifier logic to reduce code size\n 9 +                 _onlyOwner();\n10 +                 _;\n11 +             }\n12 + \n13 +             function _onlyOwner() internal {\n14 +                 require(isOwner[msg.sender], \"Not owner\");\n15 +                 require(msg.sender != address(0), \"Zero address\");\n16 +             }\n   ╭▸ src/UnwrappedModifierTest.sol:8:13\n   │\n 8 │ ┏             modifier onlyOwner() {\n 9 │ ┃                 require(isOwner[msg.sender], \"Not owner\");\n10 │ ┃                 require(msg.sender != address(0), \"Zero address\");\n11 │ ┃                 _;\n12 │ ┃             }\n   │ ┗━━━━━━━━━━━━━┛\n   │\n   ╰ help: https://book.getfoundry.sh/reference/forge/forge-lint#unwrapped-modifier-logic\n   ╭╴\n 8 ±             modifier onlyOwner() {\n   ╰╴\n"
 }
 "#]],
 );
