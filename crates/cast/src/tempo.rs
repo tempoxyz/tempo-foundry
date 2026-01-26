@@ -54,6 +54,10 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx.set_nonce(nonce.to());
         }
 
+        if let Some(nonce_key) = tx_opts.nonce_key {
+            tx.set_nonce_key(nonce_key);
+        }
+
         Ok(Self {
             provider,
             tx,

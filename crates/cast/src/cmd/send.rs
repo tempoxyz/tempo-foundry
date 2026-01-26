@@ -1,7 +1,7 @@
 use std::{str::FromStr, time::Duration};
 
 use alloy_ens::NameOrAddress;
-use alloy_network::EthereumWallet;
+use alloy_network::{EthereumWallet, TransactionBuilder, TxSigner, eip2718::Encodable2718};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
@@ -156,9 +156,21 @@ impl SendTxArgs {
         } else {
             // Retrieve the signer, and bail if it can't be constructed.
             let signer = send_tx.eth.wallet.signer().await?;
-            let from = signer.address();
 
-            tx::validate_from_address(send_tx.eth.wallet.from, from)?;
+            // Check if we're using an access key (signs on behalf of root account)
+            let access_key_config = send_tx.eth.wallet.access_key_config();
+
+            // For access keys, `from` is the root account; otherwise it's the signer address
+            let from = if let Some(ref config) = access_key_config {
+                config.root_account
+            } else {
+                Signer::address(&signer)
+            };
+
+            // Only validate from address if not using access key
+            if access_key_config.is_none() {
+                tx::validate_from_address(send_tx.eth.wallet.from, from)?;
+            }
 
             // Browser wallets work differently as they sign and send the transaction in one step.
             if send_tx.eth.wallet.browser
@@ -186,22 +198,69 @@ impl SendTxArgs {
                 return Ok(());
             }
 
-            let (tx_request, _) = builder.build(&signer, send_tx.fee_token).await?;
+            // For access keys, pass the root account address so gas estimation and nonce lookup
+            // use the correct address. For regular transactions, pass the signer so EIP-7702
+            // authorization signing can work.
+            let (mut tx_request, _) = if access_key_config.is_some() {
+                builder.build(from, send_tx.fee_token).await?
+            } else {
+                builder.build(&signer, send_tx.fee_token).await?
+            };
 
-            let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
-                .wallet(wallet)
-                .connect_provider(&provider);
+            // For access keys, set the key_id
+            if let Some(ref config) = access_key_config {
+                tx_request.key_id = Some(config.key_id);
+            }
 
-            cast_send(
-                provider,
-                tx_request.inner,
-                send_tx.cast_async,
-                send_tx.sync,
-                send_tx.confirmations,
-                timeout,
-            )
-            .await
+            if access_key_config.is_some() {
+                // For access keys, build unsigned, sign manually, and send raw
+                // to avoid EthereumWallet's address validation
+                let mut unsigned_tx = tx_request.inner.build_unsigned()?;
+                let sig = signer.sign_transaction(unsigned_tx.as_dyn_signable_mut()).await?;
+                let envelope = unsigned_tx.into_envelope(sig);
+                let raw_tx = envelope.encoded_2718();
+
+                let cast = CastTxSender::new(&provider);
+                if send_tx.sync {
+                    let receipt = cast.send_raw_sync(&raw_tx).await?;
+                    sh_println!("{receipt}")?;
+                } else {
+                    let pending_tx = provider.send_raw_transaction(&raw_tx).await?;
+                    let tx_hash = pending_tx.tx_hash();
+                    if send_tx.cast_async {
+                        sh_println!("{tx_hash:#x}")?;
+                    } else {
+                        let receipt = cast
+                            .receipt(
+                                format!("{tx_hash:#x}"),
+                                None,
+                                send_tx.confirmations,
+                                Some(timeout),
+                                false,
+                            )
+                            .await?;
+                        sh_println!("{receipt}")?;
+                    }
+                }
+            } else {
+                // Standard flow: use EthereumWallet for signing
+                let wallet = EthereumWallet::from(signer);
+                let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
+                    .wallet(wallet)
+                    .connect_provider(&provider);
+
+                cast_send(
+                    provider,
+                    tx_request.inner,
+                    send_tx.cast_async,
+                    send_tx.sync,
+                    send_tx.confirmations,
+                    timeout,
+                )
+                .await?;
+            }
+
+            Ok(())
         }
     }
 }

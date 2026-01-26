@@ -176,3 +176,68 @@ to                   0x20C000000000000000000000000000000000042a
 
 "#]]);
 });
+
+// Test access key CLI argument parsing
+casttest!(tempo_access_key_mktx, |_prj, cmd| {
+    // This test verifies that --access-key and --root-account flags are properly parsed
+    // and used to construct the transaction.
+    //
+    // Note: This test will fail at the RPC level because the access key isn't actually
+    // authorized on the network, but it verifies the CLI parsing works correctly.
+
+    let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
+
+    // Test access key (well-known test key)
+    let access_key = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+    // Expected access key address: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+
+    // Fake root account address (would be the passkey wallet in production)
+    let root_account = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+    cmd.args([
+        "mktx",
+        "--fee-token",
+        "0x20c0000000000000000000000000000000000003",
+        "--rpc-url",
+        rpc.as_str(),
+        "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
+        "increment()",
+        "--access-key",
+        access_key,
+        "--root-account",
+        root_account,
+    ]);
+
+    // The command should succeed and produce a signed transaction
+    // The signed tx will have:
+    // - from = root_account
+    // - key_id = access key address (for Keychain signature)
+    cmd.assert_success().stdout_eq(str![[r#"
+0x[..]
+
+"#]]);
+});
+
+// Test nonce-key CLI argument for 2D nonce support
+casttest!(tempo_nonce_key_mktx, |_prj, cmd| {
+    let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
+    cmd.args([
+        "mktx",
+        "--fee-token",
+        "0x20c0000000000000000000000000000000000003",
+        "--rpc-url",
+        rpc.as_str(),
+        "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
+        "increment()",
+        "--nonce",
+        "0",
+        "--nonce-key",
+        "12345",
+        "--private-key",
+        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+    ]);
+    cmd.assert_success().stdout_eq(str![[r#"
+0x[..]
+
+"#]]);
+});

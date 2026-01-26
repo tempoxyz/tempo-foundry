@@ -70,6 +70,13 @@ pub struct TransactionOpts {
     #[arg(long)]
     pub nonce: Option<U64>,
 
+    /// Nonce key for 2D nonce support (Tempo parallelizable nonces).
+    ///
+    /// Allows multiple transactions with the same nonce but different keys
+    /// to be executed in parallel.
+    #[arg(long, value_name = "NONCE_KEY")]
+    pub nonce_key: Option<U256>,
+
     /// Send a legacy transaction instead of an EIP1559 transaction.
     ///
     /// This is automatically enabled for common networks without EIP1559.

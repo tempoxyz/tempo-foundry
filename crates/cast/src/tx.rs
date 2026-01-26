@@ -188,6 +188,15 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         self.format_receipt(receipt, None)
     }
 
+    /// Sends a raw signed transaction and waits for receipt synchronously
+    pub async fn send_raw_sync(&self, raw_tx: &[u8]) -> Result<String> {
+        let pending = self.provider.send_raw_transaction(raw_tx).await?;
+        let receipt = pending.get_receipt().await?;
+        let mut receipt: TransactionReceiptWithRevertReason = receipt.into();
+        let _ = receipt.update_revert_reason(&self.provider).await;
+        self.format_receipt(receipt, None)
+    }
+
     /// Sends a transaction to the specified address
     pub async fn send(
         &self,

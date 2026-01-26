@@ -13,6 +13,7 @@ use serde::Serialize;
 /// 6. Google Cloud KMS
 /// 7. Turnkey
 /// 8. Browser wallet
+/// 9. Access key (signs on behalf of a root account)
 #[derive(Clone, Debug, Default, Serialize, Parser)]
 #[command(next_help_heading = "Wallet options", about = None, long_about = None)]
 pub struct WalletOpts {
@@ -28,6 +29,31 @@ pub struct WalletOpts {
 
     #[command(flatten)]
     pub raw: RawWalletOpts,
+
+    /// Use an access key to sign on behalf of a root account.
+    ///
+    /// The access key is a delegated key that can sign transactions for the root account.
+    /// Requires --root-account to specify the account the key signs for.
+    #[arg(
+        long = "access-key",
+        help_heading = "Wallet options - access key",
+        value_name = "PRIVATE_KEY",
+        env = "TEMPO_ACCESS_KEY"
+    )]
+    pub access_key: Option<String>,
+
+    /// The root account address that the access key signs on behalf of.
+    ///
+    /// Required when using --access-key. This is the account that holds the funds
+    /// and whose nonce is used for the transaction.
+    #[arg(
+        long = "root-account",
+        help_heading = "Wallet options - access key",
+        value_name = "ADDRESS",
+        requires = "access_key",
+        env = "TEMPO_ROOT_ACCOUNT"
+    )]
+    pub root_account: Option<Address>,
 
     /// Use the keystore in the given folder or file.
     #[arg(
@@ -134,7 +160,44 @@ pub struct WalletOpts {
     pub browser_development: bool,
 }
 
+/// Access key configuration for signing on behalf of a root account.
+#[derive(Clone, Debug)]
+pub struct AccessKeyConfig {
+    /// The root account address that the access key signs on behalf of.
+    pub root_account: Address,
+    /// The access key's address (derived from its private key).
+    pub key_id: Address,
+}
+
 impl WalletOpts {
+    /// Returns the access key configuration if an access key is being used.
+    ///
+    /// When using an access key:
+    /// - Transactions should use `root_account` as the sender (`from`)
+    /// - The `key_id` should be set on the transaction for Keychain signature wrapping
+    pub fn access_key_config(&self) -> Option<AccessKeyConfig> {
+        if let (Some(access_key), Some(root_account)) = (&self.access_key, self.root_account) {
+            // Derive the access key address from the private key
+            if let Ok(key_id) = self.derive_access_key_address(access_key) {
+                return Some(AccessKeyConfig { root_account, key_id });
+            }
+        }
+        None
+    }
+
+    /// Derives the address from an access key private key.
+    fn derive_access_key_address(&self, private_key: &str) -> Result<Address> {
+        use alloy_primitives::hex;
+        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(private_key)?;
+        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
+        Ok(alloy_signer::Signer::address(&signer))
+    }
+
+    /// Returns true if an access key is being used.
+    pub fn is_access_key(&self) -> bool {
+        self.access_key.is_some() && self.root_account.is_some()
+    }
+
     pub async fn signer(&self) -> Result<WalletSigner> {
         trace!("start finding signer");
 
@@ -143,7 +206,13 @@ impl WalletOpts {
                 .map_err(|_| eyre::eyre!("{key} environment variable is required for signer"))
         };
 
-        let signer = if self.ledger {
+        // Handle access key first - it uses a local signer with the access key private key
+        let signer = if let Some(access_key) = &self.access_key {
+            use alloy_primitives::hex;
+            let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(access_key)
+                .map_err(|e| eyre::eyre!("Failed to decode access key: {e}"))?;
+            WalletSigner::from_private_key(&key_bytes)?
+        } else if self.ledger {
             utils::create_ledger_signer(self.raw.hd_path.as_deref(), self.raw.mnemonic_index)
                 .await?
         } else if self.trezor {
@@ -206,6 +275,7 @@ flag to set your key via:
 --interactive
 --private-key
 --mnemonic-path
+--access-key (with --root-account for Tempo access keys)
 --aws
 --gcp
 --turnkey
@@ -272,6 +342,8 @@ mod tests {
                 mnemonic_index: 0,
             },
             from: None,
+            access_key: None,
+            root_account: None,
             keystore_path: None,
             keystore_account_name: None,
             keystore_password: None,
@@ -297,5 +369,46 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[tokio::test]
+    async fn access_key_signer_works() {
+        // Test private key (well-known test key, do not use in production!)
+        let test_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+        let expected_address =
+            Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
+        let root_account = Address::from_str("1234567890123456789012345678901234567890").unwrap();
+
+        let wallet = WalletOpts {
+            raw: RawWalletOpts::default(),
+            from: None,
+            access_key: Some(test_key.to_string()),
+            root_account: Some(root_account),
+            keystore_path: None,
+            keystore_account_name: None,
+            keystore_password: None,
+            keystore_password_file: None,
+            ledger: false,
+            trezor: false,
+            aws: false,
+            gcp: false,
+            turnkey: false,
+            browser: false,
+            browser_port: 9545,
+            browser_development: false,
+            browser_disable_open: false,
+        };
+
+        // Test that the signer is created with the access key
+        let signer = wallet.signer().await.unwrap();
+        assert_eq!(signer.address(), expected_address);
+
+        // Test access_key_config
+        let config = wallet.access_key_config().unwrap();
+        assert_eq!(config.root_account, root_account);
+        assert_eq!(config.key_id, expected_address);
+
+        // Test is_access_key
+        assert!(wallet.is_access_key());
     }
 }

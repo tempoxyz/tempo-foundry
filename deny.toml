@@ -111,8 +111,4 @@ allow-git = [
     "https://github.com/tempoxyz/tempo",
     # Only for tests.
     "https://github.com/rust-cli/rexpect",
-    # Tempo
-    "https://github.com/tempoxyz/tempo",
-    # Transitive dependency of Tempo
-    "https://github.com/paradigmxyz/reth",
 ]
