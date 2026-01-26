@@ -1873,7 +1873,6 @@ blockNumber          22287055
 from                 0x4648451b5F87FF8F0F7D622bD40574bb97E25980
 transactionIndex     230
 effectiveGasPrice    363392048
-
 accessList           []
 chainId              1
 gasLimit             350000
@@ -1888,6 +1887,7 @@ to                   0xdAC17F958D2ee523a2206206994597C13D831ec7
 type                 2
 value                0
 yParity              1
+            
 ...
 "#]]);
 });

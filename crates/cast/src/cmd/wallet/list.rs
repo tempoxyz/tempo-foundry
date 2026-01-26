@@ -78,6 +78,10 @@ impl ListArgs {
             .turnkey(self.turnkey || self.all)
             .interactives(0)
             .interactive(false)
+            .browser(false)
+            .browser_port(9545)
+            .browser_disable_open(false)
+            .browser_development(false)
             .build()
             .expect("build multi wallet");
 
