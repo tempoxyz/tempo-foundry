@@ -11,7 +11,7 @@ use alloy_primitives::U256;
 use alloy_sol_types::sol;
 use clap::Parser;
 use foundry_cli::{
-    opts::RpcOpts,
+    opts::{RpcOpts, TempoOpts},
     utils::{LoadConfig, get_provider},
 };
 #[doc(hidden)]
@@ -72,6 +72,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tempo: TempoOpts,
     },
 
     /// Approve ERC20 token spending.
@@ -90,6 +93,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tempo: TempoOpts,
     },
 
     /// Query ERC20 token allowance.
@@ -191,6 +197,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tempo: TempoOpts,
     },
 
     /// Burn ERC20 tokens.
@@ -205,6 +214,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tempo: TempoOpts,
     },
 }
 
@@ -300,12 +312,12 @@ impl Erc20Subcommand {
                 sh_println!("{}", format_uint_exp(total_supply))?
             }
             // State-changing
-            Self::Transfer { token, to, amount, send_tx, .. } => {
+            Self::Transfer { token, to, amount, send_tx, tempo, .. } => {
                 let provider = signing_provider(&send_tx).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
+                tx.fee_token = tempo.fee_token;
                 cast_send(
                     provider,
                     tx,
@@ -316,12 +328,12 @@ impl Erc20Subcommand {
                 )
                 .await?
             }
-            Self::Approve { token, spender, amount, send_tx, .. } => {
+            Self::Approve { token, spender, amount, send_tx, tempo, .. } => {
                 let provider = signing_provider(&send_tx).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
+                tx.fee_token = tempo.fee_token;
                 cast_send(
                     provider,
                     tx,
@@ -332,12 +344,12 @@ impl Erc20Subcommand {
                 )
                 .await?
             }
-            Self::Mint { token, to, amount, send_tx, .. } => {
+            Self::Mint { token, to, amount, send_tx, tempo, .. } => {
                 let provider = signing_provider(&send_tx).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
+                tx.fee_token = tempo.fee_token;
                 cast_send(
                     provider,
                     tx,
@@ -348,12 +360,12 @@ impl Erc20Subcommand {
                 )
                 .await?
             }
-            Self::Burn { token, amount, send_tx, .. } => {
+            Self::Burn { token, amount, send_tx, tempo, .. } => {
                 let provider = signing_provider(&send_tx).await?;
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .burn(U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
+                tx.fee_token = tempo.fee_token;
                 cast_send(
                     provider,
                     tx,

@@ -14,10 +14,7 @@ use eyre::{Context, Result};
 use forge_verify::{RetryArgs, VerifierArgs, VerifyArgs};
 use foundry_cli::{
     opts::{BuildOpts, EthereumOpts, EtherscanOpts, TransactionOpts},
-    utils::{
-        self, LoadConfig, find_contract_artifacts, parse_fee_token_address,
-        read_constructor_args_file,
-    },
+    utils::{self, LoadConfig, find_contract_artifacts, read_constructor_args_file},
 };
 use foundry_common::{
     compile::{self},
@@ -105,10 +102,6 @@ pub struct CreateArgs {
 
     #[command(flatten)]
     retry: RetryArgs,
-
-    /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
-    pub fee_token: Option<Address>,
 }
 
 impl CreateArgs {
@@ -301,7 +294,7 @@ impl CreateArgs {
 
         let is_args_empty = args.is_empty();
         let mut deployer =
-            factory.deploy_tokens(args.clone(), self.fee_token).context("failed to deploy contract").map_err(|e| {
+            factory.deploy_tokens(args.clone(), self.tx.tempo.fee_token).context("failed to deploy contract").map_err(|e| {
                 if is_args_empty {
                     e.wrap_err("no arguments provided for contract constructor; consider --constructor-args or --constructor-args-path")
                 } else {

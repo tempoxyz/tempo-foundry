@@ -105,6 +105,7 @@ impl SendTxArgs {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
+        let fee_token = tx.tempo.fee_token;
         let builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
@@ -138,7 +139,7 @@ impl SendTxArgs {
                 }
             }
 
-            let (tx, _) = builder.build(config.sender, send_tx.fee_token).await?;
+            let (tx, _) = builder.build(config.sender, fee_token).await?;
 
             cast_send(
                 provider,
@@ -176,7 +177,7 @@ impl SendTxArgs {
             if send_tx.eth.wallet.browser
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
-                let (tx_request, _) = builder.build(from, send_tx.fee_token).await?;
+                let (tx_request, _) = builder.build(from, fee_token).await?;
                 let tx_hash =
                     browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
 
@@ -202,9 +203,9 @@ impl SendTxArgs {
             // use the correct address. For regular transactions, pass the signer so EIP-7702
             // authorization signing can work.
             let (mut tx_request, _) = if access_key_config.is_some() {
-                builder.build(from, send_tx.fee_token).await?
+                builder.build(from, fee_token).await?
             } else {
-                builder.build(&signer, send_tx.fee_token).await?
+                builder.build(&signer, fee_token).await?
             };
 
             // For access keys, set the key_id

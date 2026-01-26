@@ -17,9 +17,7 @@ use clap::Args;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
     opts::{CliAuthorizationList, EthereumOpts, TransactionOpts},
-    utils::{
-        self, LoadConfig, get_tempo_signer_provider, parse_fee_token_address, parse_function_args,
-    },
+    utils::{self, LoadConfig, get_tempo_signer_provider, parse_function_args},
 };
 use foundry_common::{
     TransactionReceiptWithRevertReason, fmt::*, get_pretty_tx_receipt_attr,
@@ -58,10 +56,6 @@ pub struct SendTxOpts {
     /// Ethereum options
     #[command(flatten)]
     pub eth: EthereumOpts,
-
-    /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
-    pub fee_token: Option<Address>,
 }
 
 /// Different sender kinds used by [`CastTxBuilder`].

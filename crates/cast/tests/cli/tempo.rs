@@ -6,7 +6,7 @@ casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
     cmd.args([
         "erc20",
         "transfer",
-        "--fee-token",
+        "--tempo.fee-token",
         "0x20c0000000000000000000000000000000000002",
         "0x20c0000000000000000000000000000000000001",
         "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
@@ -41,7 +41,7 @@ to                   0x20C0000000000000000000000000000000000001
     cmd.cast_fuse().args([
         "erc20",
         "approve",
-        "--fee-token",
+        "--tempo.fee-token",
         "0x20c0000000000000000000000000000000000003",
         "0x20c0000000000000000000000000000000000001",
         "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
@@ -75,7 +75,7 @@ to                   0x20C0000000000000000000000000000000000001
 
     cmd.cast_fuse().args([
         "send",
-        "--fee-token",
+        "--tempo.fee-token",
         "0x20c0000000000000000000000000000000000003",
         "--rpc-url",
         rpc.as_str(),
@@ -111,7 +111,7 @@ casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
     let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
     cmd.args([
         "mktx",
-        "--fee-token",
+        "--tempo.fee-token",
         "0x20c0000000000000000000000000000000000003",
         "--rpc-url",
         rpc.as_str(),
@@ -196,7 +196,7 @@ casttest!(tempo_access_key_mktx, |_prj, cmd| {
 
     cmd.args([
         "mktx",
-        "--fee-token",
+        "--tempo.fee-token",
         "0x20c0000000000000000000000000000000000003",
         "--rpc-url",
         rpc.as_str(),
@@ -223,7 +223,7 @@ casttest!(tempo_nonce_key_mktx, |_prj, cmd| {
     let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
     cmd.args([
         "mktx",
-        "--fee-token",
+        "--tempo.fee-token",
         "0x20c0000000000000000000000000000000000003",
         "--rpc-url",
         rpc.as_str(),

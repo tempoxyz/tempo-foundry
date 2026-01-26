@@ -1,13 +1,13 @@
 use crate::tx::{CastTxBuilder, SenderKind};
 use alloy_ens::NameOrAddress;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use alloy_rpc_types::BlockId;
 use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{RpcOpts, TransactionOpts},
-    utils::{self, LoadConfig, parse_ether_value, parse_fee_token_address},
+    utils::{self, LoadConfig, parse_ether_value},
 };
 use foundry_wallets::WalletOpts;
 use std::str::FromStr;
@@ -50,10 +50,6 @@ pub struct EstimateArgs {
 
     #[command(flatten)]
     rpc: RpcOpts,
-
-    /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
-    fee_token: Option<Address>,
 }
 
 #[derive(Debug, Parser)]
@@ -83,8 +79,7 @@ pub enum EstimateSubcommands {
 
 impl EstimateArgs {
     pub async fn run(self) -> Result<()> {
-        let Self { to, mut sig, mut args, mut tx, block, cost, wallet, rpc, command, fee_token } =
-            self;
+        let Self { to, mut sig, mut args, mut tx, block, cost, wallet, rpc, command } = self;
 
         let config = rpc.load_config()?;
         let provider = utils::get_tempo_provider(&config)?;
@@ -107,6 +102,7 @@ impl EstimateArgs {
             None
         };
 
+        let fee_token = tx.tempo.fee_token;
         let (tx, _) = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
