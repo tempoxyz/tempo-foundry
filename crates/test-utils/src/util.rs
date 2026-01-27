@@ -2,6 +2,7 @@ use foundry_compilers::{
     Project, ProjectCompileOutput, Vyper, project_util::copy_dir, utils::RuntimeOrHandle,
 };
 use foundry_config::Config;
+use foundry_evm_hardforks::{FoundryHardfork, TempoHardfork};
 use std::{
     env,
     fs::{self, File},
@@ -84,6 +85,7 @@ pub fn initialize(target: &Path) {
             cmd.args(["init", "--force", "--empty"]).assert_success();
             prj.write_config(Config {
                 solc: Some(foundry_config::SolcReq::Version(SOLC_VERSION.parse().unwrap())),
+                hardfork: Some(FoundryHardfork::Tempo(TempoHardfork::T0)),
                 ..Default::default()
             });
 
