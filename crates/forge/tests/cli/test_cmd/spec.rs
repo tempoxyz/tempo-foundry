@@ -214,9 +214,8 @@ contract TempoHardforkTest is Test {
     // Test T0 hardfork
     prj.add_test("TempoHardforkTest.t.sol", test_contract);
     prj.update_config(|config| {
-        config.hardfork = Some(forge::hardforks::FoundryHardfork::Tempo(
-            forge::hardforks::TempoHardfork::T0,
-        ));
+        config.hardfork =
+            Some(forge::hardforks::FoundryHardfork::Tempo(forge::hardforks::TempoHardfork::T0));
     });
 
     let output_t0 = cmd.args(["test", "--mc", "TempoHardforkTest"]).assert_success();
@@ -225,9 +224,8 @@ contract TempoHardforkTest is Test {
 
     // Test T1 hardfork
     prj.update_config(|config| {
-        config.hardfork = Some(forge::hardforks::FoundryHardfork::Tempo(
-            forge::hardforks::TempoHardfork::T1,
-        ));
+        config.hardfork =
+            Some(forge::hardforks::FoundryHardfork::Tempo(forge::hardforks::TempoHardfork::T1));
     });
 
     let output_t1 = cmd.forge_fuse().args(["test", "--mc", "TempoHardforkTest"]).assert_success();
@@ -236,10 +234,7 @@ contract TempoHardforkTest is Test {
 
     // T1 should have higher gas than T0 due to TIP-1000 (25k for nonce=0 transactions)
     let gas_diff = gas_t1.saturating_sub(gas_t0);
-    assert!(
-        gas_t1 > gas_t0,
-        "T1 gas ({gas_t1}) should be greater than T0 gas ({gas_t0})"
-    );
+    assert!(gas_t1 > gas_t0, "T1 gas ({gas_t1}) should be greater than T0 gas ({gas_t0})");
     assert!(
         gas_diff >= 25_000,
         "Gas difference ({gas_diff}) should be at least 25k (TIP-1000 nonce=0 cost). T0: {gas_t0}, T1: {gas_t1}"

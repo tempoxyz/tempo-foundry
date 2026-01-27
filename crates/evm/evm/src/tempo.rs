@@ -42,7 +42,7 @@ pub fn initialize_tempo_precompiles_and_contracts(
             FoundryHardfork::Tempo(t) => Some(t),
             _ => None,
         })
-        .unwrap_or(foundry_evm_hardforks::TempoHardfork::T1);
+        .unwrap_or_default();
     let mut storage =
         FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp, tempo_hardfork);
 

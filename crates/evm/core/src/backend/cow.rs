@@ -22,9 +22,9 @@ use revm::{
     primitives::HashMap as Map,
     state::{Account, AccountInfo},
 };
-use tempo_chainspec::hardfork::TempoHardfork;
 use std::{borrow::Cow, collections::BTreeMap};
 use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_revm::TempoHaltReason;
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
@@ -58,7 +58,11 @@ pub struct CowBackend<'a> {
 impl<'a> CowBackend<'a> {
     /// Creates a new `CowBackend` with the given `Backend`.
     pub fn new_borrowed(backend: &'a Backend) -> Self {
-        Self { backend: Cow::Borrowed(backend), is_initialized: false, hardfork: TempoHardfork::default() }
+        Self {
+            backend: Cow::Borrowed(backend),
+            is_initialized: false,
+            hardfork: TempoHardfork::default(),
+        }
     }
 
     /// Executes the configured transaction of the `env` without committing state changes
