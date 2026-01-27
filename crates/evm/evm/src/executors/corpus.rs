@@ -705,6 +705,7 @@ mod tests {
             failed_replays: 0,
             history_map: vec![0u8; COVERAGE_MAP_SIZE],
             metrics: CorpusMetrics::default(),
+            allow_eviction: true,
         };
 
         (manager, seed_uuid)
@@ -803,6 +804,7 @@ mod tests {
             failed_replays: 0,
             history_map: vec![0u8; COVERAGE_MAP_SIZE],
             metrics: CorpusMetrics::default(),
+            allow_eviction: true,
         };
 
         // First eviction should remove the non-favored one
