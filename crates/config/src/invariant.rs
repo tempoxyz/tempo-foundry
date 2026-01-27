@@ -41,6 +41,13 @@ pub struct InvariantConfig {
     pub max_time_delay: Option<u32>,
     /// Maximum number of blocks elapsed between generated txs.
     pub max_block_delay: Option<u32>,
+    /// Replay original corpus sequences before mutation-based fuzzing.
+    /// When enabled, each loaded corpus entry is executed exactly as stored
+    /// before the normal fuzzing loop begins.
+    pub replay_corpus_first: bool,
+    /// Only replay corpus sequences, skip mutation-based fuzzing entirely.
+    /// Useful for regression testing against a known corpus.
+    pub corpus_replay_only: bool,
 }
 
 impl Default for InvariantConfig {
@@ -61,6 +68,8 @@ impl Default for InvariantConfig {
             show_solidity: false,
             max_time_delay: None,
             max_block_delay: None,
+            replay_corpus_first: false,
+            corpus_replay_only: false,
         }
     }
 }

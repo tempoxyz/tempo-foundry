@@ -147,6 +147,8 @@ pub(crate) struct CorpusManager {
     history_map: Vec<u8>,
     // Corpus metrics.
     pub(crate) metrics: CorpusMetrics,
+    // Whether eviction is allowed. Set to false during corpus replay phase.
+    allow_eviction: bool,
 }
 
 impl CorpusManager {
@@ -182,6 +184,7 @@ impl CorpusManager {
                 failed_replays,
                 history_map,
                 metrics,
+                allow_eviction: true,
             });
         };
 
@@ -270,7 +273,25 @@ impl CorpusManager {
             failed_replays,
             history_map,
             metrics,
+            allow_eviction: true,
         })
+    }
+
+    /// Returns the number of corpus entries loaded from disk.
+    pub fn corpus_count(&self) -> usize {
+        self.in_memory_corpus.len()
+    }
+
+    /// Returns an iterator over the original corpus sequences for replay.
+    /// Each sequence is the list of transactions that were stored in the corpus.
+    pub fn original_sequences(&self) -> impl Iterator<Item = &[BasicTxDetails]> {
+        self.in_memory_corpus.iter().map(|entry| entry.tx_seq.as_slice())
+    }
+
+    /// Sets whether eviction is allowed.
+    /// Disable during corpus replay phase to prevent losing original sequences.
+    pub fn set_allow_eviction(&mut self, allow: bool) {
+        self.allow_eviction = allow;
     }
 
     /// Updates stats for the given call sequence, if new coverage produced.
@@ -559,6 +580,11 @@ impl CorpusManager {
     /// Flush the oldest corpus mutated more than configured max mutations unless they are
     /// favored.
     fn evict_oldest_corpus(&mut self) -> eyre::Result<()> {
+        // Skip eviction if disabled (e.g., during corpus replay phase)
+        if !self.allow_eviction {
+            return Ok(());
+        }
+
         if self.in_memory_corpus.len() > self.config.corpus_min_size.max(1)
             && let Some(index) = self.in_memory_corpus.iter().position(|corpus| {
                 corpus.total_mutations > self.config.corpus_min_mutations && !corpus.is_favored
