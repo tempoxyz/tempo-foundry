@@ -5266,7 +5266,6 @@ dependencies = [
  "foundry-common",
  "foundry-compilers",
  "foundry-config",
- "foundry-evm-hardforks",
  "idna_adapter",
  "parking_lot",
  "rand 0.9.2",

@@ -145,18 +145,17 @@ impl Executor {
 
     fn clone_with_backend(&self, backend: Backend) -> Self {
         // For Tempo hardforks, preserve the hardfork directly since all map to SpecId::OSAKA.
-        let env = match self.hardfork {
-            Some(FoundryHardfork::Tempo(tempo_hf)) => {
-                let mut cfg = self.env.evm_env.cfg_env.clone();
-                cfg.spec = tempo_hf;
-                Env::from(cfg, self.env.evm_env.block_env.clone(), self.env.tx.clone())
-            }
-            _ => Env::new_with_spec_id(
+        let env = {
+            let mut env = Env::new_with_spec_id(
                 self.env.evm_env.cfg_env.clone(),
                 self.env.evm_env.block_env.clone(),
                 self.env.tx.clone(),
                 self.spec_id(),
-            ),
+            );
+            if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+                env.evm_env.cfg_env.spec = tempo_hf;
+            }
+            env
         };
         Self::new(
             backend,
