@@ -387,13 +387,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "7d2fd47e76f424548c2439eff4c1b4861a58dc2b" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 

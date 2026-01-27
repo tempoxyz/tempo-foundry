@@ -114,7 +114,7 @@ impl From<FoundryHardfork> for SpecId {
         match fork {
             FoundryHardfork::Ethereum(hardfork) => spec_id_from_ethereum_hardfork(hardfork),
             FoundryHardfork::Optimism(hardfork) => spec_id_from_optimism_hardfork(hardfork).into(),
-            FoundryHardfork::Tempo(hardfork) => spec_id_from_tempo_hardfork(hardfork),
+            FoundryHardfork::Tempo(hardfork) => hardfork.into(),
         }
     }
 }
@@ -166,14 +166,6 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
     }
 }
 
-/// Map a `TempoHardfork` enum into its corresponding `SpecId`.
-pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
-    match hardfork {
-        TempoHardfork::Genesis => SpecId::OSAKA,
-        f => unreachable!("unimplemented {}", f),
-    }
-}
-
 /// Convert a `BlockNumberOrTag` into an `EthereumHardfork`.
 pub fn ethereum_hardfork_from_block_tag(block: impl Into<BlockNumberOrTag>) -> EthereumHardfork {
     let num = match block.into() {
@@ -212,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_tempo_spec_id_mapping() {
-        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Genesis), SpecId::OSAKA);
+        assert_eq!(SpecId::from(TempoHardfork::Genesis), SpecId::OSAKA);
     }
 
     #[test]
