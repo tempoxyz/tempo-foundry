@@ -9,11 +9,32 @@ pub use alloy_hardforks::EthereumHardfork;
 pub use alloy_op_hardforks::OpHardfork;
 pub use tempo_chainspec::hardfork::TempoHardfork;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(into = "String")]
 pub enum FoundryHardfork {
     Ethereum(EthereumHardfork),
     Optimism(OpHardfork),
     Tempo(TempoHardfork),
+}
+
+impl From<FoundryHardfork> for String {
+    fn from(fork: FoundryHardfork) -> Self {
+        match fork {
+            FoundryHardfork::Ethereum(h) => format!("{h}"),
+            FoundryHardfork::Optimism(h) => format!("optimism:{h}"),
+            FoundryHardfork::Tempo(h) => format!("tempo:{h:?}"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FoundryHardfork {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 impl FromStr for FoundryHardfork {

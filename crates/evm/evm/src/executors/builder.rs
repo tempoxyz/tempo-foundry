@@ -93,12 +93,21 @@ impl ExecutorBuilder {
             stack.gas_price = Some(env.tx.gas_price);
         }
         let gas_limit = gas_limit.unwrap_or(env.evm_env.block_env.gas_limit);
-        let env = Env::new_with_spec_id(
-            env.evm_env.cfg_env.clone(),
-            env.evm_env.block_env.clone(),
-            env.tx,
-            spec_id,
-        );
+
+        // For Tempo hardforks, set cfg_env.spec directly from the hardfork to preserve
+        // the specific Tempo hardfork (T0, T1, etc.) since all map to SpecId::OSAKA.
+        let env = {
+            let mut env = Env::new_with_spec_id(
+                env.evm_env.cfg_env.clone(),
+                env.evm_env.block_env.clone(),
+                env.tx,
+                spec_id,
+            );
+            if let Some(FoundryHardfork::Tempo(tempo_hf)) = hardfork {
+                env.evm_env.cfg_env.spec = tempo_hf;
+            }
+            env
+        };
         Executor::new(db, env, stack.build(), gas_limit, legacy_assertions, hardfork)
     }
 }
