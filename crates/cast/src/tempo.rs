@@ -1,5 +1,6 @@
 use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 use alloy_consensus::{SidecarBuilder, SignableTransaction, SimpleCoder};
+use alloy_eips::eip2718::Encodable2718;
 use alloy_ens::NameOrAddress;
 use alloy_json_abi::Function;
 use alloy_network::{TransactionBuilder, TransactionBuilder4844, TransactionBuilder7702};
@@ -9,7 +10,7 @@ use alloy_rpc_types::{Authorization, TransactionInputKind};
 use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
-use eyre::{OptionExt, Result};
+use eyre::{OptionExt, Result, eyre};
 use foundry_cli::opts::{CliAuthorizationList, TransactionOpts};
 use foundry_common::abi::{
     encode_function_args, encode_function_args_raw, get_func, get_func_etherscan,
@@ -17,7 +18,11 @@ use foundry_common::abi::{
 use foundry_config::{Chain, Config};
 use futures::future::join_all;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
-use tempo_primitives::transaction::TempoTypedTransaction;
+use tempo_primitives::transaction::{
+    TempoTxEnvelope, TempoTypedTransaction,
+    tt_signature::{KeychainSignature, PrimitiveSignature, TempoSignature},
+    tt_signed::AASigned,
+};
 
 impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
@@ -365,6 +370,14 @@ impl<P, S> CastTxBuilder<P, S, TempoTransactionRequest>
 where
     P: Provider<TempoNetwork>,
 {
+    /// Sets the key_id for access key transactions.
+    /// This should be called before `build()` so gas estimation includes Keychain signature
+    /// overhead.
+    pub fn with_key_id(mut self, key_id: Address) -> Self {
+        self.tx.key_id = Some(key_id);
+        self
+    }
+
     /// Populates the blob sidecar for the transaction if any blob data was provided.
     pub fn with_blob_data(mut self, blob_data: Option<Vec<u8>>) -> Result<Self> {
         let Some(blob_data) = blob_data else { return Ok(self) };
@@ -446,4 +459,34 @@ async fn resolve_name_args<P: Provider<TempoNetwork>>(
         }
     }))
     .await
+}
+
+/// Signs a transaction request with an access key, producing a type 0x76 AA transaction
+/// with a Keychain signature.
+///
+/// Returns the RLP-encoded signed transaction bytes.
+pub async fn sign_with_access_key<S: Signer>(
+    tx_request: TempoTransactionRequest,
+    signer: &S,
+    root_account: Address,
+) -> Result<Vec<u8>> {
+    // 1. Build TempoTransaction from the request
+    let tempo_tx =
+        tx_request.build_aa().map_err(|e| eyre!("Failed to build AA transaction: {:?}", e))?;
+
+    // 2. Compute the signature hash
+    let sig_hash = tempo_tx.signature_hash();
+
+    // 3. Sign the hash with the access key
+    let raw_sig = signer.sign_hash(&sig_hash).await?;
+
+    // 4. Wrap in KeychainSignature with root account address
+    let primitive_sig = PrimitiveSignature::Secp256k1(raw_sig);
+    let keychain_sig = KeychainSignature::new(root_account, primitive_sig);
+    let tempo_sig = TempoSignature::Keychain(keychain_sig);
+
+    // 5. Create signed AA transaction and encode
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::from(signed_tx);
+    Ok(envelope.encoded_2718())
 }

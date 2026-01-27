@@ -144,18 +144,38 @@ else
   echo "skipped (devnet does not yet support expiring nonces RPC - requires tempo PR #2266)"
 fi
 
-echo -e "\n=== CAST MKTX WITH ACCESS-KEY ==="
+echo -e "\n=== SETUP ACCESS KEY ==="
 # Create an access key for testing
 access_wallet_json="$(cast wallet new --json)"
 ACCESS_KEY="$(jq -r '.[0].private_key' <<<"$access_wallet_json")"
+ACCESS_KEY_ADDR="$(jq -r '.[0].address' <<<"$access_wallet_json")"
+printf "Access key address: %s\n" "$ACCESS_KEY_ADDR"
+
+# Authorize the access key on-chain first (required for gas estimation)
+# Account Keychain precompile: 0xAAAAAAAA00000000000000000000000000000000
+# SignatureType: 0 = Secp256k1, Expiry: 1893456000 (year 2030), enforceLimits: false, limits: []
+cast send --rpc-url "$ETH_RPC_URL" 0xAAAAAAAA00000000000000000000000000000000 \
+  'authorizeKey(address,uint8,uint64,bool,(address,uint256)[])' \
+  "$ACCESS_KEY_ADDR" 0 1893456000 false "[]" \
+  --private-key "$PK"
+
+# Fund the access key address (needed for gas)
+for i in {1..100}; do
+  OUT=$(cast rpc tempo_fundAddress "$ACCESS_KEY_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.2
+done
+sleep 3
+
+echo -e "\n=== CAST MKTX WITH ACCESS-KEY ==="
 # Use original address as root account (access key signs on behalf of root)
 cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
 
 echo -e "\n=== CAST SEND WITH ACCESS-KEY ==="
-# Note: cast send with access-key requires the root account to have funds and the access key
-# to be authorized on-chain. Since we can't set that up in this test, we skip cast send
-# and rely on cast mktx above to validate the CLI arg parsing works.
-echo "skipped (access key authorization not set up)"
+# Send transaction using the access key (Keychain signature wrapped in AA transaction)
+cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
