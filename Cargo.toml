@@ -387,14 +387,14 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-# TODO: Update to tempo PR/commit with fee_payer_signature support
-tempo-alloy = { path = "../tempo/crates/alloy" }
-tempo-contracts = { path = "../tempo/crates/contracts" }
-tempo-revm = { path = "../tempo/crates/revm" }
-tempo-evm = { path = "../tempo/crates/evm" }
-tempo-chainspec = { path = "../tempo/crates/chainspec" }
-tempo-primitives = { path = "../tempo/crates/primitives" }
-tempo-precompiles = { path = "../tempo/crates/precompiles" }
+# Uses feat/sponsor-support branch for fee_payer_signature support (PR #2283)
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 

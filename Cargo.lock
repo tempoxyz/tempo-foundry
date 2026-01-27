@@ -12039,6 +12039,7 @@ dependencies = [
 [[package]]
 name = "tempo-alloy"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -12060,6 +12061,7 @@ dependencies = [
 [[package]]
 name = "tempo-chainspec"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-eips",
  "alloy-evm",
@@ -12078,6 +12080,7 @@ dependencies = [
 [[package]]
 name = "tempo-consensus"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12093,6 +12096,7 @@ dependencies = [
 [[package]]
 name = "tempo-contracts"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -12102,6 +12106,7 @@ dependencies = [
 [[package]]
 name = "tempo-evm"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12130,6 +12135,7 @@ dependencies = [
 [[package]]
 name = "tempo-payload-types"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
@@ -12146,6 +12152,7 @@ dependencies = [
 [[package]]
 name = "tempo-precompiles"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -12162,6 +12169,7 @@ dependencies = [
 [[package]]
 name = "tempo-precompiles-macros"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -12172,6 +12180,7 @@ dependencies = [
 [[package]]
 name = "tempo-primitives"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12198,6 +12207,7 @@ dependencies = [
 [[package]]
 name = "tempo-revm"
 version = "1.0.2"
+source = "git+https://github.com/tempoxyz/tempo?branch=feat%2Fsponsor-support#1e28a22f7b724d0fccb55f8eb5cf99f40fa39129"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
