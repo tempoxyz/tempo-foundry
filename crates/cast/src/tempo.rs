@@ -50,12 +50,25 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx.set_max_priority_fee_per_gas(priority_fee.to());
         }
 
-        if let Some(nonce) = tx_opts.nonce {
-            tx.set_nonce(nonce.to());
+        // Handle expiring nonce mode: sets nonce=0 and nonce_key=U256::MAX
+        if tx_opts.expiring_nonce {
+            tx.set_nonce(0);
+            tx.set_nonce_key(U256::MAX);
+        } else {
+            if let Some(nonce) = tx_opts.nonce {
+                tx.set_nonce(nonce.to());
+            }
+            if let Some(nonce_key) = tx_opts.nonce_key {
+                tx.set_nonce_key(nonce_key);
+            }
         }
 
-        if let Some(nonce_key) = tx_opts.nonce_key {
-            tx.set_nonce_key(nonce_key);
+        // Set validity window for expiring nonces
+        if let Some(valid_before) = tx_opts.valid_before {
+            tx.set_valid_before(valid_before);
+        }
+        if let Some(valid_after) = tx_opts.valid_after {
+            tx.set_valid_after(valid_after);
         }
 
         Ok(Self {
