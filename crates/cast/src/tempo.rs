@@ -9,7 +9,7 @@ use alloy_rpc_types::{Authorization, TransactionInputKind};
 use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
-use eyre::{OptionExt, Result};
+use eyre::{OptionExt, Result, eyre};
 use foundry_cli::opts::{CliAuthorizationList, TransactionOpts};
 use foundry_common::abi::{
     encode_function_args, encode_function_args_raw, get_func, get_func_etherscan,
@@ -155,7 +155,20 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, true, false, fee_token).await
+        self._build(sender, true, false, fee_token, None).await
+    }
+
+    /// Builds [TempoTransactionRequest] with sponsor signature for gasless transactions.
+    ///
+    /// The sponsor signs the `fee_payer_signature_hash` to commit to paying gas fees
+    /// for the transaction on behalf of the sender.
+    pub async fn build_sponsored(
+        self,
+        sender: impl Into<SenderKind<'_>>,
+        fee_token: Option<Address>,
+        tx_opts: &TransactionOpts,
+    ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
+        self._build(sender, true, false, fee_token, Some(tx_opts)).await
     }
 
     /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls
@@ -165,7 +178,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, false, false, fee_token).await
+        self._build(sender, false, false, fee_token, None).await
     }
 
     /// Builds an unsigned RLP-encoded raw transaction.
@@ -176,7 +189,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         from: Address,
         fee_token: Option<Address>,
     ) -> Result<String> {
-        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token).await?;
+        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token, None).await?;
         let tx = tx.inner.build_unsigned()?;
         match tx {
             TempoTypedTransaction::Legacy(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
@@ -193,6 +206,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         fill: bool,
         unsigned: bool,
         fee_token: Option<Address>,
+        tx_opts: Option<&TransactionOpts>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         let sender = sender.into();
         let from = sender.address();
@@ -271,6 +285,27 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
 
         if self.tx.inner.inner.gas.is_none() {
             self.estimate_gas().await?;
+        }
+
+        // Handle sponsored transactions: compute and set fee_payer_signature
+        if let Some(opts) = tx_opts {
+            if opts.sponsor.is_some() {
+                // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
+                let tempo_tx = self
+                    .tx
+                    .inner
+                    .clone()
+                    .build_aa()
+                    .map_err(|e| eyre!("Failed to build AA transaction for sponsor signature: {:?}", e))?;
+
+                // Compute the fee payer signature hash (commits to sender address)
+                let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
+
+                // Sign with sponsor key
+                if let Some(sponsor_sig) = opts.sign_sponsor_commitment(fee_payer_hash)? {
+                    self.tx.inner.set_fee_payer_signature(sponsor_sig);
+                }
+            }
         }
 
         Ok((self.tx, self.state.func))

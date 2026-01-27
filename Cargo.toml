@@ -387,13 +387,14 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "6d1e98744d975d0a8efcb5c6b62fce6908153434" }
+# TODO: Update to tempo PR/commit with fee_payer_signature support
+tempo-alloy = { path = "../tempo/crates/alloy" }
+tempo-contracts = { path = "../tempo/crates/contracts" }
+tempo-revm = { path = "../tempo/crates/revm" }
+tempo-evm = { path = "../tempo/crates/evm" }
+tempo-chainspec = { path = "../tempo/crates/chainspec" }
+tempo-primitives = { path = "../tempo/crates/primitives" }
+tempo-precompiles = { path = "../tempo/crates/precompiles" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 

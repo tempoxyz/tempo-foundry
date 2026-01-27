@@ -105,6 +105,9 @@ impl SendTxArgs {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
+        // Clone tx_opts if sponsor is present (need it for build_sponsored)
+        let sponsor_opts = if tx.sponsor.is_some() { Some(tx.clone()) } else { None };
+
         let builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
@@ -138,7 +141,11 @@ impl SendTxArgs {
                 }
             }
 
-            let (tx, _) = builder.build(config.sender, send_tx.fee_token).await?;
+            let (tx, _) = if let Some(ref opts) = sponsor_opts {
+                builder.build_sponsored(config.sender, send_tx.fee_token, opts).await?
+            } else {
+                builder.build(config.sender, send_tx.fee_token).await?
+            };
 
             cast_send(
                 provider,
@@ -176,7 +183,11 @@ impl SendTxArgs {
             if send_tx.eth.wallet.browser
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
-                let (tx_request, _) = builder.build(from, send_tx.fee_token).await?;
+                let (tx_request, _) = if let Some(ref opts) = sponsor_opts {
+                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
+                } else {
+                    builder.build(from, send_tx.fee_token).await?
+                };
                 let tx_hash =
                     browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
 
@@ -201,10 +212,15 @@ impl SendTxArgs {
             // For access keys, pass the root account address so gas estimation and nonce lookup
             // use the correct address. For regular transactions, pass the signer so EIP-7702
             // authorization signing can work.
-            let (mut tx_request, _) = if access_key_config.is_some() {
-                builder.build(from, send_tx.fee_token).await?
-            } else {
-                builder.build(&signer, send_tx.fee_token).await?
+            let (mut tx_request, _) = match (&access_key_config, &sponsor_opts) {
+                (Some(_), Some(opts)) => {
+                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
+                }
+                (Some(_), None) => builder.build(from, send_tx.fee_token).await?,
+                (None, Some(opts)) => {
+                    builder.build_sponsored(&signer, send_tx.fee_token, opts).await?
+                }
+                (None, None) => builder.build(&signer, send_tx.fee_token).await?,
             };
 
             // For access keys, set the key_id

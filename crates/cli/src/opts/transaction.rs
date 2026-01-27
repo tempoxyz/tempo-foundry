@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::utils::{parse_ether_value, parse_json};
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
-use alloy_primitives::{Address, U64, U256, hex};
+use alloy_primitives::{Address, Signature, U64, U256, hex};
 use alloy_rlp::Decodable;
 use clap::Parser;
 
@@ -104,6 +104,47 @@ pub struct TransactionOpts {
     /// the `cast access-list` command.
     #[arg(long, value_parser = parse_json::<AccessList>)]
     pub access_list: Option<Option<AccessList>>,
+
+    /// Sponsor private key for sponsored transactions (Tempo).
+    ///
+    /// The sponsor pays the gas fees for the transaction. Provide a hex-encoded
+    /// private key (with or without 0x prefix). The sponsor signs a commitment
+    /// to pay gas for the transaction, enabling gasless transactions for the sender.
+    #[arg(long, value_name = "PRIVATE_KEY", env = "TEMPO_SPONSOR")]
+    pub sponsor: Option<String>,
+}
+
+impl TransactionOpts {
+    /// Signs the fee payer commitment and returns the sponsor signature.
+    ///
+    /// The sponsor signs a hash that commits to paying gas for the sender's transaction.
+    /// This enables sponsored (gasless) transactions on Tempo.
+    pub fn sign_sponsor_commitment(
+        &self,
+        fee_payer_signature_hash: alloy_primitives::B256,
+    ) -> eyre::Result<Option<Signature>> {
+        let Some(sponsor_key) = &self.sponsor else {
+            return Ok(None);
+        };
+
+        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(sponsor_key)
+            .map_err(|e| eyre::eyre!("Failed to decode sponsor private key: {e}"))?;
+        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
+        let signature = signer.sign_hash_sync(&fee_payer_signature_hash)?;
+        Ok(Some(signature))
+    }
+
+    /// Returns the sponsor address if a sponsor key is provided.
+    pub fn sponsor_address(&self) -> eyre::Result<Option<Address>> {
+        let Some(sponsor_key) = &self.sponsor else {
+            return Ok(None);
+        };
+
+        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(sponsor_key)
+            .map_err(|e| eyre::eyre!("Failed to decode sponsor private key: {e}"))?;
+        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
+        Ok(Some(alloy_signer::Signer::address(&signer)))
+    }
 }
 
 #[cfg(test)]

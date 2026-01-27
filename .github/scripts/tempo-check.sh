@@ -110,6 +110,48 @@ fi
 echo -e "\n=== CAST MKTX WITH FEE TOKEN ==="
 cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 
+echo -e "\n=== SETUP SPONSOR ==="
+# Create a sponsor wallet for testing sponsored (gasless) transactions
+sponsor_wallet_json="$(cast wallet new --json)"
+SPONSOR_PK="$(jq -r '.[0].private_key' <<<"$sponsor_wallet_json")"
+SPONSOR_ADDR="$(jq -r '.[0].address' <<<"$sponsor_wallet_json")"
+printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
+
+# Fund the sponsor address (sponsor pays gas)
+for i in {1..100}; do
+  OUT=$(cast rpc tempo_fundAddress "$SPONSOR_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.2
+done
+sleep 3
+
+echo -e "\n=== CAST MKTX WITH SPONSOR ==="
+# Build a transaction where the sponsor pays gas for the sender
+cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --sponsor "$SPONSOR_PK"
+
+echo -e "\n=== CAST SEND WITH SPONSOR ==="
+# Send a sponsored transaction and verify the receipt shows the correct fee_payer
+RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --sponsor "$SPONSOR_PK" --json)
+
+# Verify the fee_payer in the receipt matches the sponsor address
+RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
+if [[ -n "$RECEIPT_FEE_PAYER" ]]; then
+  # Normalize addresses for comparison (lowercase)
+  RECEIPT_FEE_PAYER_LOWER=$(echo "$RECEIPT_FEE_PAYER" | tr '[:upper:]' '[:lower:]')
+  SPONSOR_ADDR_LOWER=$(echo "$SPONSOR_ADDR" | tr '[:upper:]' '[:lower:]')
+  if [[ "$RECEIPT_FEE_PAYER_LOWER" == "$SPONSOR_ADDR_LOWER" ]]; then
+    echo "SUCCESS: Receipt feePayer ($RECEIPT_FEE_PAYER) matches sponsor address"
+  else
+    echo "ERROR: Receipt feePayer ($RECEIPT_FEE_PAYER) does not match sponsor ($SPONSOR_ADDR)"
+    exit 1
+  fi
+else
+  echo "WARNING: feePayer not found in receipt (may not be supported on this devnet)"
+  echo "Receipt: $RECEIPT"
+fi
+
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
