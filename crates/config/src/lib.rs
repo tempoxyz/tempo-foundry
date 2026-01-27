@@ -2503,7 +2503,7 @@ impl Default for Config {
             include_paths: vec![],
             force: false,
             evm_version: EvmVersion::Prague,
-            hardfork: Some(FoundryHardfork::Tempo(TempoHardfork::T0)),
+            hardfork: Some(FoundryHardfork::Tempo(TempoHardfork::default())),
             gas_reports: vec!["*".to_string()],
             gas_reports_ignore: vec![],
             gas_reports_include_tests: false,
