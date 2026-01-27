@@ -51,6 +51,7 @@ include_paths = []
 skip = []
 force = false
 evm_version = "prague"
+hardfork = "tempo:T0"
 gas_reports = ["*"]
 gas_reports_ignore = []
 gas_reports_include_tests = false
@@ -1198,7 +1199,7 @@ forgetest_init!(test_default_config, |prj, cmd| {
   "skip": [],
   "force": false,
   "evm_version": "prague",
-  "hardfork": null,
+  "hardfork": "tempo:T0",
   "gas_reports": [
     "*"
   ],

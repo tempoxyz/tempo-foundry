@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# Non-verification tempo checks: local tests, fork tests, cast commands, DEX operations
+
 # Fee token address, defaults to native fee token
 FEE_TOKEN="${TEMPO_FEE_TOKEN:-0x20c0000000000000000000000000000000000000}"
 
@@ -60,12 +62,6 @@ printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
 echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
 sleep 5
 
-# If `VERIFIER_URL` is set, add the `--verify` flag to forge commands.
-VERIFY_ARG=()
-if [[ -n "${VERIFIER_URL:-}" ]]; then
-  VERIFY_ARG=(--verify --retries 10 --delay 10)
-fi
-
 echo -e "\n=== ADD AlphaUSD FEE TOKEN LIQUIDITY ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000001 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$ETH_RPC_URL"
@@ -85,23 +81,6 @@ if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000003 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$ETH_RPC_URL"
 else
   echo "skipped (custom fee token set)"
-fi
-
-echo -e "\n=== FORGE SCRIPT DEPLOY ==="
-forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
-
-echo -e "\n=== FORGE SCRIPT DEPLOY WITH FEE TOKEN ==="
-forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
-
-echo -e "\n=== FORGE CREATE DEPLOY ==="
-forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
-
-echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
-  forge create --fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
-else
-  forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
 fi
 
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="

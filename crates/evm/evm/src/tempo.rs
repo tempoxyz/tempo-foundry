@@ -37,17 +37,14 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
-    let hardfork = FoundryHardfork::tempo(
-        hardfork
-            .and_then(|hf| match hf {
-                FoundryHardfork::Tempo(t) => Some(t),
-                _ => None,
-            })
-            .unwrap_or_default(),
-    )
-    .into();
+    let tempo_hardfork = hardfork
+        .and_then(|hf| match hf {
+            FoundryHardfork::Tempo(t) => Some(t),
+            _ => None,
+        })
+        .unwrap_or_default();
     let mut storage =
-        FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp, hardfork);
+        FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp, tempo_hardfork);
 
     StorageCtx::enter(&mut storage, || -> Result<(), TempoPrecompileError> {
         let mut ctx = StorageCtx;
