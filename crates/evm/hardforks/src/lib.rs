@@ -3,17 +3,34 @@ use std::str::FromStr;
 use alloy_rpc_types::BlockNumberOrTag;
 use op_revm::OpSpecId;
 use revm::primitives::hardfork::SpecId;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 pub use alloy_hardforks::EthereumHardfork;
 pub use alloy_op_hardforks::OpHardfork;
 pub use tempo_chainspec::hardfork::TempoHardfork;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FoundryHardfork {
     Ethereum(EthereumHardfork),
     Optimism(OpHardfork),
     Tempo(TempoHardfork),
+}
+
+impl Serialize for FoundryHardfork {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Ethereum(h) => serializer.serialize_str(&format!("{h}")),
+            Self::Optimism(h) => serializer.serialize_str(&format!("op:{h}")),
+            Self::Tempo(h) => serializer.serialize_str(&format!("tempo:{h}")),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FoundryHardfork {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(de::Error::custom)
+    }
 }
 
 impl FromStr for FoundryHardfork {
@@ -169,8 +186,8 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
 /// Map a `TempoHardfork` enum into its corresponding `SpecId`.
 pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
     match hardfork {
-        TempoHardfork::Genesis => SpecId::OSAKA,
-        f => unreachable!("unimplemented {}", f),
+        TempoHardfork::Genesis | TempoHardfork::T0 | TempoHardfork::T1 => SpecId::OSAKA,
+        _ => SpecId::OSAKA,
     }
 }
 
@@ -213,6 +230,8 @@ mod tests {
     #[test]
     fn test_tempo_spec_id_mapping() {
         assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::Genesis), SpecId::OSAKA);
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::T0), SpecId::OSAKA);
+        assert_eq!(spec_id_from_tempo_hardfork(TempoHardfork::T1), SpecId::OSAKA);
     }
 
     #[test]
