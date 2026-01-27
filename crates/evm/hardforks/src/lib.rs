@@ -3,34 +3,17 @@ use std::str::FromStr;
 use alloy_rpc_types::BlockNumberOrTag;
 use op_revm::OpSpecId;
 use revm::primitives::hardfork::SpecId;
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde::{Deserialize, Serialize};
 
 pub use alloy_hardforks::EthereumHardfork;
 pub use alloy_op_hardforks::OpHardfork;
 pub use tempo_chainspec::hardfork::TempoHardfork;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum FoundryHardfork {
     Ethereum(EthereumHardfork),
     Optimism(OpHardfork),
     Tempo(TempoHardfork),
-}
-
-impl Serialize for FoundryHardfork {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Self::Ethereum(h) => serializer.serialize_str(&format!("{h}")),
-            Self::Optimism(h) => serializer.serialize_str(&format!("op:{h}")),
-            Self::Tempo(h) => serializer.serialize_str(&format!("tempo:{h}")),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for FoundryHardfork {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        s.parse().map_err(de::Error::custom)
-    }
 }
 
 impl FromStr for FoundryHardfork {
