@@ -2502,7 +2502,7 @@ impl Default for Config {
             allow_paths: vec![],
             include_paths: vec![],
             force: false,
-            evm_version: EvmVersion::Osaka,
+            evm_version: EvmVersion::Prague,
             hardfork: None,
             gas_reports: vec!["*".to_string()],
             gas_reports_ignore: vec![],
