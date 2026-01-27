@@ -170,7 +170,7 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
 pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
     match hardfork {
         TempoHardfork::Genesis | TempoHardfork::T0 | TempoHardfork::T1 => SpecId::OSAKA,
-        _ => SpecId::OSAKA,
+        f => unreachable!("unimplemented {}", f),
     }
 }
 
