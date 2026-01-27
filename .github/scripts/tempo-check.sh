@@ -118,20 +118,31 @@ echo -e "\n=== CAST SEND WITH NONCE-KEY (2D Nonce) ==="
 # Use a different nonce-key (2) with nonce 0 since each key starts fresh
 cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 2
 
+# Expiring nonce tests require tempo node with PR #2266 merged (validBefore/validAfter RPC support)
+# Check if the devnet supports expiring nonces by attempting a gas estimate
 echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
-# Expiring nonce uses nonce_key=U256::MAX, nonce=0, and requires valid_before timestamp
-# TODO: Enable once devnet supports expiring nonces (requires tempo PR #2266)
-echo "skipped (devnet does not yet support expiring nonces)"
+VALID_BEFORE=$(($(date +%s) + 30))
+if cast estimate --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --from "$ADDR" --expiring-nonce --valid-before "$VALID_BEFORE" >/dev/null 2>&1; then
+  # Devnet supports expiring nonces - run the tests
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
 
-echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
-# Send a transaction using expiring nonce mode
-# TODO: Enable once devnet supports expiring nonces (requires tempo PR #2266)
-echo "skipped (devnet does not yet support expiring nonces)"
+  echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
+  VALID_BEFORE=$(($(date +%s) + 30))
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
 
-echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
-# Expiring nonce with both valid_before and valid_after (time window)
-# TODO: Enable once devnet supports expiring nonces (requires tempo PR #2266)
-echo "skipped (devnet does not yet support expiring nonces)"
+  echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
+  VALID_AFTER=$(($(date +%s) + 5))
+  VALID_BEFORE=$(($(date +%s) + 30))
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$VALID_AFTER"
+else
+  echo "skipped (devnet does not yet support expiring nonces RPC - requires tempo PR #2266)"
+
+  echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
+  echo "skipped (devnet does not yet support expiring nonces RPC - requires tempo PR #2266)"
+
+  echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
+  echo "skipped (devnet does not yet support expiring nonces RPC - requires tempo PR #2266)"
+fi
 
 echo -e "\n=== CAST MKTX WITH ACCESS-KEY ==="
 # Create an access key for testing
