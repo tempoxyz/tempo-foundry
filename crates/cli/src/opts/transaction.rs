@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
-use crate::utils::{parse_ether_value, parse_json};
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_primitives::{Address, Signature, U64, U256, hex};
 use alloy_rlp::Decodable;
+use alloy_signer::SignerSync;
 use clap::Parser;
+
+use crate::utils::{parse_ether_value, parse_json};
 
 /// CLI helper to parse a EIP-7702 authorization list.
 /// Can be either a hex-encoded signed authorization or an address.
