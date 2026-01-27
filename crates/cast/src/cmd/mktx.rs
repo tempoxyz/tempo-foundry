@@ -183,9 +183,7 @@ impl MakeTxArgs {
         // use the correct address. For regular transactions, pass the signer so EIP-7702
         // authorization signing can work.
         let (mut tx, _) = match (&access_key_config, &sponsor_opts) {
-            (Some(_), Some(opts)) => {
-                tx_builder.build_sponsored(from, fee_token, opts).await?
-            }
+            (Some(_), Some(opts)) => tx_builder.build_sponsored(from, fee_token, opts).await?,
             (Some(_), None) => tx_builder.build(from, fee_token).await?,
             (None, Some(opts)) => tx_builder.build_sponsored(&signer, fee_token, opts).await?,
             (None, None) => tx_builder.build(&signer, fee_token).await?,

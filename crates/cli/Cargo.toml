@@ -30,6 +30,8 @@ alloy-provider.workspace = true
 alloy-rlp.workspace = true
 alloy-chains.workspace = true
 alloy-ens = { workspace = true, features = ["provider"] }
+alloy-signer.workspace = true
+alloy-signer-local.workspace = true
 
 cfg-if = "1.0"
 clap = { version = "4", features = ["derive", "env", "unicode", "wrap_help"] }

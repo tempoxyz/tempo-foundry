@@ -291,12 +291,9 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         if let Some(opts) = tx_opts {
             if opts.sponsor.is_some() {
                 // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
-                let tempo_tx = self
-                    .tx
-                    .inner
-                    .clone()
-                    .build_aa()
-                    .map_err(|e| eyre!("Failed to build AA transaction for sponsor signature: {:?}", e))?;
+                let tempo_tx = self.tx.inner.clone().build_aa().map_err(|e| {
+                    eyre!("Failed to build AA transaction for sponsor signature: {:?}", e)
+                })?;
 
                 // Compute the fee payer signature hash (commits to sender address)
                 let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
