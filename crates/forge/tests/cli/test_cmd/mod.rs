@@ -1525,10 +1525,10 @@ contract ATest is Test {
 
     cmd.args(["test"]).with_no_redact().assert_success().stdout_eq(str![[r#"
 ...
-[PASS] testNormalGas() (gas: 3148)
-[PASS] testWeirdGas1() (gas: 2986)
-[PASS] testWeirdGas2() (gas: 3213)
-[PASS] testWithAssembly() (gas: 3029)
+[PASS] testNormalGas() (gas: 28148)
+[PASS] testWeirdGas1() (gas: 27986)
+[PASS] testWeirdGas2() (gas: 28213)
+[PASS] testWithAssembly() (gas: 28029)
 ...
 "#]]);
 });
@@ -1615,7 +1615,7 @@ Traces:
     │   └─ ← [Stop]
     └─ ← [Stop]
 
-[PASS] test_GasMeter() (gas: 53097)
+[PASS] test_GasMeter() (gas: 78097)
 Traces:
   [53097] ATest::test_GasMeter()
     ├─ [0] VM::pauseGasMetering()
@@ -1647,7 +1647,7 @@ contract ATest is Test {
 
     cmd.args(["test"]).with_no_redact().assert_success().stdout_eq(str![[r#"
 ...
-[PASS] test_negativeGas() (gas: 25040)
+[PASS] test_negativeGas() (gas: 18374)
 ...
 "#]]);
 });
@@ -1857,10 +1857,10 @@ contract ATest is DSTest {
 [PASS] testResetGas4() (gas: [..])
 [PASS] testResetGas5() (gas: 25040)
 [PASS] testResetGas6() (gas: 25040)
-[PASS] testResetGas7() (gas: 25040)
+[PASS] testResetGas7() (gas: 25049)
 [PASS] testResetGas8() (gas: [..])
 [PASS] testResetGas9() (gas: 25040)
-[PASS] testResetNegativeGas() (gas: 25040)
+[PASS] testResetNegativeGas() (gas: 15906)
 ...
 "#]]);
 });
