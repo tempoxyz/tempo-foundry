@@ -169,8 +169,8 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
 /// Map a `TempoHardfork` enum into its corresponding `SpecId`.
 pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
     match hardfork {
-        TempoHardfork::Genesis => SpecId::OSAKA,
-        f => unreachable!("unimplemented {}", f),
+        TempoHardfork::Genesis | TempoHardfork::T0 | TempoHardfork::T1 => SpecId::OSAKA,
+        _ => SpecId::OSAKA,
     }
 }
 
