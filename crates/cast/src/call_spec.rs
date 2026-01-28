@@ -8,8 +8,8 @@
 //! - `0x123::transfer(address,uint256):0x789,1000` - Contract call with signature
 //! - `0x123::0xabcdef` - Contract call with raw calldata
 
-use alloy_primitives::{Address, Bytes, U256, hex, utils::parse_ether};
-use eyre::{Result, eyre};
+use alloy_primitives::{Address, Bytes, U256, hex};
+use eyre::{Result, WrapErr, eyre};
 use std::str::FromStr;
 use tempo_primitives::transaction::Call;
 
@@ -116,12 +116,15 @@ impl FromStr for CallSpec {
 
 /// Parse a value string that can be in ether notation (e.g., "0.1ether") or raw wei.
 fn parse_ether_or_wei(s: &str) -> Result<U256> {
-    // Try ether notation first
-    if s.ends_with("ether") || s.ends_with("gwei") || s.ends_with("wei") {
-        parse_ether(s).map_err(|e| eyre!("Invalid value '{}': {}", s, e))
+    // Use alloy's DynSolType coercion which handles "1ether", "1gwei", "1000" etc.
+    if s.starts_with("0x") {
+        U256::from_str_radix(s, 16).map_err(|e| eyre!("Invalid hex value '{}': {}", s, e))
     } else {
-        // Try as raw number (wei)
-        U256::from_str(s).map_err(|e| eyre!("Invalid value '{}': {}", s, e))
+        alloy_dyn_abi::DynSolType::coerce_str(&alloy_dyn_abi::DynSolType::Uint(256), s)
+            .wrap_err_with(|| format!("Invalid value '{}'", s))?
+            .as_uint()
+            .map(|(v, _)| v)
+            .ok_or_else(|| eyre!("Could not parse value '{}'", s))
     }
 }
 
@@ -134,7 +137,7 @@ mod tests {
         let spec = CallSpec::parse("0x1234567890123456789012345678901234567890").unwrap();
         assert_eq!(
             spec.to,
-            "0x1234567890123456789012345678901234567890".parse().unwrap()
+            "0x1234567890123456789012345678901234567890".parse::<Address>().unwrap()
         );
         assert_eq!(spec.value, U256::ZERO);
         assert!(spec.sig.is_none());
@@ -145,7 +148,7 @@ mod tests {
     #[test]
     fn test_parse_with_value() {
         let spec = CallSpec::parse("0x1234567890123456789012345678901234567890:1ether").unwrap();
-        assert_eq!(spec.value, parse_ether("1ether").unwrap());
+        assert_eq!(spec.value, parse_ether_or_wei("1ether").unwrap());
         assert!(spec.sig.is_none());
     }
 
@@ -166,14 +169,13 @@ mod tests {
             "0x1234567890123456789012345678901234567890:0.5ether:transfer(address,uint256):0xabc,1000",
         )
         .unwrap();
-        assert_eq!(spec.value, parse_ether("0.5ether").unwrap());
+        assert_eq!(spec.value, parse_ether_or_wei("0.5ether").unwrap());
         assert_eq!(spec.sig, Some("transfer(address,uint256)".to_string()));
     }
 
     #[test]
     fn test_parse_with_raw_data() {
-        let spec =
-            CallSpec::parse("0x1234567890123456789012345678901234567890::0xabcdef").unwrap();
+        let spec = CallSpec::parse("0x1234567890123456789012345678901234567890::0xabcdef").unwrap();
         assert_eq!(spec.value, U256::ZERO);
         assert!(spec.sig.is_none());
         assert_eq!(spec.data, Some(Bytes::from(hex::decode("abcdef").unwrap())));
