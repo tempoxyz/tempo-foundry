@@ -213,6 +213,62 @@ cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_UR
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
   --private-key "$PK"
 
+echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
+# Modify existing Counter.sol to add require(newNumber > 100) for batch revert testing
+cat > src/Counter.sol << 'EOF'
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+contract Counter {
+    uint256 public number;
+
+    function setNumber(uint256 newNumber) public {
+        require(newNumber > 100, "bad number");
+        number = newNumber;
+    }
+
+    function increment() public {
+        number++;
+    }
+}
+EOF
+forge build
+REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast --json)
+echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
+REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | jq -r '.deployedTo')
+if [[ "$REQUIRE_COUNTER" == "null" || -z "$REQUIRE_COUNTER" ]]; then
+  echo "ERROR: Failed to deploy Counter with require"
+  exit 1
+fi
+echo "Counter with require deployed at: $REQUIRE_COUNTER"
+
+echo -e "\n=== CAST BATCH-SEND REVERT TEST ==="
+# Test that batch reverts atomically when one call fails
+# setNumber(1) fails because require(newNumber > 100)
+if cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  --call "$REQUIRE_COUNTER::increment()" \
+  --call "$REQUIRE_COUNTER::setNumber(uint256):1" \
+  --private-key "$PK" 2>&1; then
+  echo "ERROR: Batch should have reverted but succeeded"
+  exit 1
+fi
+echo "OK: Batch correctly reverted (setNumber(1) failed require > 100)"
+
+echo -e "\n=== CAST BATCH-SEND WITH ARGS AND ENCODED CALLDATA ==="
+# Test batch with both function arguments and pre-encoded calldata
+# First call: pre-encoded calldata for setNumber(200)
+# Second call: function signature with args setNumber(101)
+# Final number should be 101 (second call executes last)
+ENCODED_CALLDATA=$(cast calldata "setNumber(uint256)" 200)
+echo "Encoded calldata for setNumber(200): $ENCODED_CALLDATA"
+cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  --call "$REQUIRE_COUNTER::$ENCODED_CALLDATA" \
+  --call "$REQUIRE_COUNTER::setNumber(uint256):101" \
+  --private-key "$PK"
+
+NUMBER=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number after batch: $NUMBER (expected: 101)"
+
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
