@@ -204,9 +204,14 @@ cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_UR
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
   --private-key "$PK"
 
-# NOTE: Batch transactions with per-call value transfers are not yet supported by the node.
-# The spec supports it (Call struct has value field), but implementation is pending.
-# When enabled, add test: cast batch-send --call "0x...:0.0001ether" --call "0x...::fn()"
+echo -e "\n=== CAST BATCH-SEND WITH VALUE SYNTAX (NATIVE BATCHING) ==="
+# Test batch transaction with value syntax (currently using 0 value)
+# TODO: Update to use non-zero value (e.g., 0.0001ether) once tempo#2294 is merged
+# and the node supports per-call value transfers in batch transactions.
+cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0:increment()" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --private-key "$PK"
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
