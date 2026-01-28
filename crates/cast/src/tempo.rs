@@ -306,20 +306,20 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         }
 
         // Handle sponsored transactions: compute and set fee_payer_signature
-        if let Some(opts) = tx_opts {
-            if opts.sponsor.is_some() {
-                // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
-                let tempo_tx = self.tx.inner.clone().build_aa().map_err(|e| {
-                    eyre!("Failed to build AA transaction for sponsor signature: {:?}", e)
-                })?;
+        if let Some(opts) = tx_opts
+            && opts.sponsor.is_some()
+        {
+            // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
+            let tempo_tx = self.tx.inner.clone().build_aa().map_err(|e| {
+                eyre!("Failed to build AA transaction for sponsor signature: {:?}", e)
+            })?;
 
-                // Compute the fee payer signature hash (commits to sender address)
-                let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
+            // Compute the fee payer signature hash (commits to sender address)
+            let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
 
-                // Sign with sponsor key
-                if let Some(sponsor_sig) = opts.sign_sponsor_commitment(fee_payer_hash)? {
-                    self.tx.inner.set_fee_payer_signature(sponsor_sig);
-                }
+            // Sign with sponsor key
+            if let Some(sponsor_sig) = opts.sign_sponsor_commitment(fee_payer_hash)? {
+                self.tx.inner.set_fee_payer_signature(sponsor_sig);
             }
         }
 
