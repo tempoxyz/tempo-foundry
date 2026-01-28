@@ -2,13 +2,13 @@ use std::{cmp::Ordering, sync::Arc, time::Duration};
 
 use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
+use alloy_network::ReceiptResponse;
 use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
     Address, TxHash, TxKind, U256,
     map::{AddressHashMap, AddressHashSet},
     utils::format_units,
 };
-use alloy_network::ReceiptResponse;
 use alloy_provider::{Provider, utils::Eip1559Estimation};
 use alloy_serde::WithOtherFields;
 use eyre::{Context, Result, bail};
@@ -550,13 +550,14 @@ impl BundledState {
     async fn broadcast_batch(mut self) -> Result<BroadcastedState> {
         // Batch mode only supports single chain for now
         if self.sequence.sequences().len() != 1 {
-            bail!("--batch mode only supports single-chain scripts. Use --multi without --batch for multi-chain.");
+            bail!(
+                "--batch mode only supports single-chain scripts. Use --multi without --batch for multi-chain."
+            );
         }
 
         let sequence = self.sequence.sequences_mut().get_mut(0).unwrap();
         let provider = Arc::new(try_get_tempo_http_provider(sequence.rpc_url())?);
-        let fee_token_symbol =
-            get_fee_token_symbol(&provider, self.script_config.fee_token).await;
+        let fee_token_symbol = get_fee_token_symbol(&provider, self.script_config.fee_token).await;
 
         // Collect sender addresses - batch mode requires single sender
         let senders: AddressHashSet = sequence
@@ -576,7 +577,9 @@ impl BundledState {
         let sender = *senders.iter().next().unwrap();
 
         if sender == Config::DEFAULT_SENDER {
-            bail!("You seem to be using Foundry's default sender. Be sure to set your own --sender.");
+            bail!(
+                "You seem to be using Foundry's default sender. Be sure to set your own --sender."
+            );
         }
 
         // Get wallet for signing
@@ -642,11 +645,8 @@ impl BundledState {
         // Get gas prices
         let is_legacy = Chain::from(chain_id).is_legacy() || self.args.legacy;
         let (gas_price, max_fee_per_gas, max_priority_fee_per_gas) = if is_legacy {
-            let price = self
-                .args
-                .with_gas_price
-                .map(|p| p.to())
-                .unwrap_or(provider.get_gas_price().await?);
+            let price =
+                self.args.with_gas_price.map(|p| p.to()).unwrap_or(provider.get_gas_price().await?);
             (Some(price), None, None)
         } else {
             let fees = provider.estimate_eip1559_fees().await?;
@@ -662,7 +662,7 @@ impl BundledState {
         let mut batch_tx = TempoTransactionRequest {
             inner: alloy_rpc_types::TransactionRequest {
                 from: Some(sender),
-                to: None, // Must be None for batch transactions
+                to: None,    // Must be None for batch transactions
                 value: None, // Value is per-call in batch transactions
                 input: Default::default(),
                 nonce: Some(nonce),
@@ -720,7 +720,10 @@ impl BundledState {
 
         let success = receipt.status();
         if success {
-            sh_println!("Batch transaction confirmed in block {}", receipt.block_number.unwrap_or(0))?;
+            sh_println!(
+                "Batch transaction confirmed in block {}",
+                receipt.block_number.unwrap_or(0)
+            )?;
         } else {
             bail!("Batch transaction failed (reverted)");
         }
@@ -742,8 +745,7 @@ impl BundledState {
         let gas_price = receipt.effective_gas_price as u64;
         let total_paid = total_gas * gas_price;
         let paid = format_units(total_paid, 18).unwrap_or_else(|_| "N/A".to_string());
-        let gas_price_gwei =
-            format_units(gas_price, 9).unwrap_or_else(|_| "N/A".to_string());
+        let gas_price_gwei = format_units(gas_price, 9).unwrap_or_else(|_| "N/A".to_string());
 
         sh_println!(
             "\nTotal Paid: {} {} ({} gas * {} gwei)",

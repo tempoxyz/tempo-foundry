@@ -315,6 +315,64 @@ if [[ "$NUMBER_AFTER" != "503" ]]; then
 fi
 echo "OK: forge script --batch executed all calls atomically"
 
+echo -e "\n=== FORGE SCRIPT --BATCH WITH DEPLOY + CALLS ==="
+# Test deploying a contract and calling it in the same batch transaction
+# This tests the CREATE + CALL pattern (CREATE must be first)
+cat > src/BatchCounter.sol << 'SOLEOF'
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+contract BatchCounter {
+    uint256 public number;
+
+    constructor(uint256 initialNumber) {
+        number = initialNumber;
+    }
+
+    function setNumber(uint256 newNumber) public {
+        number = newNumber;
+    }
+
+    function increment() public {
+        number++;
+    }
+}
+SOLEOF
+
+cat > script/DeployAndCall.s.sol << 'SOLEOF'
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Script, console} from "forge-std/Script.sol";
+import {BatchCounter} from "../src/BatchCounter.sol";
+
+contract DeployAndCallScript is Script {
+    function run() public {
+        vm.startBroadcast();
+        
+        // Deploy contract (CREATE as first call)
+        BatchCounter counter = new BatchCounter(100);
+        
+        // Call the newly deployed contract in the same batch
+        counter.setNumber(200);
+        counter.increment();
+        counter.increment();
+        
+        // Final number should be 202 (200 + 2 increments)
+        console.log("Deployed BatchCounter at:", address(counter));
+        
+        vm.stopBroadcast();
+    }
+}
+SOLEOF
+
+forge build
+
+# Run forge script with --batch flag - deploys and calls atomically
+forge script script/DeployAndCall.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+
+echo "OK: forge script --batch with deploy + calls executed atomically"
+
 echo -e "\n=== FORGE SCRIPT --BATCH REVERT TEST ==="
 # Test that batch reverts atomically when one call in the script fails
 cat > script/BatchRevertTest.s.sol << SOLEOF
