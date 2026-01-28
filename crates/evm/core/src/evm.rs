@@ -27,8 +27,8 @@ use revm::{
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::{TempoBlockEnv, TempoHaltReason};
 use tempo_revm::{
-    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext,
-    gas_params::tempo_gas_params, handler::TempoEvmHandler,
+    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, gas_params::tempo_gas_params,
+    handler::TempoEvmHandler,
 };
 
 pub fn new_evm_with_inspector<'db, I: InspectorExt>(
