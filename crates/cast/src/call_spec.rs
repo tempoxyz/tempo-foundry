@@ -121,7 +121,7 @@ fn parse_ether_or_wei(s: &str) -> Result<U256> {
         U256::from_str_radix(s, 16).map_err(|e| eyre!("Invalid hex value '{}': {}", s, e))
     } else {
         alloy_dyn_abi::DynSolType::coerce_str(&alloy_dyn_abi::DynSolType::Uint(256), s)
-            .wrap_err_with(|| format!("Invalid value '{}'", s))?
+            .wrap_err_with(|| format!("Invalid value '{s}'"))?
             .as_uint()
             .map(|(v, _)| v)
             .ok_or_else(|| eyre!("Could not parse value '{}'", s))
