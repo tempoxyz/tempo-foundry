@@ -271,7 +271,7 @@ echo "Counter number after batch: $NUMBER (expected: 101)"
 
 echo -e "\n=== FORGE SCRIPT --BATCH (NATIVE BATCHING) ==="
 # Create a script that calls multiple contracts and batch them into a single tx
-cat > script/BatchTest.s.sol << EOF
+cat > script/BatchTest.s.sol << SOLEOF
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
@@ -285,7 +285,7 @@ interface ICounter {
 
 contract BatchTestScript is Script {
     function run() public {
-        address counter = $REQUIRE_COUNTER;
+        address counter = ${REQUIRE_COUNTER};
         vm.startBroadcast();
         
         // Multiple calls that will be batched into a single transaction
@@ -297,14 +297,14 @@ contract BatchTestScript is Script {
         vm.stopBroadcast();
     }
 }
-EOF
+SOLEOF
 
 # Get number before batch
 NUMBER_BEFORE=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
 echo "Counter number before forge script --batch: $NUMBER_BEFORE"
 
 # Run forge script with --batch flag
-forge script script/BatchTest.s.sol --broadcast --batch \${FEE_TOKEN_ARG[@]+"\${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+forge script script/BatchTest.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 
 # Verify all calls executed atomically
 NUMBER_AFTER=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
@@ -317,7 +317,7 @@ echo "OK: forge script --batch executed all calls atomically"
 
 echo -e "\n=== FORGE SCRIPT --BATCH REVERT TEST ==="
 # Test that batch reverts atomically when one call in the script fails
-cat > script/BatchRevertTest.s.sol << EOF
+cat > script/BatchRevertTest.s.sol << SOLEOF
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
@@ -331,7 +331,7 @@ interface ICounter {
 
 contract BatchRevertTestScript is Script {
     function run() public {
-        address counter = $REQUIRE_COUNTER;
+        address counter = ${REQUIRE_COUNTER};
         vm.startBroadcast();
         
         // First call succeeds
@@ -342,12 +342,12 @@ contract BatchRevertTestScript is Script {
         vm.stopBroadcast();
     }
 }
-EOF
+SOLEOF
 
 NUMBER_BEFORE_REVERT=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
 echo "Counter number before batch revert test: $NUMBER_BEFORE_REVERT"
 
-if forge script script/BatchRevertTest.s.sol --broadcast --batch \${FEE_TOKEN_ARG[@]+"\${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK" 2>&1; then
+if forge script script/BatchRevertTest.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK" 2>&1; then
   echo "ERROR: Batch script should have reverted but succeeded"
   exit 1
 fi
