@@ -41,6 +41,14 @@ pub struct InvariantConfig {
     pub max_time_delay: Option<u32>,
     /// Maximum number of blocks elapsed between generated txs.
     pub max_block_delay: Option<u32>,
+    /// Number of calls to execute between invariant assertions.
+    ///
+    /// - `0`: Only assert on the last call of each run (fastest, but may miss exact breaking call)
+    /// - `1` (default): Assert after every call (current behavior, most precise)
+    /// - `N`: Assert every N calls AND always on the last call
+    ///
+    /// Example: `check_interval = 10` means assert after calls 10, 20, 30, ... and the last call.
+    pub check_interval: u32,
     /// Replay original corpus sequences before mutation-based fuzzing.
     /// When enabled, each loaded corpus entry is executed exactly as stored
     /// before the normal fuzzing loop begins.
@@ -68,6 +76,7 @@ impl Default for InvariantConfig {
             show_solidity: false,
             max_time_delay: None,
             max_block_delay: None,
+            check_interval: 1,
             replay_corpus_first: false,
             corpus_replay_only: false,
         }
