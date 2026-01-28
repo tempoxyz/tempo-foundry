@@ -114,24 +114,17 @@ fi
 echo -e "\n=== CAST MKTX WITH FEE TOKEN ==="
 cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 
-echo -e "\n=== CAST MKTX WITH NONCE-KEY (2D Nonce) ==="
+# T1-only features: 2D nonces, expiring nonces, access keys
 if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== CAST MKTX WITH NONCE-KEY (2D Nonce) ==="
   # Each nonce-key has its own nonce sequence starting at 0
   cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 1
-else
-  echo "skipped (requires T1 hardfork)"
-fi
 
-echo -e "\n=== CAST SEND WITH NONCE-KEY (2D Nonce) ==="
-if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== CAST SEND WITH NONCE-KEY (2D Nonce) ==="
   # Use a different nonce-key (2) with nonce 0 since each key starts fresh
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 2
-else
-  echo "skipped (requires T1 hardfork)"
-fi
 
-echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
-if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
   # Use 25s expiry to stay safely within the 30s max (avoids timing issues with gas estimation)
   VALID_BEFORE=$(($(date +%s) + 25))
   cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
@@ -149,21 +142,8 @@ if [[ "$HARDFORK" == "T1" ]]; then
   sleep 6  # Wait for valid_after to pass
   VALID_BEFORE=$(($(date +%s) + 25))
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$(($(date +%s) - 1))"
-else
-  echo "skipped (requires T1 hardfork)"
 
-  echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
-  echo "skipped (requires T1 hardfork)"
-
-  echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
-  echo "skipped (requires T1 hardfork)"
-
-  echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
-  echo "skipped (requires T1 hardfork)"
-fi
-
-echo -e "\n=== SETUP ACCESS KEY ==="
-if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== SETUP ACCESS KEY ==="
   # Create an access key for testing
   access_wallet_json="$(cast wallet new --json)"
   ACCESS_KEY="$(jq -r '.[0].private_key' <<<"$access_wallet_json")"
@@ -196,13 +176,17 @@ if [[ "$HARDFORK" == "T1" ]]; then
   # Send transaction using the access key (Keychain signature wrapped in AA transaction)
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
 else
-  echo "skipped (requires T1 hardfork)"
-
-  echo -e "\n=== CAST MKTX WITH ACCESS-KEY ==="
-  echo "skipped (requires T1 hardfork)"
-
-  echo -e "\n=== CAST SEND WITH ACCESS-KEY ==="
-  echo "skipped (requires T1 hardfork)"
+  echo -e "\n=== T1-ONLY FEATURES ==="
+  echo "The following tests require T1 hardfork and are skipped on $HARDFORK:"
+  echo "  - CAST MKTX WITH NONCE-KEY (2D Nonce)"
+  echo "  - CAST SEND WITH NONCE-KEY (2D Nonce)"
+  echo "  - CAST MKTX WITH EXPIRING NONCE (TIP-1009)"
+  echo "  - CAST SEND WITH EXPIRING NONCE (TIP-1009)"
+  echo "  - CAST MKTX WITH EXPIRING NONCE + VALID-AFTER"
+  echo "  - CAST SEND WITH EXPIRING NONCE + VALID-AFTER"
+  echo "  - SETUP ACCESS KEY"
+  echo "  - CAST MKTX WITH ACCESS-KEY"
+  echo "  - CAST SEND WITH ACCESS-KEY"
 fi
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
