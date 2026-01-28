@@ -237,11 +237,7 @@ impl RunArgs {
         // This is important because the SpecId round-trip loses the distinction between T0/T1
         // (all Tempo hardforks map to OSAKA).
         let mut env = if self.hardfork.is_none() {
-            Env::from(
-                env.evm_env.cfg_env.clone(),
-                env.evm_env.block_env.clone(),
-                env.tx.clone(),
-            )
+            Env::from(env.evm_env.cfg_env.clone(), env.evm_env.block_env.clone(), env.tx.clone())
         } else {
             Env::new_with_spec_id(
                 env.evm_env.cfg_env.clone(),
