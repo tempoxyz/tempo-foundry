@@ -591,20 +591,32 @@ impl BundledState {
         };
 
         // Collect all transactions into Call structs
+        // Tempo batch transactions support CREATE only as the first call
         let mut calls: Vec<Call> = Vec::new();
-        for tx in sequence.transactions() {
+        let mut has_create = false;
+        for (idx, tx) in sequence.transactions().enumerate() {
             let to = match tx.to() {
-                Some(TxKind::Call(addr)) => addr,
+                Some(TxKind::Call(addr)) => TxKind::Call(addr),
                 Some(TxKind::Create) | None => {
-                    // Contract creation in batch mode - use zero address with create semantics
-                    // Note: Tempo batch transactions handle creates via the calls field
-                    bail!("Contract creation in --batch mode is not yet supported. Deploy contracts separately.");
+                    // Tempo allows CREATE only as the first call in a batch
+                    if idx > 0 {
+                        bail!(
+                            "Contract creation must be the first transaction in --batch mode. \
+                            Found CREATE at position {}. Reorder your script or deploy separately.",
+                            idx + 1
+                        );
+                    }
+                    if has_create {
+                        bail!("Only one contract creation is allowed per --batch transaction.");
+                    }
+                    has_create = true;
+                    TxKind::Create
                 }
             };
             let value = tx.value().unwrap_or(U256::ZERO);
             let input = tx.input().cloned().unwrap_or_default();
 
-            calls.push(Call { to: to.into(), value, input });
+            calls.push(Call { to, value, input });
         }
 
         if calls.is_empty() {
