@@ -1,7 +1,9 @@
 use crate::tx::{self, CastTxBuilder};
 
+use crate::tempo::sign_with_access_key;
+use alloy_eips::eip2718::Encodable2718;
 use alloy_ens::NameOrAddress;
-use alloy_network::{EthereumWallet, TransactionBuilder, TxSigner, eip2718::Encodable2718};
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, hex};
 use alloy_provider::Provider;
 use alloy_signer::Signer;
@@ -115,7 +117,10 @@ impl MakeTxArgs {
 
         let provider = get_tempo_provider(&config)?;
 
-        let tx_builder =
+        // Get access key config early so we can set key_id before gas estimation
+        let access_key_config = eth.wallet.access_key_config();
+
+        let mut tx_builder =
             CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx.clone(), &config)
                 .await?
                 .with_to(to)
@@ -123,6 +128,11 @@ impl MakeTxArgs {
                 .with_code_sig_and_args(code, sig, args)
                 .await?
                 .with_blob_data(blob_data)?;
+
+        // Set key_id before build() so gas estimation includes Keychain signature overhead
+        if let Some(ref config) = access_key_config {
+            tx_builder = tx_builder.with_key_id(config.key_id);
+        }
 
         if raw_unsigned {
             // Build unsigned raw tx
@@ -157,9 +167,6 @@ impl MakeTxArgs {
         // Get the signer from the wallet, and fail if it can't be constructed.
         let signer = eth.wallet.signer().await?;
 
-        // Check if we're using an access key (signs on behalf of root account)
-        let access_key_config = eth.wallet.access_key_config();
-
         // For access keys, `from` is the root account; otherwise it's the signer address
         let from = if let Some(ref config) = access_key_config {
             config.root_account
@@ -175,24 +182,15 @@ impl MakeTxArgs {
         // For access keys, pass the root account address so gas estimation and nonce lookup
         // use the correct address. For regular transactions, pass the signer so EIP-7702
         // authorization signing can work.
-        let (mut tx, _) = if access_key_config.is_some() {
+        let (tx, _) = if access_key_config.is_some() {
             tx_builder.build(from, fee_token).await?
         } else {
             tx_builder.build(&signer, fee_token).await?
         };
 
-        // For access keys, set the key_id
-        if let Some(ref config) = access_key_config {
-            tx.key_id = Some(config.key_id);
-        }
-
-        let signed_tx = if access_key_config.is_some() {
-            // For access keys, build unsigned then sign directly to avoid
-            // EthereumWallet's address validation (which expects from == signer address)
-            let mut unsigned_tx = tx.inner.build_unsigned()?;
-            let sig = signer.sign_transaction(unsigned_tx.as_dyn_signable_mut()).await?;
-            let envelope = unsigned_tx.into_envelope(sig);
-            hex::encode(envelope.encoded_2718())
+        let signed_tx = if let Some(ref config) = access_key_config {
+            let raw_tx = sign_with_access_key(tx.inner, &signer, config.root_account).await?;
+            hex::encode(raw_tx)
         } else {
             // Standard signing through EthereumWallet
             let envelope = tx.inner.build(&EthereumWallet::new(signer)).await?;
