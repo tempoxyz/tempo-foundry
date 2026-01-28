@@ -175,27 +175,6 @@ if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== CAST SEND WITH ACCESS-KEY ==="
   # Send transaction using the access key (Keychain signature wrapped in AA transaction)
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
-
-  echo -e "\n=== CAST BATCH-MKTX (NATIVE BATCHING) ==="
-  # Build a batch transaction with multiple calls as a single type 0x76 transaction
-  cast batch-mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
-    --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-    --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-    --private-key "$PK"
-
-  echo -e "\n=== CAST BATCH-SEND (NATIVE BATCHING) ==="
-  # Send a batch transaction with multiple calls as a single type 0x76 transaction
-  cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
-    --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-    --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-    --private-key "$PK"
-
-  echo -e "\n=== CAST BATCH-SEND WITH VALUE (NATIVE BATCHING) ==="
-  # Batch transaction with ETH value transfers
-  cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
-    --call "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F:0.0001ether" \
-    --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-    --private-key "$PK"
 else
   echo -e "\n=== T1-ONLY FEATURES ==="
   echo "The following tests require T1 hardfork and are skipped on $HARDFORK:"
@@ -208,10 +187,26 @@ else
   echo "  - SETUP ACCESS KEY"
   echo "  - CAST MKTX WITH ACCESS-KEY"
   echo "  - CAST SEND WITH ACCESS-KEY"
-  echo "  - CAST BATCH-MKTX (NATIVE BATCHING)"
-  echo "  - CAST BATCH-SEND (NATIVE BATCHING)"
-  echo "  - CAST BATCH-SEND WITH VALUE (NATIVE BATCHING)"
 fi
+
+# Batch transaction tests (available on all hardforks)
+echo -e "\n=== CAST BATCH-MKTX (NATIVE BATCHING) ==="
+# Build a batch transaction with multiple calls as a single type 0x76 transaction
+cast batch-mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --private-key "$PK"
+
+echo -e "\n=== CAST BATCH-SEND (NATIVE BATCHING) ==="
+# Send a batch transaction with multiple calls as a single type 0x76 transaction
+cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --private-key "$PK"
+
+# NOTE: Batch transactions with per-call value transfers are not yet supported by the node.
+# The spec supports it (Call struct has value field), but implementation is pending.
+# When enabled, add test: cast batch-send --call "0x...:0.0001ether" --call "0x...::fn()"
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
