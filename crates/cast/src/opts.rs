@@ -1,9 +1,10 @@
 use crate::cmd::{
     access_list::AccessListArgs, artifact::ArtifactArgs, b2e_payload::B2EPayloadArgs,
-    bind::BindArgs, call::CallArgs, constructor_args::ConstructorArgsArgs, create2::Create2Args,
-    creation_code::CreationCodeArgs, da_estimate::DAEstimateArgs, erc20::Erc20Subcommand,
-    estimate::EstimateArgs, find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs,
-    mktx::MakeTxArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
+    batch_mktx::BatchMakeTxArgs, batch_send::BatchSendArgs, bind::BindArgs, call::CallArgs,
+    constructor_args::ConstructorArgsArgs, create2::Create2Args, creation_code::CreationCodeArgs,
+    da_estimate::DAEstimateArgs, erc20::Erc20Subcommand, estimate::EstimateArgs,
+    find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs, mktx::MakeTxArgs,
+    rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
     txpool::TxPoolSubcommands, wallet::WalletSubcommands,
 };
 use alloy_ens::NameOrAddress;
@@ -486,6 +487,18 @@ pub enum CastSubcommand {
     /// Build and sign a transaction.
     #[command(name = "mktx", visible_alias = "m")]
     MakeTx(MakeTxArgs),
+
+    /// Build and sign a batch transaction with multiple calls (Tempo native batching).
+    ///
+    /// Creates a single type 0x76 transaction with multiple calls executed atomically.
+    #[command(name = "batch-mktx", visible_alias = "bm")]
+    BatchMakeTx(BatchMakeTxArgs),
+
+    /// Sign and publish a batch transaction with multiple calls (Tempo native batching).
+    ///
+    /// Sends a single type 0x76 transaction with multiple calls executed atomically.
+    #[command(name = "batch-send", visible_alias = "bs")]
+    BatchSend(BatchSendArgs),
 
     /// Calculate the ENS namehash of a name.
     #[command(visible_aliases = &["na", "nh"])]

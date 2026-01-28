@@ -56,6 +56,7 @@ use tokio::signal::ctrl_c;
 pub use foundry_evm::*;
 
 pub mod args;
+pub mod call_spec;
 pub mod cmd;
 pub mod opts;
 pub mod tempo;
