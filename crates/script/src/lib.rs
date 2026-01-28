@@ -270,7 +270,7 @@ impl ScriptArgs {
             evm_opts.sender = sender;
         }
 
-        let script_config = ScriptConfig::new(config, evm_opts, self.fee_token).await?;
+        let script_config = ScriptConfig::new(config, evm_opts, self.fee_token, self.batch).await?;
 
         Ok(PreprocessedState { args: self, script_config, script_wallets })
     }
@@ -615,6 +615,8 @@ pub struct ScriptConfig {
     pub backends: HashMap<String, Backend>,
     /// Optional fee token for transactions
     pub fee_token: Option<Address>,
+    /// Whether to batch all broadcast transactions into a single Tempo batch transaction
+    pub batch: bool,
 }
 
 impl ScriptConfig {
@@ -622,6 +624,7 @@ impl ScriptConfig {
         config: Config,
         evm_opts: EvmOpts,
         fee_token: Option<Address>,
+        batch: bool,
     ) -> Result<Self> {
         let sender_nonce = if let Some(fork_url) = evm_opts.fork_url.as_ref() {
             next_nonce(evm_opts.sender, fork_url, evm_opts.fork_block_number).await?
@@ -630,7 +633,7 @@ impl ScriptConfig {
             1
         };
 
-        Ok(Self { config, evm_opts, sender_nonce, backends: HashMap::default(), fee_token })
+        Ok(Self { config, evm_opts, sender_nonce, backends: HashMap::default(), fee_token, batch })
     }
 
     pub async fn update_sender(&mut self, sender: Address) -> Result<()> {
@@ -706,6 +709,7 @@ impl ScriptConfig {
                             Some(known_contracts),
                             Some(target),
                             self.fee_token,
+                            self.batch,
                         )
                         .into(),
                     )

@@ -269,6 +269,98 @@ cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_UR
 NUMBER=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
 echo "Counter number after batch: $NUMBER (expected: 101)"
 
+echo -e "\n=== FORGE SCRIPT --BATCH (NATIVE BATCHING) ==="
+# Create a script that calls multiple contracts and batch them into a single tx
+cat > script/BatchTest.s.sol << EOF
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Script} from "forge-std/Script.sol";
+
+interface ICounter {
+    function increment() external;
+    function setNumber(uint256 newNumber) external;
+    function number() external view returns (uint256);
+}
+
+contract BatchTestScript is Script {
+    function run() public {
+        address counter = $REQUIRE_COUNTER;
+        vm.startBroadcast();
+        
+        // Multiple calls that will be batched into a single transaction
+        ICounter(counter).setNumber(500);
+        ICounter(counter).increment();
+        ICounter(counter).increment();
+        ICounter(counter).increment();
+        
+        vm.stopBroadcast();
+    }
+}
+EOF
+
+# Get number before batch
+NUMBER_BEFORE=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number before forge script --batch: $NUMBER_BEFORE"
+
+# Run forge script with --batch flag
+forge script script/BatchTest.s.sol --broadcast --batch \${FEE_TOKEN_ARG[@]+"\${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+
+# Verify all calls executed atomically
+NUMBER_AFTER=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number after forge script --batch: $NUMBER_AFTER (expected: 503)"
+if [[ "$NUMBER_AFTER" != "503" ]]; then
+  echo "ERROR: Expected number to be 503 (500 + 3 increments), got $NUMBER_AFTER"
+  exit 1
+fi
+echo "OK: forge script --batch executed all calls atomically"
+
+echo -e "\n=== FORGE SCRIPT --BATCH REVERT TEST ==="
+# Test that batch reverts atomically when one call in the script fails
+cat > script/BatchRevertTest.s.sol << EOF
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Script} from "forge-std/Script.sol";
+
+interface ICounter {
+    function increment() external;
+    function setNumber(uint256 newNumber) external;
+    function number() external view returns (uint256);
+}
+
+contract BatchRevertTestScript is Script {
+    function run() public {
+        address counter = $REQUIRE_COUNTER;
+        vm.startBroadcast();
+        
+        // First call succeeds
+        ICounter(counter).setNumber(600);
+        // Second call fails (require > 100 fails with 50)
+        ICounter(counter).setNumber(50);
+        
+        vm.stopBroadcast();
+    }
+}
+EOF
+
+NUMBER_BEFORE_REVERT=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number before batch revert test: $NUMBER_BEFORE_REVERT"
+
+if forge script script/BatchRevertTest.s.sol --broadcast --batch \${FEE_TOKEN_ARG[@]+"\${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK" 2>&1; then
+  echo "ERROR: Batch script should have reverted but succeeded"
+  exit 1
+fi
+
+# Verify number unchanged (atomic revert)
+NUMBER_AFTER_REVERT=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number after batch revert: $NUMBER_AFTER_REVERT (expected: $NUMBER_BEFORE_REVERT - unchanged)"
+if [[ "$NUMBER_AFTER_REVERT" != "$NUMBER_BEFORE_REVERT" ]]; then
+  echo "ERROR: Expected number to remain $NUMBER_BEFORE_REVERT after atomic revert, got $NUMBER_AFTER_REVERT"
+  exit 1
+fi
+echo "OK: forge script --batch correctly reverted atomically"
+
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="

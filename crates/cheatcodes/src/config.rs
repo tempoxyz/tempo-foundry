@@ -65,6 +65,8 @@ pub struct CheatsConfig {
     pub chain_id_to_alias: HashMap<u64, String>,
     /// Fee token to use for transactions.
     pub fee_token: Option<Address>,
+    /// Whether to batch all broadcast transactions into a single Tempo batch transaction.
+    pub batch: bool,
 }
 
 /// Chain data for getChain cheatcodes
@@ -83,6 +85,7 @@ impl CheatsConfig {
         available_artifacts: Option<ContractsByArtifact>,
         running_artifact: Option<ArtifactId>,
         fee_token: Option<Address>,
+        batch: bool,
     ) -> Self {
         let mut allowed_paths = vec![config.root.clone()];
         allowed_paths.extend(config.libs.iter().cloned());
@@ -118,6 +121,7 @@ impl CheatsConfig {
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
             fee_token,
+            batch,
         }
     }
 
@@ -129,6 +133,7 @@ impl CheatsConfig {
             self.available_artifacts.clone(),
             self.running_artifact.clone(),
             self.fee_token,
+            self.batch,
         )
     }
 
@@ -258,6 +263,7 @@ impl Default for CheatsConfig {
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
             fee_token: None,
+            batch: false,
         }
     }
 }
@@ -274,6 +280,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         )
     }
 
