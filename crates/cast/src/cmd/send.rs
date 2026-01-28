@@ -1,7 +1,11 @@
 use std::{str::FromStr, time::Duration};
 
+use crate::{
+    tempo::sign_with_access_key,
+    tx::{self, CastTxBuilder, CastTxSender, SendTxOpts},
+};
 use alloy_ens::NameOrAddress;
-use alloy_network::{EthereumWallet, TransactionBuilder, TxSigner, eip2718::Encodable2718};
+use alloy_network::EthereumWallet;
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
@@ -12,8 +16,6 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
-
-use crate::tx::{self, CastTxBuilder, CastTxSender, SendTxOpts};
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
@@ -108,12 +110,21 @@ impl SendTxArgs {
         // Clone tx_opts if sponsor is present (need it for build_sponsored)
         let sponsor_opts = if tx.sponsor.is_some() { Some(tx.clone()) } else { None };
 
-        let builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
-            .await?
-            .with_to(to)
-            .await?
-            .with_code_sig_and_args(code, sig, args)
-            .await?;
+        // Get access key config early so we can set key_id before gas estimation
+        let access_key_config = send_tx.eth.wallet.access_key_config();
+
+        let mut builder =
+            CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
+                .await?
+                .with_to(to)
+                .await?
+                .with_code_sig_and_args(code, sig, args)
+                .await?;
+
+        // Set key_id before build() so gas estimation includes Keychain signature overhead
+        if let Some(ref config) = access_key_config {
+            builder = builder.with_key_id(config.key_id);
+        }
 
         let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
 
@@ -164,9 +175,6 @@ impl SendTxArgs {
             // Retrieve the signer, and bail if it can't be constructed.
             let signer = send_tx.eth.wallet.signer().await?;
 
-            // Check if we're using an access key (signs on behalf of root account)
-            let access_key_config = send_tx.eth.wallet.access_key_config();
-
             // For access keys, `from` is the root account; otherwise it's the signer address
             let from = if let Some(ref config) = access_key_config {
                 config.root_account
@@ -212,7 +220,7 @@ impl SendTxArgs {
             // For access keys, pass the root account address so gas estimation and nonce lookup
             // use the correct address. For regular transactions, pass the signer so EIP-7702
             // authorization signing can work.
-            let (mut tx_request, _) = match (&access_key_config, &sponsor_opts) {
+            let (tx_request, _) = match (&access_key_config, &sponsor_opts) {
                 (Some(_), Some(opts)) => {
                     builder.build_sponsored(from, send_tx.fee_token, opts).await?
                 }
@@ -223,18 +231,9 @@ impl SendTxArgs {
                 (None, None) => builder.build(&signer, send_tx.fee_token).await?,
             };
 
-            // For access keys, set the key_id
             if let Some(ref config) = access_key_config {
-                tx_request.key_id = Some(config.key_id);
-            }
-
-            if access_key_config.is_some() {
-                // For access keys, build unsigned, sign manually, and send raw
-                // to avoid EthereumWallet's address validation
-                let mut unsigned_tx = tx_request.inner.build_unsigned()?;
-                let sig = signer.sign_transaction(unsigned_tx.as_dyn_signable_mut()).await?;
-                let envelope = unsigned_tx.into_envelope(sig);
-                let raw_tx = envelope.encoded_2718();
+                let raw_tx =
+                    sign_with_access_key(tx_request.inner, &signer, config.root_account).await?;
 
                 let cast = CastTxSender::new(&provider);
                 if send_tx.sync {

@@ -1,31 +1,34 @@
 use alloy_chains::NamedChain;
 use foundry_test_utils::rpc::next_rpc_endpoint;
 
-casttest!(tempo_erc20_send_with_fee_token, |_prj, cmd| {
-    let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
-    cmd.args([
-        "erc20",
-        "transfer",
-        "--fee-token",
-        "0x20c0000000000000000000000000000000000002",
-        "0x20c0000000000000000000000000000000000001",
-        "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
-        "1234567",
-        "--rpc-url",
-        rpc.as_str(),
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ]);
-    cmd.assert_success().stdout_eq(str![[r#"
+casttest!(
+    #[ignore = "requires funded account on testnet"]
+    tempo_erc20_send_with_fee_token,
+    |_prj, cmd| {
+        let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
+        cmd.args([
+            "erc20",
+            "transfer",
+            "--fee-token",
+            "0x20c0000000000000000000000000000000000002",
+            "0x20c0000000000000000000000000000000000001",
+            "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
+            "1234567",
+            "--rpc-url",
+            rpc.as_str(),
+            "--private-key",
+            "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+        ]);
+        cmd.assert_success().stdout_eq(str![[r#"
 
 feeToken             0x20C0000000000000000000000000000000000002
-feePayer             0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+feePayer             0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 blockHash            [..]
 blockNumber          [..]
 contractAddress      
 cumulativeGasUsed    [..]
 effectiveGasPrice    [..]
-from                 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+from                 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 gasUsed              [..]
 logs                 [..]
 logsBloom            [..]
@@ -38,29 +41,29 @@ to                   0x20C0000000000000000000000000000000000001
 
 "#]]);
 
-    cmd.cast_fuse().args([
-        "erc20",
-        "approve",
-        "--fee-token",
-        "0x20c0000000000000000000000000000000000003",
-        "0x20c0000000000000000000000000000000000001",
-        "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
-        "1234567",
-        "--rpc-url",
-        rpc.as_str(),
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ]);
-    cmd.assert_success().stdout_eq(str![[r#"
+        cmd.cast_fuse().args([
+            "erc20",
+            "approve",
+            "--fee-token",
+            "0x20c0000000000000000000000000000000000003",
+            "0x20c0000000000000000000000000000000000001",
+            "0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F",
+            "1234567",
+            "--rpc-url",
+            rpc.as_str(),
+            "--private-key",
+            "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+        ]);
+        cmd.assert_success().stdout_eq(str![[r#"
 
 feeToken             0x20C0000000000000000000000000000000000003
-feePayer             0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+feePayer             0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 blockHash            [..]
 blockNumber          [..]
 contractAddress      
 cumulativeGasUsed    [..]
 effectiveGasPrice    [..]
-from                 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+from                 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 gasUsed              [..]
 logs                 [..]
 logsBloom            [..]
@@ -73,27 +76,27 @@ to                   0x20C0000000000000000000000000000000000001
 
 "#]]);
 
-    cmd.cast_fuse().args([
-        "send",
-        "--fee-token",
-        "0x20c0000000000000000000000000000000000003",
-        "--rpc-url",
-        rpc.as_str(),
-        "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
-        "increment()",
-        "--private-key",
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ]);
-    cmd.assert_success().stdout_eq(str![[r#"
+        cmd.cast_fuse().args([
+            "send",
+            "--fee-token",
+            "0x20c0000000000000000000000000000000000003",
+            "--rpc-url",
+            rpc.as_str(),
+            "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
+            "increment()",
+            "--private-key",
+            "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+        ]);
+        cmd.assert_success().stdout_eq(str![[r#"
 
 feeToken             0x20C0000000000000000000000000000000000003
-feePayer             0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+feePayer             0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 blockHash            [..]
 blockNumber          [..]
 contractAddress      
 cumulativeGasUsed    [..]
 effectiveGasPrice    [..]
-from                 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+from                 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 gasUsed              [..]
 logs                 [..]
 logsBloom            [..]
@@ -105,7 +108,8 @@ type                 AA
 to                   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D
 
 "#]]);
-});
+    }
+);
 
 casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
     let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
@@ -180,10 +184,10 @@ to                   0x20C000000000000000000000000000000000042a
 // Test access key CLI argument parsing
 casttest!(tempo_access_key_mktx, |_prj, cmd| {
     // This test verifies that --access-key and --root-account flags are properly parsed
-    // and used to construct the transaction.
+    // and used to construct a Tempo AA transaction with Keychain signature.
     //
-    // Note: This test will fail at the RPC level because the access key isn't actually
-    // authorized on the network, but it verifies the CLI parsing works correctly.
+    // Note: Gas estimation requires the access key to be authorized on-chain, so we
+    // provide --gas-limit to skip estimation and just validate CLI parsing + tx building.
 
     let rpc = next_rpc_endpoint(NamedChain::TempoTestnet);
 
@@ -206,12 +210,15 @@ casttest!(tempo_access_key_mktx, |_prj, cmd| {
         access_key,
         "--root-account",
         root_account,
+        // Skip gas estimation since access key isn't authorized on-chain
+        "--gas-limit",
+        "50000",
     ]);
 
-    // The command should succeed and produce a signed transaction
-    // The signed tx will have:
-    // - from = root_account
-    // - key_id = access key address (for Keychain signature)
+    // The command should succeed and produce a signed AA transaction (type 0x76)
+    // with Keychain signature containing:
+    // - from/userAddress = root_account
+    // - keyId = access key address
     cmd.assert_success().stdout_eq(str![[r#"
 0x[..]
 

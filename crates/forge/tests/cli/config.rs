@@ -203,6 +203,8 @@ show_edge_coverage = false
 failure_persist_dir = "cache/invariant"
 show_metrics = true
 show_solidity = false
+replay_corpus_first = false
+corpus_replay_only = false
 
 [labels]
 
@@ -1282,7 +1284,9 @@ forgetest_init!(test_default_config, |prj, cmd| {
     "timeout": null,
     "show_solidity": false,
     "max_time_delay": null,
-    "max_block_delay": null
+    "max_block_delay": null,
+    "replay_corpus_first": false,
+    "corpus_replay_only": false
   },
   "ffi": false,
   "allow_internal_expect_revert": false,
