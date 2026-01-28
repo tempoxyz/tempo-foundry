@@ -67,46 +67,58 @@ echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
 sleep 5
 
 echo -e "\n=== ADD AlphaUSD FEE TOKEN LIQUIDITY ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000001 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$ETH_RPC_URL"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo "skipped (requires T1 hardfork)"
 else
   echo "skipped (custom fee token set)"
 fi
 
 echo -e "\n=== ADD BetaUSD FEE TOKEN LIQUIDITY ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000002 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$ETH_RPC_URL"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo "skipped (requires T1 hardfork)"
 else
   echo "skipped (custom fee token set)"
 fi
 
 echo -e "\n=== ADD ThetaUSD FEE TOKEN LIQUIDITY ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast send 0xfeec000000000000000000000000000000000000 'mint(address,address,uint256,address)' 0x20C0000000000000000000000000000000000003 0x20C0000000000000000000000000000000000000 1000000000 0x6c4143BEd3A13cf9E5E43d45C60aD816FC091d0c --private-key "$PK" --rpc-url "$ETH_RPC_URL"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo "skipped (requires T1 hardfork)"
 else
   echo "skipped (custom fee token set)"
 fi
 
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
   cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo "skipped (requires T1 hardfork)"
 else
   cast erc20 transfer ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} "${FEE_TOKEN}" 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 fi
 
 echo -e "\n=== CAST ERC20 APPROVE WITH FEE TOKEN ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
   cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo "skipped (requires T1 hardfork)"
 else
   echo "skipped (custom fee token set)"
 fi
 
 echo -e "\n=== CAST SEND WITH FEE TOKEN ==="
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
   cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo "skipped (requires T1 hardfork)"
 else
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 fi
@@ -205,8 +217,8 @@ else
   echo "skipped (requires T1 hardfork)"
 fi
 
-# Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
-if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
+# Skip DEX/liquidity tests when using custom fee token or T0 hardfork (they assume T1 precompiles)
+if [[ "$HARDFORK" == "T1" && ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
   cast send --rpc-url "$ETH_RPC_URL" 0xfeec000000000000000000000000000000000000 'setUserToken(address)' 0x20C0000000000000000000000000000000000002 --private-key "$PK"
   cast send --rpc-url "$ETH_RPC_URL" 0xfeec000000000000000000000000000000000000 'setUserToken(address)' 0x20C0000000000000000000000000000000000000 --private-key "$PK"
@@ -229,6 +241,27 @@ if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
 
   echo -e "\n=== ADD LIQUIDITY: SWAP EXACT AMOUNT OUT ==="
   cast send 0xdec0000000000000000000000000000000000000 "swapExactAmountOut(address,address,uint128,uint128)" 0x20c0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000000 9000000 100000000 --private-key "$PK" -r "$ETH_RPC_URL"
+elif [[ "$HARDFORK" != "T1" ]]; then
+  echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
+  echo "skipped (requires T1 hardfork)"
+
+  echo -e "\n=== ADD LIQUIDITY: APPROVE DEX ==="
+  echo "skipped (requires T1 hardfork)"
+
+  echo -e "\n=== ADD LIQUIDITY: PLACE BID ==="
+  echo "skipped (requires T1 hardfork)"
+
+  echo -e "\n=== ADD LIQUIDITY: PLACE ASK ==="
+  echo "skipped (requires T1 hardfork)"
+
+  echo -e "\n=== ADD LIQUIDITY: PLACE FLIP ==="
+  echo "skipped (requires T1 hardfork)"
+
+  echo -e "\n=== ADD LIQUIDITY: SWAP EXACT AMOUNT IN ==="
+  echo "skipped (requires T1 hardfork)"
+
+  echo -e "\n=== ADD LIQUIDITY: SWAP EXACT AMOUNT OUT ==="
+  echo "skipped (requires T1 hardfork)"
 else
   echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
   echo "skipped (custom fee token set)"
