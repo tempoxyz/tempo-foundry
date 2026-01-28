@@ -131,10 +131,7 @@ casttest!(tempo_mktx_with_fee_token, |_prj, cmd| {
 });
 
 // Regression tests using testnet txes.
-casttest!(
-    #[ignore = "pre-T1 transaction incompatible with T1 gas params (TIP-1000)"]
-    tempo_testnet_cast_aa,
-    |_prj, cmd| {
+casttest!(tempo_testnet_cast_aa, |_prj, cmd| {
     let rpc = "https://rpc.testnet.tempo.xyz";
     cmd.args([
         "run",
