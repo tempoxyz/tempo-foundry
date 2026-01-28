@@ -2,8 +2,7 @@ use std::{cmp::Ordering, sync::Arc, time::Duration};
 
 use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
-use alloy_network::ReceiptResponse;
-use alloy_network::{EthereumWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
     Address, TxHash, TxKind, U256,
     map::{AddressHashMap, AddressHashSet},
