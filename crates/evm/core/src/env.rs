@@ -17,10 +17,11 @@ pub struct Env {
 
 /// Helper container type for [`EvmEnv`] and [`TxEnv`].
 impl Env {
-    pub fn default_with_spec_id(spec_id: SpecId) -> Self {
-        let mut cfg = CfgEnv::<TempoHardfork>::default();
-        cfg.spec = spec_id.into();
-
+    pub fn default_with_spec_id(_spec_id: SpecId) -> Self {
+        // Note: SpecId cannot be meaningfully converted to TempoHardfork because
+        // all Tempo hardforks map to SpecId::OSAKA. Use TempoHardfork::default() instead.
+        // If a specific Tempo hardfork is needed, override cfg_env.spec after construction.
+        let cfg = CfgEnv::<TempoHardfork>::default();
         Self::from(cfg, TempoBlockEnv::default(), TempoTxEnv::default())
     }
 
@@ -32,11 +33,11 @@ impl Env {
         cfg: CfgEnv<TempoHardfork>,
         block: TempoBlockEnv,
         tx: TempoTxEnv,
-        spec_id: SpecId,
+        _spec_id: SpecId,
     ) -> Self {
-        let mut cfg = cfg;
-        cfg.spec = spec_id.into();
-
+        // Note: SpecId cannot be meaningfully converted to TempoHardfork because
+        // all Tempo hardforks map to SpecId::OSAKA. The cfg.spec is preserved as-is.
+        // If a specific Tempo hardfork is needed, override cfg_env.spec after construction.
         Self::from(cfg, block, tx)
     }
 }
