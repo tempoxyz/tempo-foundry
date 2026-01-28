@@ -82,4 +82,42 @@ contract ExecuteTransactionTest is Test {
         vm._expectCheatcodeRevert("failed to decode RLP-encoded transaction: unexpected string");
         vm.executeTransaction(hex"0102");
     }
+
+    function test_execute_eip1559_tx() public {
+        // Alice is the sender (derived from private key 0xa316311a767126072c26570baddf4e16ad797e636bb9374427ace6eebeaad43f)
+        address alice = 0x4d6004af73ca7CE5F5879079D8E2d6aFa6316646;
+        // Bob is the recipient
+        address bob = 0x70CF146aB98ffD5dE24e75dd7423F16181Da8E13;
+
+        uint256 transferAmount = 100;
+
+        // Setup: transfer PathUSD from test contract to alice
+        IERC20(PATH_USD).transfer(alice, 1000);
+
+        assertEq(IERC20(PATH_USD).balanceOf(alice), 1000, "alice should have 1000 PathUSD");
+        uint256 bobInitialBalance = IERC20(PATH_USD).balanceOf(bob);
+
+        /*
+        Signed EIP-1559 transaction - ERC20 transfer:
+        - type: 0x02 (EIP-1559)
+        - from: 0x4d6004af73ca7CE5F5879079D8E2d6aFa6316646 (alice)
+        - to: 0x20C0000000000000000000000000000000000000 (PathUSD)
+        - value: 0
+        - data: transfer(0x70CF146aB98ffD5dE24e75dd7423F16181Da8E13, 100)
+        - gas: 100000
+        - maxPriorityFeePerGas: 10
+        - maxFeePerGas: 11
+        - nonce: 0
+        - chain_id: 1
+        */
+        vm.executeTransaction(
+            hex"02f8a801800a0b830186a09420c000000000000000000000000000000000000080b844a9059cbb00000000000000000000000070cf146ab98ffd5de24e75dd7423f16181da8e130000000000000000000000000000000000000000000000000000000000000064c080a0504e3b65b6418d94466689b70e1352a5842466ab357debbb3423df43e2cd990aa02d40604aea5f98cc29296b9ee39a50e40aa175d76937eddad0a67861f2443efe"
+        );
+
+        // Assertion: bob received the tokens, alice's balance decreased
+        assertEq(
+            IERC20(PATH_USD).balanceOf(bob), bobInitialBalance + transferAmount, "bob should have received PathUSD"
+        );
+        assertEq(IERC20(PATH_USD).balanceOf(alice), 1000 - transferAmount, "alice balance should decrease");
+    }
 }

@@ -505,6 +505,8 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
         CastSubcommand::Call(cmd) => cmd.run().await?,
         CastSubcommand::Estimate(cmd) => cmd.run().await?,
         CastSubcommand::MakeTx(cmd) => cmd.run().await?,
+        CastSubcommand::BatchMakeTx(cmd) => cmd.run().await?,
+        CastSubcommand::BatchSend(cmd) => cmd.run().await?,
         CastSubcommand::PublishTx { raw_tx, cast_async, rpc } => {
             let config = rpc.load_config()?;
             let provider = utils::get_provider(&config)?;

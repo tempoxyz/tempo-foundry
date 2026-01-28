@@ -301,6 +301,14 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             }
         }
 
+        // For batch transactions with calls, clear `to` and `value` so the node correctly
+        // identifies this as an AA batch transaction. The `calls` field determines the actual
+        // targets, data, and per-call values. AA transactions don't support tx-level value.
+        if !self.tx.calls.is_empty() {
+            self.tx.inner.inner.to = None;
+            self.tx.inner.inner.value = None;
+        }
+
         if self.tx.inner.inner.gas.is_none() {
             self.estimate_gas().await?;
         }
