@@ -492,11 +492,6 @@ impl<'a> InvariantExecutor<'a> {
                     }
                 }
 
-                // Keep eviction disabled for mutation phase when replay_corpus_first is set.
-                // This preserves the original corpus for differential testing.
-                // Eviction is only re-enabled if we're NOT in replay_corpus_first mode.
-                // (corpus_replay_only returns early before reaching here)
-
                 trace!(target: "invariant", "Completed corpus replay phase, {} runs executed", runs);
             }
 
@@ -517,6 +512,10 @@ impl<'a> InvariantExecutor<'a> {
                     failed_corpus_replays: corpus_manager.failed_replays(),
                 });
             }
+
+            // Re-enable eviction for Phase 2 mutation-based fuzzing.
+            // Original corpus was preserved during replay; now allow normal eviction.
+            corpus_manager.set_allow_eviction(true);
         }
 
         // Phase 2: Normal mutation-based fuzzing
