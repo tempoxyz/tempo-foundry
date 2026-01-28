@@ -595,7 +595,7 @@ impl BundledState {
         // Collect all transactions into Call structs
         // Tempo batch transactions support CREATE only as the first call
         let mut calls: Vec<Call> = Vec::new();
-        let mut has_create = false;
+        let mut create_index: Option<usize> = None;
         for (idx, tx) in sequence.transactions().enumerate() {
             let to = match tx.to() {
                 Some(TxKind::Call(addr)) => TxKind::Call(addr),
@@ -608,10 +608,10 @@ impl BundledState {
                             idx + 1
                         );
                     }
-                    if has_create {
+                    if create_index.is_some() {
                         bail!("Only one contract creation is allowed per --batch transaction.");
                     }
-                    has_create = true;
+                    create_index = Some(idx);
                     TxKind::Create
                 }
             };
@@ -727,10 +727,25 @@ impl BundledState {
             bail!("Batch transaction failed (reverted)");
         }
 
+        // For CREATE transactions, compute the deployed contract address
+        // The address is derived from sender + nonce (the nonce used for this batch tx)
+        let created_address = if create_index.is_some() {
+            let deployed_addr = sender.create(nonce);
+            sh_println!("Contract deployed at: {:#x}", deployed_addr)?;
+            Some(deployed_addr)
+        } else {
+            None
+        };
+
         // Add receipt to sequence for each original transaction
         // In batch mode, all calls share the same receipt
-        for _ in 0..calls.len() {
-            sequence.receipts.push(receipt.clone());
+        for idx in 0..calls.len() {
+            let mut tx_receipt = receipt.clone();
+            // Set contract_address on the CREATE transaction's receipt for verification
+            if Some(idx) == create_index {
+                tx_receipt.contract_address = created_address;
+            }
+            sequence.receipts.push(tx_receipt);
         }
 
         // Mark all transactions as pending with the batch tx hash

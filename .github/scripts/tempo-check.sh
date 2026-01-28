@@ -368,8 +368,15 @@ SOLEOF
 
 forge build
 
+# Build verification args if VERIFIER_URL is set
+BATCH_VERIFY_ARG=()
+if [[ -n "${VERIFIER_URL:-}" ]]; then
+  BATCH_VERIFY_ARG=(--verify --verifier blockscout --verifier-url "$VERIFIER_URL" --retries 5 --delay 5)
+  echo "Will verify deployed contract via $VERIFIER_URL"
+fi
+
 # Run forge script with --batch flag - deploys and calls atomically
-forge script script/DeployAndCall.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+forge script script/DeployAndCall.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} ${BATCH_VERIFY_ARG[@]+"${BATCH_VERIFY_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 
 echo "OK: forge script --batch with deploy + calls executed atomically"
 
