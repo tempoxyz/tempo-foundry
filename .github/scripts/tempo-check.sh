@@ -130,10 +130,26 @@ else
   echo "skipped (requires T1 hardfork)"
 fi
 
-# Check if the devnet supports expiring nonces by attempting a gas estimate
-# Use 25s expiry to stay safely within the 30s max (avoids timing issues with gas estimation)
 echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
-if [[ "$HARDFORK" != "T1" ]]; then
+if [[ "$HARDFORK" == "T1" ]]; then
+  # Use 25s expiry to stay safely within the 30s max (avoids timing issues with gas estimation)
+  VALID_BEFORE=$(($(date +%s) + 25))
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+
+  echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
+  VALID_BEFORE=$(($(date +%s) + 25))
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+
+  echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
+  VALID_AFTER=$(($(date +%s) + 5))
+  VALID_BEFORE=$(($(date +%s) + 25))
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$VALID_AFTER"
+
+  echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
+  sleep 6  # Wait for valid_after to pass
+  VALID_BEFORE=$(($(date +%s) + 25))
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$(($(date +%s) - 1))"
+else
   echo "skipped (requires T1 hardfork)"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
@@ -144,37 +160,6 @@ if [[ "$HARDFORK" != "T1" ]]; then
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
   echo "skipped (requires T1 hardfork)"
-else
-  VALID_BEFORE=$(($(date +%s) + 25))
-  if cast estimate --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --from "$ADDR" --expiring-nonce --valid-before "$VALID_BEFORE" >/dev/null 2>&1; then
-    # Devnet supports expiring nonces - run the tests
-    cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
-
-    echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
-    VALID_BEFORE=$(($(date +%s) + 25))
-    cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
-
-    echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
-    VALID_AFTER=$(($(date +%s) + 5))
-    VALID_BEFORE=$(($(date +%s) + 25))
-    cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$VALID_AFTER"
-
-    echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
-    sleep 6  # Wait for valid_after to pass
-    VALID_BEFORE=$(($(date +%s) + 25))
-    cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$(($(date +%s) - 1))"
-  else
-    echo "skipped (does not yet support expiring nonces RPC)"
-
-    echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
-    echo "skipped (does not yet support expiring nonces RPC)"
-
-    echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
-    echo "skipped (does not yet support expiring nonces RPC)"
-
-    echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
-    echo "skipped (does not yet support expiring nonces RPC)"
-  fi
 fi
 
 echo -e "\n=== SETUP ACCESS KEY ==="
