@@ -154,6 +154,14 @@ pub struct ScriptArgs {
     #[arg(long, value_parser = parse_fee_token_address)]
     pub fee_token: Option<Address>,
 
+    /// Batch all broadcast transactions into a single Tempo batch transaction.
+    ///
+    /// When enabled, all vm.broadcast() calls are collected and sent as a single
+    /// atomic type 0x76 transaction instead of individual transactions.
+    /// This provides atomicity (all-or-nothing execution) and gas savings.
+    #[arg(long)]
+    pub batch: bool,
+
     /// Relative percentage to multiply gas estimates by.
     #[arg(long, short, default_value = "130")]
     pub gas_estimate_multiplier: u64,
