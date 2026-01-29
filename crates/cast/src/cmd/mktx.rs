@@ -117,8 +117,12 @@ impl MakeTxArgs {
 
         let provider = get_tempo_provider(&config)?;
 
-        // Clone tx_opts if sponsor is present (need it for build_sponsored)
-        let sponsor_opts = if tx.sponsor.is_some() { Some(tx.clone()) } else { None };
+        // Clone tx_opts if sponsor is present or print-sponsor-hash mode
+        let sponsor_opts = if tx.sponsor.is_sponsor() || tx.sponsor.should_print_hash() {
+            Some(tx.clone())
+        } else {
+            None
+        };
 
         // Get access key config early so we can set key_id before gas estimation
         let access_key_config = eth.wallet.access_key_config();

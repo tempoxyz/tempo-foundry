@@ -315,7 +315,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
 
         // Handle sponsored transactions: compute and set fee_payer_signature
         if let Some(opts) = tx_opts
-            && opts.sponsor.is_some()
+            && (opts.sponsor.is_sponsor() || opts.sponsor.should_print_hash())
         {
             // Force AA transaction type by setting nonce_key if not already set.
             // This is needed because output_tx_type() doesn't check fee_payer_signature,
@@ -332,8 +332,14 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             // Compute the fee payer signature hash (commits to sender address)
             let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
 
-            // Sign with sponsor key
-            if let Some(sponsor_sig) = opts.sign_sponsor_commitment(fee_payer_hash)? {
+            // If print-sponsor-hash mode, output the hash and return early
+            if opts.sponsor.should_print_hash() {
+                sh_println!("{:?}", fee_payer_hash)?;
+                std::process::exit(0);
+            }
+
+            // Get sponsor signature from provided signature
+            if let Some(sponsor_sig) = opts.sponsor.get_signature()? {
                 self.tx.inner.set_fee_payer_signature(sponsor_sig);
             }
         }

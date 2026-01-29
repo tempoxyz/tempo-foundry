@@ -209,13 +209,26 @@ for i in {1..100}; do
 done
 sleep 3
 
-echo -e "\n=== CAST MKTX WITH SPONSOR ==="
-# Build a transaction where the sponsor pays gas for the sender
-cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --sponsor "$SPONSOR_PK"
+echo -e "\n=== CAST SEND WITH SPONSOR (--sponsor-signature) ==="
+# Test sponsored transactions using pre-signed signature.
+# Step 1: Get the fee_payer_signature_hash using --print-sponsor-hash
+# Step 2: Sign it with the sponsor's private key
+# Step 3: Send with --sponsor-signature
 
-echo -e "\n=== CAST SEND WITH SPONSOR ==="
-# Send a sponsored transaction and verify the receipt shows the correct fee_payer
-RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --sponsor "$SPONSOR_PK" --json)
+# Step 1: Get the hash that the sponsor needs to sign
+FEE_PAYER_HASH=$(cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
+  --print-sponsor-hash)
+printf "Fee payer signature hash: %s\n" "$FEE_PAYER_HASH"
+
+# Step 2: Sponsor signs the hash
+SPONSOR_SIG=$(cast wallet sign --private-key "$SPONSOR_PK" "$FEE_PAYER_HASH" --no-hash)
+printf "Sponsor signature: %s\n" "$SPONSOR_SIG"
+
+# Step 3: Send the sponsored transaction with the signature
+RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
+  --sponsor-signature "$SPONSOR_SIG" --json)
 
 # Verify the fee_payer in the receipt matches the sponsor address
 RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')

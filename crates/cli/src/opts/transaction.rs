@@ -3,10 +3,16 @@ use std::str::FromStr;
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_primitives::{Address, Signature, U64, U256, hex};
 use alloy_rlp::Decodable;
-use alloy_signer::SignerSync;
 use clap::Parser;
 
 use crate::utils::{parse_ether_value, parse_json};
+
+/// Parse a hex-encoded signature string into a Signature.
+fn parse_signature(sig_hex: &str) -> eyre::Result<Signature> {
+    // Remove 0x prefix if present
+    let sig_hex = sig_hex.strip_prefix("0x").unwrap_or(sig_hex);
+    Signature::from_str(sig_hex).map_err(|e| eyre::eyre!("Invalid signature: {e}"))
+}
 
 /// CLI helper to parse a EIP-7702 authorization list.
 /// Can be either a hex-encoded signed authorization or an address.
@@ -129,45 +135,47 @@ pub struct TransactionOpts {
     #[arg(long, value_parser = parse_json::<AccessList>)]
     pub access_list: Option<Option<AccessList>>,
 
-    /// Sponsor private key for sponsored transactions (Tempo).
-    ///
-    /// The sponsor pays the gas fees for the transaction. Provide a hex-encoded
-    /// private key (with or without 0x prefix). The sponsor signs a commitment
-    /// to pay gas for the transaction, enabling gasless transactions for the sender.
-    #[arg(long, value_name = "PRIVATE_KEY", env = "TEMPO_SPONSOR")]
-    pub sponsor: Option<String>,
+    #[command(flatten)]
+    pub sponsor: SponsorOpts,
 }
 
-impl TransactionOpts {
-    /// Signs the fee payer commitment and returns the sponsor signature.
+/// Options for sponsored (gasless) transactions.
+///
+/// The sponsor pays the gas fees for the transaction, enabling gasless transactions
+/// for the sender. Provide a pre-signed signature from the sponsor.
+#[derive(Clone, Debug, Default, Parser)]
+#[command(next_help_heading = "Sponsor options")]
+pub struct SponsorOpts {
+    /// Pre-signed sponsor signature for sponsored transactions (Tempo).
     ///
-    /// The sponsor signs a hash that commits to paying gas for the sender's transaction.
-    /// This enables sponsored (gasless) transactions on Tempo.
-    pub fn sign_sponsor_commitment(
-        &self,
-        fee_payer_signature_hash: alloy_primitives::B256,
-    ) -> eyre::Result<Option<Signature>> {
-        let Some(sponsor_key) = &self.sponsor else {
-            return Ok(None);
-        };
+    /// Hex-encoded signature (with or without 0x prefix) that commits the sponsor
+    /// to paying gas fees. The signature must be over the fee_payer_signature_hash
+    /// which can be obtained using --print-sponsor-hash.
+    #[arg(long = "sponsor-signature", value_name = "SIGNATURE", env = "TEMPO_SPONSOR_SIGNATURE")]
+    pub sponsor_signature: Option<String>,
 
-        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(sponsor_key)
-            .map_err(|e| eyre::eyre!("Failed to decode sponsor private key: {e}"))?;
-        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
-        let signature = signer.sign_hash_sync(&fee_payer_signature_hash)?;
-        Ok(Some(signature))
+    /// Print the fee_payer_signature_hash and exit without sending.
+    ///
+    /// Use this to obtain the hash that the sponsor must sign. The sponsor signs
+    /// this hash with their private key, then provides it via --sponsor-signature.
+    #[arg(long = "print-sponsor-hash")]
+    pub print_sponsor_hash: bool,
+}
+
+impl SponsorOpts {
+    /// Returns true if sponsor signature is provided (not just print-hash mode).
+    pub fn is_sponsor(&self) -> bool {
+        self.sponsor_signature.is_some()
     }
 
-    /// Returns the sponsor address if a sponsor key is provided.
-    pub fn sponsor_address(&self) -> eyre::Result<Option<Address>> {
-        let Some(sponsor_key) = &self.sponsor else {
-            return Ok(None);
-        };
+    /// Returns true if we should print the sponsor hash and exit.
+    pub fn should_print_hash(&self) -> bool {
+        self.print_sponsor_hash
+    }
 
-        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(sponsor_key)
-            .map_err(|e| eyre::eyre!("Failed to decode sponsor private key: {e}"))?;
-        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
-        Ok(Some(alloy_signer::Signer::address(&signer)))
+    /// Parses the provided sponsor signature.
+    pub fn get_signature(&self) -> eyre::Result<Option<Signature>> {
+        self.sponsor_signature.as_ref().map(|s| parse_signature(s)).transpose()
     }
 }
 
