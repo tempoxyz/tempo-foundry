@@ -387,14 +387,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-# Uses feat/sponsor-support branch for fee_payer_signature support (PR #2283)
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", branch = "feat/sponsor-support" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "ce2c615b19f13510094f1303bfb2967b4344fc17" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 

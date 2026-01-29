@@ -216,21 +216,20 @@ RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RP
 
 # Verify the fee_payer in the receipt matches the sponsor address
 RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
-if [[ -n "$RECEIPT_FEE_PAYER" ]]; then
-  # Normalize addresses for comparison (lowercase)
-  RECEIPT_FEE_PAYER_LOWER=$(echo "$RECEIPT_FEE_PAYER" | tr '[:upper:]' '[:lower:]')
-  SPONSOR_ADDR_LOWER=$(echo "$SPONSOR_ADDR" | tr '[:upper:]' '[:lower:]')
-  if [[ "$RECEIPT_FEE_PAYER_LOWER" == "$SPONSOR_ADDR_LOWER" ]]; then
-    echo "SUCCESS: Receipt feePayer ($RECEIPT_FEE_PAYER) matches sponsor address"
-  else
-    # Devnet may not have sponsor support yet - warn but don't fail
-    echo "WARNING: Receipt feePayer ($RECEIPT_FEE_PAYER) does not match sponsor ($SPONSOR_ADDR)"
-    echo "This is expected if the devnet does not yet support sponsored transactions"
-  fi
-else
-  echo "WARNING: feePayer not found in receipt (may not be supported on this devnet)"
+if [[ -z "$RECEIPT_FEE_PAYER" ]]; then
+  echo "ERROR: feePayer not found in receipt"
   echo "Receipt: $RECEIPT"
+  exit 1
 fi
+
+# Normalize addresses for comparison (lowercase)
+RECEIPT_FEE_PAYER_LOWER=$(echo "$RECEIPT_FEE_PAYER" | tr '[:upper:]' '[:lower:]')
+SPONSOR_ADDR_LOWER=$(echo "$SPONSOR_ADDR" | tr '[:upper:]' '[:lower:]')
+if [[ "$RECEIPT_FEE_PAYER_LOWER" != "$SPONSOR_ADDR_LOWER" ]]; then
+  echo "ERROR: Receipt feePayer ($RECEIPT_FEE_PAYER) does not match sponsor ($SPONSOR_ADDR)"
+  exit 1
+fi
+echo "SUCCESS: Receipt feePayer ($RECEIPT_FEE_PAYER) matches sponsor address"
 
 # Batch transaction tests (available on all hardforks)
 echo -e "\n=== CAST BATCH-MKTX (NATIVE BATCHING) ==="
