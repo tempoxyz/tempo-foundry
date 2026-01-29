@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Get the directory where this script lives
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Non-verification tempo checks: local tests, fork tests, cast commands, DEX operations
 
 # Hardfork version, defaults to T1 (latest features)
@@ -256,24 +259,8 @@ cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_UR
   --private-key "$PK"
 
 echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
-# Modify existing Counter.sol to add require(newNumber > 100) for batch revert testing
-cat > src/Counter.sol << 'EOF'
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
-
-contract Counter {
-    uint256 public number;
-
-    function setNumber(uint256 newNumber) public {
-        require(newNumber > 100, "bad number");
-        number = newNumber;
-    }
-
-    function increment() public {
-        number++;
-    }
-}
-EOF
+# Use CounterWithRequire.sol (has require(newNumber > 100)) for batch revert testing
+cp "$SCRIPT_DIR/contracts/CounterWithRequire.sol" src/Counter.sol
 forge build
 REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast --json)
 echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
@@ -310,6 +297,69 @@ cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_UR
 
 NUMBER=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
 echo "Counter number after batch: $NUMBER (expected: 101)"
+
+echo -e "\n=== FORGE SCRIPT --BATCH (NATIVE BATCHING) ==="
+# Create a script that calls multiple contracts and batch them into a single tx
+# Use template file and substitute REQUIRE_COUNTER address
+sed "s/\${REQUIRE_COUNTER}/${REQUIRE_COUNTER}/" "$SCRIPT_DIR/contracts/BatchTest.s.sol.template" > script/BatchTest.s.sol
+
+# Get number before batch
+NUMBER_BEFORE=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number before forge script --batch: $NUMBER_BEFORE"
+
+# Run forge script with --batch flag
+forge script script/BatchTest.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+
+# Verify all calls executed atomically
+NUMBER_AFTER=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number after forge script --batch: $NUMBER_AFTER (expected: 503)"
+if [[ "$NUMBER_AFTER" != "503" ]]; then
+  echo "ERROR: Expected number to be 503 (500 + 3 increments), got $NUMBER_AFTER"
+  exit 1
+fi
+echo "OK: forge script --batch executed all calls atomically"
+
+echo -e "\n=== FORGE SCRIPT --BATCH WITH DEPLOY + CALLS ==="
+# Test deploying a contract and calling it in the same batch transaction
+# This tests the CREATE + CALL pattern (CREATE must be first)
+cp "$SCRIPT_DIR/contracts/BatchCounter.sol" src/BatchCounter.sol
+cp "$SCRIPT_DIR/contracts/DeployAndCall.s.sol" script/DeployAndCall.s.sol
+
+forge build
+
+# Build verification args if VERIFIER_URL is set (same pattern as tempo-deploy.sh)
+VERIFY_ARG=()
+if [[ -n "${VERIFIER_URL:-}" ]]; then
+  VERIFY_ARG=(--verify --retries 10 --delay 10)
+  echo "Will verify deployed contract via $VERIFIER_URL"
+fi
+
+# Run forge script with --batch flag - deploys and calls atomically
+forge script script/DeployAndCall.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+
+echo "OK: forge script --batch with deploy + calls executed atomically"
+
+echo -e "\n=== FORGE SCRIPT --BATCH REVERT TEST ==="
+# Test that batch reverts atomically when one call in the script fails
+# Use template file and substitute REQUIRE_COUNTER address
+sed "s/\${REQUIRE_COUNTER}/${REQUIRE_COUNTER}/" "$SCRIPT_DIR/contracts/BatchRevertTest.s.sol.template" > script/BatchRevertTest.s.sol
+
+NUMBER_BEFORE_REVERT=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number before batch revert test: $NUMBER_BEFORE_REVERT"
+
+if forge script script/BatchRevertTest.s.sol --broadcast --batch ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" --private-key "$PK" 2>&1; then
+  echo "ERROR: Batch script should have reverted but succeeded"
+  exit 1
+fi
+
+# Verify number unchanged (atomic revert)
+NUMBER_AFTER_REVERT=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
+echo "Counter number after batch revert: $NUMBER_AFTER_REVERT (expected: $NUMBER_BEFORE_REVERT - unchanged)"
+if [[ "$NUMBER_AFTER_REVERT" != "$NUMBER_BEFORE_REVERT" ]]; then
+  echo "ERROR: Expected number to remain $NUMBER_BEFORE_REVERT after atomic revert, got $NUMBER_AFTER_REVERT"
+  exit 1
+fi
+echo "OK: forge script --batch correctly reverted atomically"
 
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
