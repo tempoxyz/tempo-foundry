@@ -595,7 +595,7 @@ impl BundledState {
         // Collect all transactions into Call structs
         // Tempo batch transactions support CREATE only as the first call
         let mut calls: Vec<Call> = Vec::new();
-        let mut create_index: Option<usize> = None;
+        let mut has_create = false;
         for (idx, tx) in sequence.transactions().enumerate() {
             let to = match tx.to() {
                 Some(TxKind::Call(addr)) => TxKind::Call(addr),
@@ -608,10 +608,10 @@ impl BundledState {
                             idx + 1
                         );
                     }
-                    if create_index.is_some() {
+                    if has_create {
                         bail!("Only one contract creation is allowed per --batch transaction.");
                     }
-                    create_index = Some(idx);
+                    has_create = true;
                     TxKind::Create
                 }
             };
@@ -641,22 +641,12 @@ impl BundledState {
         let nonce = provider.get_transaction_count(sender).await?;
         let chain_id = sequence.chain;
 
-        // Get gas prices
-        let is_legacy = Chain::from(chain_id).is_legacy() || self.args.legacy;
-        let (gas_price, max_fee_per_gas, max_priority_fee_per_gas) = if is_legacy {
-            let price =
-                self.args.with_gas_price.map(|p| p.to()).unwrap_or(provider.get_gas_price().await?);
-            (Some(price), None, None)
-        } else {
-            let fees = provider.estimate_eip1559_fees().await?;
-            let max_fee = self.args.with_gas_price.map(|p| p.to()).unwrap_or(fees.max_fee_per_gas);
-            let priority_fee = self
-                .args
-                .priority_gas_price
-                .map(|p| p.to())
-                .unwrap_or(fees.max_priority_fee_per_gas);
-            (None, Some(max_fee), Some(priority_fee))
-        };
+        // Get gas prices - batch transactions are Tempo-only, always use EIP-1559 style fees
+        let fees = provider.estimate_eip1559_fees().await?;
+        let max_fee_per_gas =
+            self.args.with_gas_price.map(|p| p.to()).unwrap_or(fees.max_fee_per_gas);
+        let max_priority_fee_per_gas =
+            self.args.priority_gas_price.map(|p| p.to()).unwrap_or(fees.max_priority_fee_per_gas);
 
         let mut batch_tx = TempoTransactionRequest {
             inner: alloy_rpc_types::TransactionRequest {
@@ -666,9 +656,8 @@ impl BundledState {
                 input: Default::default(),
                 nonce: Some(nonce),
                 chain_id: Some(chain_id),
-                gas_price,
-                max_fee_per_gas,
-                max_priority_fee_per_gas,
+                max_fee_per_gas: Some(max_fee_per_gas),
+                max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
                 ..Default::default()
             },
             fee_token: self.script_config.fee_token,
@@ -729,7 +718,7 @@ impl BundledState {
 
         // For CREATE transactions, compute the deployed contract address
         // The address is derived from sender + nonce (the nonce used for this batch tx)
-        let created_address = if create_index.is_some() {
+        let created_address = if has_create {
             let deployed_addr = sender.create(nonce);
             sh_println!("Contract deployed at: {:#x}", deployed_addr)?;
             Some(deployed_addr)
@@ -742,7 +731,8 @@ impl BundledState {
         for idx in 0..calls.len() {
             let mut tx_receipt = receipt.clone();
             // Set contract_address on the CREATE transaction's receipt for verification
-            if Some(idx) == create_index {
+            // CREATE is always at index 0 if present (validated above)
+            if idx == 0 && has_create {
                 tx_receipt.contract_address = created_address;
             }
             sequence.receipts.push(tx_receipt);

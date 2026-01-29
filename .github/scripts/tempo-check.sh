@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Get the directory where this script lives
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Non-verification tempo checks: local tests, fork tests, cast commands, DEX operations
 
 # Hardfork version, defaults to T1 (latest features)
@@ -214,24 +217,8 @@ cast batch-send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_UR
   --private-key "$PK"
 
 echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
-# Modify existing Counter.sol to add require(newNumber > 100) for batch revert testing
-cat > src/Counter.sol << 'EOF'
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
-
-contract Counter {
-    uint256 public number;
-
-    function setNumber(uint256 newNumber) public {
-        require(newNumber > 100, "bad number");
-        number = newNumber;
-    }
-
-    function increment() public {
-        number++;
-    }
-}
-EOF
+# Use CounterWithRequire.sol (has require(newNumber > 100)) for batch revert testing
+cp "$SCRIPT_DIR/contracts/CounterWithRequire.sol" src/Counter.sol
 forge build
 REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast --json)
 echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
@@ -271,33 +258,8 @@ echo "Counter number after batch: $NUMBER (expected: 101)"
 
 echo -e "\n=== FORGE SCRIPT --BATCH (NATIVE BATCHING) ==="
 # Create a script that calls multiple contracts and batch them into a single tx
-cat > script/BatchTest.s.sol << SOLEOF
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
-
-import {Script} from "forge-std/Script.sol";
-
-interface ICounter {
-    function increment() external;
-    function setNumber(uint256 newNumber) external;
-    function number() external view returns (uint256);
-}
-
-contract BatchTestScript is Script {
-    function run() public {
-        address counter = ${REQUIRE_COUNTER};
-        vm.startBroadcast();
-        
-        // Multiple calls that will be batched into a single transaction
-        ICounter(counter).setNumber(500);
-        ICounter(counter).increment();
-        ICounter(counter).increment();
-        ICounter(counter).increment();
-        
-        vm.stopBroadcast();
-    }
-}
-SOLEOF
+# Use template file and substitute REQUIRE_COUNTER address
+sed "s/\${REQUIRE_COUNTER}/${REQUIRE_COUNTER}/" "$SCRIPT_DIR/contracts/BatchTest.s.sol.template" > script/BatchTest.s.sol
 
 # Get number before batch
 NUMBER_BEFORE=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
@@ -318,53 +280,8 @@ echo "OK: forge script --batch executed all calls atomically"
 echo -e "\n=== FORGE SCRIPT --BATCH WITH DEPLOY + CALLS ==="
 # Test deploying a contract and calling it in the same batch transaction
 # This tests the CREATE + CALL pattern (CREATE must be first)
-cat > src/BatchCounter.sol << 'SOLEOF'
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
-
-contract BatchCounter {
-    uint256 public number;
-
-    constructor(uint256 initialNumber) {
-        number = initialNumber;
-    }
-
-    function setNumber(uint256 newNumber) public {
-        number = newNumber;
-    }
-
-    function increment() public {
-        number++;
-    }
-}
-SOLEOF
-
-cat > script/DeployAndCall.s.sol << 'SOLEOF'
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
-
-import {Script, console} from "forge-std/Script.sol";
-import {BatchCounter} from "../src/BatchCounter.sol";
-
-contract DeployAndCallScript is Script {
-    function run() public {
-        vm.startBroadcast();
-        
-        // Deploy contract (CREATE as first call)
-        BatchCounter counter = new BatchCounter(100);
-        
-        // Call the newly deployed contract in the same batch
-        counter.setNumber(200);
-        counter.increment();
-        counter.increment();
-        
-        // Final number should be 202 (200 + 2 increments)
-        console.log("Deployed BatchCounter at:", address(counter));
-        
-        vm.stopBroadcast();
-    }
-}
-SOLEOF
+cp "$SCRIPT_DIR/contracts/BatchCounter.sol" src/BatchCounter.sol
+cp "$SCRIPT_DIR/contracts/DeployAndCall.s.sol" script/DeployAndCall.s.sol
 
 forge build
 
@@ -382,32 +299,8 @@ echo "OK: forge script --batch with deploy + calls executed atomically"
 
 echo -e "\n=== FORGE SCRIPT --BATCH REVERT TEST ==="
 # Test that batch reverts atomically when one call in the script fails
-cat > script/BatchRevertTest.s.sol << SOLEOF
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
-
-import {Script} from "forge-std/Script.sol";
-
-interface ICounter {
-    function increment() external;
-    function setNumber(uint256 newNumber) external;
-    function number() external view returns (uint256);
-}
-
-contract BatchRevertTestScript is Script {
-    function run() public {
-        address counter = ${REQUIRE_COUNTER};
-        vm.startBroadcast();
-        
-        // First call succeeds
-        ICounter(counter).setNumber(600);
-        // Second call fails (require > 100 fails with 50)
-        ICounter(counter).setNumber(50);
-        
-        vm.stopBroadcast();
-    }
-}
-SOLEOF
+# Use template file and substitute REQUIRE_COUNTER address
+sed "s/\${REQUIRE_COUNTER}/${REQUIRE_COUNTER}/" "$SCRIPT_DIR/contracts/BatchRevertTest.s.sol.template" > script/BatchRevertTest.s.sol
 
 NUMBER_BEFORE_REVERT=$(cast call --rpc-url "$ETH_RPC_URL" "$REQUIRE_COUNTER" "number()(uint256)")
 echo "Counter number before batch revert test: $NUMBER_BEFORE_REVERT"
