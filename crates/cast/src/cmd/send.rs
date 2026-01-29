@@ -107,8 +107,8 @@ impl SendTxArgs {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
-        // Clone tx_opts if sponsor is present (need it for build_sponsored)
-        let sponsor_opts = if tx.sponsor.is_some() { Some(tx.clone()) } else { None };
+        // Check if sponsor wallet is configured
+        let sponsor_opts = &send_tx.eth.wallet.sponsor;
 
         // Get access key config early so we can set key_id before gas estimation
         let access_key_config = send_tx.eth.wallet.access_key_config();
@@ -152,8 +152,8 @@ impl SendTxArgs {
                 }
             }
 
-            let (tx, _) = if let Some(ref opts) = sponsor_opts {
-                builder.build_sponsored(config.sender, send_tx.fee_token, opts).await?
+            let (tx, _) = if sponsor_opts.is_configured() {
+                builder.build_sponsored(config.sender, send_tx.fee_token, sponsor_opts).await?
             } else {
                 builder.build(config.sender, send_tx.fee_token).await?
             };
@@ -191,8 +191,8 @@ impl SendTxArgs {
             if send_tx.eth.wallet.browser
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
-                let (tx_request, _) = if let Some(ref opts) = sponsor_opts {
-                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
+                let (tx_request, _) = if sponsor_opts.is_configured() {
+                    builder.build_sponsored(from, send_tx.fee_token, sponsor_opts).await?
                 } else {
                     builder.build(from, send_tx.fee_token).await?
                 };
@@ -220,15 +220,16 @@ impl SendTxArgs {
             // For access keys, pass the root account address so gas estimation and nonce lookup
             // use the correct address. For regular transactions, pass the signer so EIP-7702
             // authorization signing can work.
-            let (tx_request, _) = match (&access_key_config, &sponsor_opts) {
-                (Some(_), Some(opts)) => {
-                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
+            let has_sponsor = sponsor_opts.is_configured();
+            let (tx_request, _) = match (&access_key_config, has_sponsor) {
+                (Some(_), true) => {
+                    builder.build_sponsored(from, send_tx.fee_token, sponsor_opts).await?
                 }
-                (Some(_), None) => builder.build(from, send_tx.fee_token).await?,
-                (None, Some(opts)) => {
-                    builder.build_sponsored(&signer, send_tx.fee_token, opts).await?
+                (Some(_), false) => builder.build(from, send_tx.fee_token).await?,
+                (None, true) => {
+                    builder.build_sponsored(&signer, send_tx.fee_token, sponsor_opts).await?
                 }
-                (None, None) => builder.build(&signer, send_tx.fee_token).await?,
+                (None, false) => builder.build(&signer, send_tx.fee_token).await?,
             };
 
             if let Some(ref config) = access_key_config {

@@ -1,8 +1,156 @@
 use crate::{signer::WalletSigner, utils, wallet_raw::RawWalletOpts};
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256, Signature};
+use alloy_signer::SignerSync;
 use clap::Parser;
 use eyre::Result;
 use serde::Serialize;
+
+/// Sponsor wallet options for sponsored (gasless) transactions.
+///
+/// The sponsor pays the gas fees for the transaction, enabling gasless UX
+/// where the sender doesn't need native tokens for gas.
+#[derive(Clone, Debug, Default, Serialize, Parser)]
+#[command(next_help_heading = "Sponsor wallet options")]
+pub struct SponsorWalletOpts {
+    /// Sponsor private key for sponsored transactions.
+    ///
+    /// The sponsor pays the gas fees for the transaction. The sponsor signs a commitment
+    /// to pay gas for the transaction, enabling gasless transactions for the sender.
+    #[arg(
+        long = "sponsor",
+        value_name = "PRIVATE_KEY",
+        env = "TEMPO_SPONSOR",
+        help_heading = "Sponsor wallet options"
+    )]
+    pub private_key: Option<String>,
+
+    /// Sponsor keystore path for sponsored transactions.
+    ///
+    /// Use a keystore file for the sponsor wallet instead of a raw private key.
+    #[arg(
+        long = "sponsor-keystore",
+        value_name = "PATH",
+        env = "TEMPO_SPONSOR_KEYSTORE",
+        help_heading = "Sponsor wallet options"
+    )]
+    pub keystore_path: Option<String>,
+
+    /// Sponsor keystore account name.
+    ///
+    /// Use a keystore from the default keystores folder (~/.foundry/keystores) by its filename.
+    #[arg(
+        long = "sponsor-account",
+        value_name = "ACCOUNT_NAME",
+        env = "TEMPO_SPONSOR_ACCOUNT",
+        conflicts_with = "keystore_path",
+        help_heading = "Sponsor wallet options"
+    )]
+    pub keystore_account_name: Option<String>,
+
+    /// Sponsor keystore password.
+    #[arg(
+        long = "sponsor-password",
+        value_name = "PASSWORD",
+        requires = "keystore_path",
+        help_heading = "Sponsor wallet options"
+    )]
+    pub keystore_password: Option<String>,
+
+    /// Sponsor keystore password file path.
+    #[arg(
+        long = "sponsor-password-file",
+        value_name = "PASSWORD_FILE",
+        requires = "keystore_path",
+        env = "TEMPO_SPONSOR_PASSWORD",
+        help_heading = "Sponsor wallet options"
+    )]
+    pub keystore_password_file: Option<String>,
+
+    /// Use a Ledger hardware wallet for the sponsor.
+    #[arg(long = "sponsor-ledger", help_heading = "Sponsor wallet options")]
+    pub ledger: bool,
+
+    /// Use a Trezor hardware wallet for the sponsor.
+    #[arg(long = "sponsor-trezor", help_heading = "Sponsor wallet options")]
+    pub trezor: bool,
+
+    /// Use AWS KMS for the sponsor wallet.
+    ///
+    /// Ensure the TEMPO_SPONSOR_AWS_KMS_KEY_ID environment variable is set.
+    #[arg(
+        long = "sponsor-aws",
+        help_heading = "Sponsor wallet options",
+        hide = !cfg!(feature = "aws-kms")
+    )]
+    pub aws: bool,
+}
+
+impl SponsorWalletOpts {
+    /// Returns true if a sponsor wallet is configured.
+    pub fn is_configured(&self) -> bool {
+        self.private_key.is_some()
+            || self.keystore_path.is_some()
+            || self.keystore_account_name.is_some()
+            || self.ledger
+            || self.trezor
+            || self.aws
+    }
+
+    /// Creates a signer from the sponsor wallet options.
+    pub async fn signer(&self) -> Result<WalletSigner> {
+        let get_env = |key: &str| {
+            std::env::var(key)
+                .map_err(|_| eyre::eyre!("{key} environment variable is required for sponsor"))
+        };
+
+        if let Some(private_key) = &self.private_key {
+            let key_bytes: B256 = alloy_primitives::hex::FromHex::from_hex(private_key)
+                .map_err(|e| eyre::eyre!("Failed to decode sponsor private key: {e}"))?;
+            WalletSigner::from_private_key(&key_bytes)
+        } else if self.ledger {
+            utils::create_ledger_signer(None, 0).await
+        } else if self.trezor {
+            utils::create_trezor_signer(None, 0).await
+        } else if self.aws {
+            let key_id = get_env("TEMPO_SPONSOR_AWS_KMS_KEY_ID")?;
+            WalletSigner::from_aws(key_id).await
+        } else if let Some(path) = utils::maybe_get_keystore_path(
+            self.keystore_path.as_deref(),
+            self.keystore_account_name.as_deref(),
+        )? {
+            let (maybe_signer, maybe_pending) = utils::create_keystore_signer(
+                &path,
+                self.keystore_password.as_deref(),
+                self.keystore_password_file.as_deref(),
+            )?;
+            if let Some(pending) = maybe_pending {
+                pending.unlock()
+            } else if let Some(signer) = maybe_signer {
+                Ok(signer)
+            } else {
+                unreachable!()
+            }
+        } else {
+            eyre::bail!("No sponsor wallet configured")
+        }
+    }
+
+    /// Signs the fee payer commitment hash and returns the sponsor signature.
+    ///
+    /// The sponsor signs a hash that commits to paying gas for the sender's transaction.
+    /// This enables sponsored (gasless) transactions on Tempo.
+    pub async fn sign_commitment(&self, fee_payer_signature_hash: B256) -> Result<Signature> {
+        let signer = self.signer().await?;
+        let signature = signer.sign_hash_sync(&fee_payer_signature_hash)?;
+        Ok(signature)
+    }
+
+    /// Returns the sponsor address.
+    pub async fn address(&self) -> Result<Address> {
+        let signer = self.signer().await?;
+        Ok(alloy_signer::Signer::address(&signer))
+    }
+}
 
 /// The wallet options can either be:
 /// 1. Raw (via private key / mnemonic file, see `RawWallet`)
@@ -158,6 +306,10 @@ pub struct WalletOpts {
     /// **WARNING**: This should only be used in a development environment.
     #[arg(long, help_heading = "Wallet options - browser", hide = true)]
     pub browser_development: bool,
+
+    /// Sponsor wallet options for sponsored (gasless) transactions.
+    #[command(flatten)]
+    pub sponsor: SponsorWalletOpts,
 }
 
 /// Access key configuration for signing on behalf of a root account.
@@ -357,6 +509,7 @@ mod tests {
             browser_port: 9545,
             browser_development: false,
             browser_disable_open: false,
+            sponsor: SponsorWalletOpts::default(),
         };
         match wallet.signer().await {
             Ok(_) => {
@@ -397,6 +550,7 @@ mod tests {
             browser_port: 9545,
             browser_development: false,
             browser_disable_open: false,
+            sponsor: SponsorWalletOpts::default(),
         };
 
         // Test that the signer is created with the access key

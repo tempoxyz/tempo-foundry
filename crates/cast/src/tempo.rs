@@ -11,7 +11,8 @@ use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
 use eyre::{OptionExt, Result, eyre};
-use foundry_cli::opts::{CliAuthorizationList, TransactionOpts};
+use foundry_cli::opts::CliAuthorizationList;
+use foundry_wallets::SponsorWalletOpts;
 use foundry_common::abi::{
     encode_function_args, encode_function_args_raw, get_func, get_func_etherscan,
 };
@@ -184,9 +185,9 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         self,
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
-        tx_opts: &TransactionOpts,
+        sponsor: &SponsorWalletOpts,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, true, false, fee_token, Some(tx_opts)).await
+        self._build(sender, true, false, fee_token, Some(sponsor)).await
     }
 
     /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls
@@ -224,7 +225,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         fill: bool,
         unsigned: bool,
         fee_token: Option<Address>,
-        tx_opts: Option<&TransactionOpts>,
+        sponsor: Option<&SponsorWalletOpts>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         let sender = sender.into();
         let from = sender.address();
@@ -314,9 +315,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         }
 
         // Handle sponsored transactions: compute and set fee_payer_signature
-        if let Some(opts) = tx_opts
-            && opts.sponsor.is_some()
-        {
+        if let Some(sponsor_opts) = sponsor {
             // Force AA transaction type by setting nonce_key if not already set.
             // This is needed because output_tx_type() doesn't check fee_payer_signature,
             // so without this the transaction would be built as EIP-1559 instead of AA.
@@ -332,10 +331,9 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             // Compute the fee payer signature hash (commits to sender address)
             let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
 
-            // Sign with sponsor key
-            if let Some(sponsor_sig) = opts.sign_sponsor_commitment(fee_payer_hash)? {
-                self.tx.inner.set_fee_payer_signature(sponsor_sig);
-            }
+            // Sign with sponsor wallet
+            let sponsor_sig = sponsor_opts.sign_commitment(fee_payer_hash).await?;
+            self.tx.inner.set_fee_payer_signature(sponsor_sig);
         }
 
         Ok((self.tx, self.state.func))
