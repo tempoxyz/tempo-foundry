@@ -317,6 +317,13 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         if let Some(opts) = tx_opts
             && opts.sponsor.is_some()
         {
+            // Force AA transaction type by setting nonce_key if not already set.
+            // This is needed because output_tx_type() doesn't check fee_payer_signature,
+            // so without this the transaction would be built as EIP-1559 instead of AA.
+            if self.tx.inner.nonce_key.is_none() {
+                self.tx.inner.nonce_key = Some(alloy_primitives::U256::ZERO);
+            }
+
             // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
             let tempo_tx = self.tx.inner.clone().build_aa().map_err(|e| {
                 eyre!("Failed to build AA transaction for sponsor signature: {:?}", e)
