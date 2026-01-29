@@ -117,8 +117,8 @@ impl MakeTxArgs {
 
         let provider = get_tempo_provider(&config)?;
 
-        // Check if sponsor wallet is configured
-        let sponsor_opts = &eth.wallet.sponsor;
+        // Clone tx_opts if sponsor is present (need it for build_sponsored)
+        let sponsor_opts = if tx.sponsor.is_some() { Some(tx.clone()) } else { None };
 
         // Get access key config early so we can set key_id before gas estimation
         let access_key_config = eth.wallet.access_key_config();
@@ -159,8 +159,8 @@ impl MakeTxArgs {
         if ethsign {
             // Use "eth_signTransaction" to sign the transaction only works if the node/RPC has
             // unlocked accounts.
-            let (tx, _) = if sponsor_opts.is_configured() {
-                tx_builder.build_sponsored(config.sender, fee_token, sponsor_opts).await?
+            let (tx, _) = if let Some(ref opts) = sponsor_opts {
+                tx_builder.build_sponsored(config.sender, fee_token, opts).await?
             } else {
                 tx_builder.build(config.sender, fee_token).await?
             };
@@ -189,12 +189,11 @@ impl MakeTxArgs {
         // For access keys, pass the root account address so gas estimation and nonce lookup
         // use the correct address. For regular transactions, pass the signer so EIP-7702
         // authorization signing can work.
-        let has_sponsor = sponsor_opts.is_configured();
-        let (tx, _) = match (&access_key_config, has_sponsor) {
-            (Some(_), true) => tx_builder.build_sponsored(from, fee_token, sponsor_opts).await?,
-            (Some(_), false) => tx_builder.build(from, fee_token).await?,
-            (None, true) => tx_builder.build_sponsored(&signer, fee_token, sponsor_opts).await?,
-            (None, false) => tx_builder.build(&signer, fee_token).await?,
+        let (tx, _) = match (&access_key_config, &sponsor_opts) {
+            (Some(_), Some(opts)) => tx_builder.build_sponsored(from, fee_token, opts).await?,
+            (Some(_), None) => tx_builder.build(from, fee_token).await?,
+            (None, Some(opts)) => tx_builder.build_sponsored(&signer, fee_token, opts).await?,
+            (None, None) => tx_builder.build(&signer, fee_token).await?,
         };
 
         let signed_tx = if let Some(ref config) = access_key_config {
