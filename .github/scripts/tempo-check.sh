@@ -192,60 +192,68 @@ else
   echo "  - CAST SEND WITH ACCESS-KEY"
 fi
 
-echo -e "\n=== SETUP SPONSOR ==="
-# Create a sponsor wallet for testing sponsored (gasless) transactions
-sponsor_wallet_json="$(cast wallet new --json)"
-SPONSOR_PK="$(jq -r '.[0].private_key' <<<"$sponsor_wallet_json")"
-SPONSOR_ADDR="$(jq -r '.[0].address' <<<"$sponsor_wallet_json")"
-printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
+# Sponsor tests require T1 (--print-sponsor-hash and --sponsor-signature flags)
+if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== SETUP SPONSOR ==="
+  # Create a sponsor wallet for testing sponsored (gasless) transactions
+  sponsor_wallet_json="$(cast wallet new --json)"
+  SPONSOR_PK="$(jq -r '.[0].private_key' <<<"$sponsor_wallet_json")"
+  SPONSOR_ADDR="$(jq -r '.[0].address' <<<"$sponsor_wallet_json")"
+  printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
 
-# Fund the sponsor address (sponsor pays gas)
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$SPONSOR_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    break
+  # Fund the sponsor address (sponsor pays gas)
+  for i in {1..100}; do
+    OUT=$(cast rpc tempo_fundAddress "$SPONSOR_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.2
+  done
+  sleep 3
+
+  echo -e "\n=== CAST SEND WITH SPONSOR (--sponsor-signature) ==="
+  # Test sponsored transactions using pre-signed signature.
+  # Step 1: Get the fee_payer_signature_hash using --print-sponsor-hash
+  # Step 2: Sign it with the sponsor's private key
+  # Step 3: Send with --sponsor-signature
+
+  # Step 1: Get the hash that the sponsor needs to sign
+  FEE_PAYER_HASH=$(cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+    0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
+    --print-sponsor-hash)
+  printf "Fee payer signature hash: %s\n" "$FEE_PAYER_HASH"
+
+  # Step 2: Sponsor signs the hash
+  SPONSOR_SIG=$(cast wallet sign --private-key "$SPONSOR_PK" "$FEE_PAYER_HASH" --no-hash)
+  printf "Sponsor signature: %s\n" "$SPONSOR_SIG"
+
+  # Step 3: Send the sponsored transaction with the signature
+  RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+    0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
+    --sponsor-signature "$SPONSOR_SIG" --json)
+
+  # Verify the fee_payer in the receipt matches the sponsor address
+  RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
+  if [[ -z "$RECEIPT_FEE_PAYER" ]]; then
+    echo "ERROR: feePayer not found in receipt"
+    echo "Receipt: $RECEIPT"
+    exit 1
   fi
-  sleep 0.2
-done
-sleep 3
 
-echo -e "\n=== CAST SEND WITH SPONSOR (--sponsor-signature) ==="
-# Test sponsored transactions using pre-signed signature.
-# Step 1: Get the fee_payer_signature_hash using --print-sponsor-hash
-# Step 2: Sign it with the sponsor's private key
-# Step 3: Send with --sponsor-signature
-
-# Step 1: Get the hash that the sponsor needs to sign
-FEE_PAYER_HASH=$(cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
-  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
-  --print-sponsor-hash)
-printf "Fee payer signature hash: %s\n" "$FEE_PAYER_HASH"
-
-# Step 2: Sponsor signs the hash
-SPONSOR_SIG=$(cast wallet sign --private-key "$SPONSOR_PK" "$FEE_PAYER_HASH" --no-hash)
-printf "Sponsor signature: %s\n" "$SPONSOR_SIG"
-
-# Step 3: Send the sponsored transaction with the signature
-RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
-  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
-  --sponsor-signature "$SPONSOR_SIG" --json)
-
-# Verify the fee_payer in the receipt matches the sponsor address
-RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
-if [[ -z "$RECEIPT_FEE_PAYER" ]]; then
-  echo "ERROR: feePayer not found in receipt"
-  echo "Receipt: $RECEIPT"
-  exit 1
+  # Normalize addresses for comparison (lowercase)
+  RECEIPT_FEE_PAYER_LOWER=$(echo "$RECEIPT_FEE_PAYER" | tr '[:upper:]' '[:lower:]')
+  SPONSOR_ADDR_LOWER=$(echo "$SPONSOR_ADDR" | tr '[:upper:]' '[:lower:]')
+  if [[ "$RECEIPT_FEE_PAYER_LOWER" != "$SPONSOR_ADDR_LOWER" ]]; then
+    echo "ERROR: Receipt feePayer ($RECEIPT_FEE_PAYER) does not match sponsor ($SPONSOR_ADDR)"
+    exit 1
+  fi
+  echo "SUCCESS: Receipt feePayer ($RECEIPT_FEE_PAYER) matches sponsor address"
+else
+  echo -e "\n=== T1-ONLY SPONSOR FEATURES ==="
+  echo "The following sponsor tests require T1 hardfork and are skipped on $HARDFORK:"
+  echo "  - SETUP SPONSOR"
+  echo "  - CAST SEND WITH SPONSOR (--sponsor-signature)"
 fi
-
-# Normalize addresses for comparison (lowercase)
-RECEIPT_FEE_PAYER_LOWER=$(echo "$RECEIPT_FEE_PAYER" | tr '[:upper:]' '[:lower:]')
-SPONSOR_ADDR_LOWER=$(echo "$SPONSOR_ADDR" | tr '[:upper:]' '[:lower:]')
-if [[ "$RECEIPT_FEE_PAYER_LOWER" != "$SPONSOR_ADDR_LOWER" ]]; then
-  echo "ERROR: Receipt feePayer ($RECEIPT_FEE_PAYER) does not match sponsor ($SPONSOR_ADDR)"
-  exit 1
-fi
-echo "SUCCESS: Receipt feePayer ($RECEIPT_FEE_PAYER) matches sponsor address"
 
 # Batch transaction tests (available on all hardforks)
 echo -e "\n=== CAST BATCH-MKTX (NATIVE BATCHING) ==="
