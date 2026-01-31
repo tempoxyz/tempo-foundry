@@ -442,7 +442,6 @@ impl<'a> InvariantExecutor<'a> {
 
                             // Track gas for reports
                             current_run.fuzz_runs.push(FuzzCase {
-                                calldata: tx.call_details.calldata.clone(),
                                 gas: call_result.gas_used,
                                 stipend: call_result.stipend,
                             });
@@ -614,11 +613,9 @@ impl<'a> InvariantExecutor<'a> {
                     {
                         warn!(target: "forge::test", "{error}");
                     }
-                    current_run.fuzz_runs.push(FuzzCase {
-                        calldata: tx.call_details.calldata.clone(),
-                        gas: call_result.gas_used,
-                        stipend: call_result.stipend,
-                    });
+                    current_run
+                        .fuzz_runs
+                        .push(FuzzCase { gas: call_result.gas_used, stipend: call_result.stipend });
 
                     // Determine if test can continue or should exit.
                     let result = can_continue(
