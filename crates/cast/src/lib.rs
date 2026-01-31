@@ -474,6 +474,49 @@ impl<P: Provider<AnyNetwork> + Clone + Unpin> Cast<P> {
         Ok(self.provider.get_transaction_count(who).block_id(block.unwrap_or_default()).await?)
     }
 
+    /// Gets the nonce for an account at a specific nonce key (Tempo 2D nonces).
+    ///
+    /// Calls the Nonce precompile's `getNonce(address, uint256)` function.
+    /// For nonce_key == 0, use the standard `nonce()` method instead.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use alloy_primitives::{Address, U256};
+    /// use cast::Cast;
+    ///
+    /// # async fn example() -> eyre::Result<()> {
+    /// # let provider = todo!();
+    /// let cast = Cast::new(provider);
+    /// let addr = "0x7eD52863829AB99354F3a0503A622e82AcD5F7d3".parse()?;
+    /// let nonce_key = U256::from(1);
+    /// let nonce = cast.nonce_with_key(addr, nonce_key, None).await?;
+    /// println!("Nonce at key {}: {}", nonce_key, nonce);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn nonce_with_key(
+        &self,
+        who: Address,
+        nonce_key: U256,
+        block: Option<BlockId>,
+    ) -> Result<u64> {
+        use tempo_contracts::precompiles::{INonce, NONCE_PRECOMPILE_ADDRESS};
+
+        // nonce_key 0 is the protocol nonce, which should use get_transaction_count
+        if nonce_key.is_zero() {
+            eyre::bail!(
+                "nonce_key 0 is the protocol nonce. Use 'cast nonce' without --nonce-key instead."
+            );
+        }
+
+        // Build the call: getNonce(address account, uint256 nonceKey)
+        let nonce_contract = INonce::new(NONCE_PRECOMPILE_ADDRESS, &self.provider);
+        let nonce = nonce_contract.getNonce(who, nonce_key).block(block.unwrap_or_default()).call().await?;
+
+        Ok(nonce)
+    }
+
     /// #Example
     ///
     /// ```

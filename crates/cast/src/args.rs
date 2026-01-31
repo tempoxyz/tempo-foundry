@@ -470,11 +470,18 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
             let who = who.resolve(&provider).await?;
             sh_println!("{}", Cast::new(provider).admin(who, block).await?)?;
         }
-        CastSubcommand::Nonce { block, who, rpc } => {
+        CastSubcommand::Nonce { block, who, nonce_key, rpc } => {
             let config = rpc.load_config()?;
             let provider = utils::get_provider(&config)?;
             let who = who.resolve(&provider).await?;
-            sh_println!("{}", Cast::new(provider).nonce(who, block).await?)?;
+            let nonce = if let Some(key) = nonce_key {
+                // Use Tempo's Nonce precompile for 2D nonces
+                Cast::new(provider).nonce_with_key(who, key, block).await?
+            } else {
+                // Standard protocol nonce
+                Cast::new(provider).nonce(who, block).await?
+            };
+            sh_println!("{}", nonce)?;
         }
         CastSubcommand::Codehash { block, who, slots, rpc } => {
             let config = rpc.load_config()?;

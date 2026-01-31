@@ -953,6 +953,8 @@ pub enum CastSubcommand {
     },
 
     /// Get the nonce for an account.
+    ///
+    /// For Tempo networks, use --nonce-key to query 2D nonces from the Nonce precompile.
     #[command(visible_alias = "n")]
     Nonce {
         /// The block height to query at.
@@ -964,6 +966,13 @@ pub enum CastSubcommand {
         /// The address to get the nonce for.
         #[arg(value_parser = NameOrAddress::from_str)]
         who: NameOrAddress,
+
+        /// The nonce key for 2D nonce support (Tempo networks only).
+        ///
+        /// When specified, queries the Nonce precompile for the nonce at this key.
+        /// Must be greater than 0 (key 0 is the protocol nonce, use without --nonce-key).
+        #[arg(long, value_name = "KEY")]
+        nonce_key: Option<alloy_primitives::U256>,
 
         #[command(flatten)]
         rpc: RpcOpts,
