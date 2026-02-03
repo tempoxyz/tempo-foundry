@@ -49,12 +49,14 @@ forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "
 
 echo -e "\n=== CREATE AND FUND ADDRESS ==="
 wallet_json="$(cast wallet new --json)"
+echo "DEBUG wallet_json: $wallet_json"
 ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
 PK="$(jq -r '.[0].private_key' <<<"$wallet_json")"
 
 for i in {1..100}; do
   OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
 
+  echo "DEBUG OUT: $OUT"
   if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
     echo "$OUT" | jq
     break
@@ -149,6 +151,7 @@ if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== SETUP ACCESS KEY ==="
   # Create an access key for testing
   access_wallet_json="$(cast wallet new --json)"
+  echo "DEBUG access_wallet_json: $access_wallet_json"
   ACCESS_KEY="$(jq -r '.[0].private_key' <<<"$access_wallet_json")"
   ACCESS_KEY_ADDR="$(jq -r '.[0].address' <<<"$access_wallet_json")"
   printf "Access key address: %s\n" "$ACCESS_KEY_ADDR"
@@ -164,6 +167,7 @@ if [[ "$HARDFORK" == "T1" ]]; then
   # Fund the access key address (needed for gas)
   for i in {1..100}; do
     OUT=$(cast rpc tempo_fundAddress "$ACCESS_KEY_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+    echo "DEBUG OUT: $OUT"
     if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
       break
     fi
@@ -195,6 +199,7 @@ fi
 echo -e "\n=== SETUP SPONSOR ==="
 # Create a sponsor wallet for testing sponsored (gasless) transactions
 sponsor_wallet_json="$(cast wallet new --json)"
+echo "DEBUG sponsor_wallet_json: $sponsor_wallet_json"
 SPONSOR_PK="$(jq -r '.[0].private_key' <<<"$sponsor_wallet_json")"
 SPONSOR_ADDR="$(jq -r '.[0].address' <<<"$sponsor_wallet_json")"
 printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
@@ -202,6 +207,7 @@ printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
 # Fund the sponsor address (sponsor pays gas)
 for i in {1..100}; do
   OUT=$(cast rpc tempo_fundAddress "$SPONSOR_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+  echo "DEBUG OUT: $OUT"
   if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
     break
   fi
@@ -231,6 +237,7 @@ RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RP
   --sponsor-signature "$SPONSOR_SIG" --json)
 
 # Verify the fee_payer in the receipt matches the sponsor address
+echo "DEBUG RECEIPT: $RECEIPT"
 RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
 if [[ -z "$RECEIPT_FEE_PAYER" ]]; then
   echo "ERROR: feePayer not found in receipt"
@@ -276,7 +283,7 @@ echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
 cp "$SCRIPT_DIR/contracts/CounterWithRequire.sol" src/Counter.sol
 forge build
 REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast --json)
-echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
+echo "DEBUG REQUIRE_COUNTER_OUTPUT: $REQUIRE_COUNTER_OUTPUT"
 REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | jq -r '.deployedTo')
 if [[ "$REQUIRE_COUNTER" == "null" || -z "$REQUIRE_COUNTER" ]]; then
   echo "ERROR: Failed to deploy Counter with require"
