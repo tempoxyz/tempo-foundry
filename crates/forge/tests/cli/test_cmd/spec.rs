@@ -1,4 +1,4 @@
-use foundry_test_utils::rpc;
+use foundry_test_utils::{rpc, str};
 
 // Test evm version switch during tests / scripts.
 // <https://github.com/foundry-rs/foundry/issues/9840>
@@ -182,3 +182,61 @@ Traces:
 "#]]);
     }
 );
+
+// Test that Tempo hardfork configuration (tempo:T0, tempo:T1) is properly applied.
+// T1 adds 25k gas for nonce=0 transactions (TIP-1000), resulting in higher gas usage.
+forgetest_init!(test_tempo_hardfork_switch, |prj, cmd| {
+    let test_contract = r#"
+import "forge-std/Test.sol";
+
+contract Counter {
+    uint256 public number;
+    function increment() public { number++; }
+}
+
+contract TempoHardforkTest is Test {
+    Counter public counter;
+    function setUp() public { counter = new Counter(); }
+    function test_increment() public {
+        counter.increment();
+        assertEq(counter.number(), 1);
+    }
+}
+"#;
+
+    // Helper to extract gas from test output
+    fn extract_gas(stdout: &str) -> Option<u64> {
+        // Match pattern: [PASS] test_increment() (gas: 12345)
+        let re = regex::Regex::new(r"test_increment\(\) \(gas: (\d+)\)").ok()?;
+        re.captures(stdout)?.get(1)?.as_str().parse().ok()
+    }
+
+    // Test T0 hardfork
+    prj.add_test("TempoHardforkTest.t.sol", test_contract);
+    prj.update_config(|config| {
+        config.hardfork =
+            Some(forge::hardforks::FoundryHardfork::Tempo(forge::hardforks::TempoHardfork::T0));
+    });
+
+    let output_t0 = cmd.args(["test", "--mc", "TempoHardforkTest"]).assert_success();
+    let stdout_t0 = String::from_utf8_lossy(&output_t0.get_output().stdout);
+    let gas_t0 = extract_gas(&stdout_t0).expect("Failed to extract gas for T0");
+
+    // Test T1 hardfork
+    prj.update_config(|config| {
+        config.hardfork =
+            Some(forge::hardforks::FoundryHardfork::Tempo(forge::hardforks::TempoHardfork::T1));
+    });
+
+    let output_t1 = cmd.forge_fuse().args(["test", "--mc", "TempoHardforkTest"]).assert_success();
+    let stdout_t1 = String::from_utf8_lossy(&output_t1.get_output().stdout);
+    let gas_t1 = extract_gas(&stdout_t1).expect("Failed to extract gas for T1");
+
+    // T1 should have higher gas than T0 due to TIP-1000 (25k for nonce=0 transactions)
+    let gas_diff = gas_t1.saturating_sub(gas_t0);
+    assert!(gas_t1 > gas_t0, "T1 gas ({gas_t1}) should be greater than T0 gas ({gas_t0})");
+    assert!(
+        gas_diff >= 25_000,
+        "Gas difference ({gas_diff}) should be at least 25k (TIP-1000 nonce=0 cost). T0: {gas_t0}, T1: {gas_t1}"
+    );
+});

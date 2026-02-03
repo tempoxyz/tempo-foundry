@@ -358,6 +358,168 @@ impl<'a> InvariantExecutor<'a> {
         // Invariant runs with edge coverage if corpus dir is set or showing edge coverage.
         let edge_coverage_enabled = self.config.corpus.collect_edge_coverage();
 
+        // Phase 1: Replay original corpus sequences if configured.
+        // This executes each stored sequence exactly as-is, checking invariants.
+        if self.config.replay_corpus_first || self.config.corpus_replay_only {
+            let corpus_count = corpus_manager.corpus_count();
+            if corpus_count > 0 {
+                trace!(target: "invariant", "Replaying {} original corpus sequences", corpus_count);
+
+                // Disable eviction during replay to preserve original sequences
+                corpus_manager.set_allow_eviction(false);
+
+                // Collect sequences first to avoid borrow issues
+                let sequences: Vec<Vec<BasicTxDetails>> =
+                    corpus_manager.original_sequences().map(|seq| seq.to_vec()).collect();
+
+                'replay: for (seq_idx, original_seq) in sequences.iter().enumerate() {
+                    if early_exit.should_stop() || timer.is_timed_out() {
+                        break 'replay;
+                    }
+
+                    // Check fail_on_revert early exit
+                    if self.config.fail_on_revert && invariant_test.reverts() > 0 {
+                        return Err(eyre!("call reverted during corpus replay"));
+                    }
+
+                    if original_seq.is_empty() {
+                        continue;
+                    }
+
+                    trace!(
+                        target: "invariant",
+                        "Replaying corpus sequence {}/{} with {} txs",
+                        seq_idx + 1,
+                        corpus_count,
+                        original_seq.len()
+                    );
+
+                    // Create run with fresh executor state
+                    let mut current_run = InvariantTestRun::new(
+                        original_seq[0].clone(),
+                        self.executor.clone(),
+                        original_seq.len(),
+                    );
+
+                    // Execute first tx
+                    let mut call_result = execute_tx(&mut current_run.executor, &original_seq[0])?;
+                    if call_result.result.as_ref() != MAGIC_ASSUME {
+                        current_run.executor.commit(&mut call_result);
+                        corpus_manager.merge_edge_coverage(&mut call_result);
+                    }
+
+                    // Execute remaining txs in original order
+                    for tx in original_seq.iter().skip(1) {
+                        // Check timeout per tx (same as Phase 2)
+                        if timer.is_timed_out() {
+                            break 'replay;
+                        }
+
+                        let mut call_result = execute_tx(&mut current_run.executor, tx)?;
+                        let discarded = call_result.result.as_ref() == MAGIC_ASSUME;
+
+                        if self.config.show_metrics {
+                            invariant_test.record_metrics(tx, call_result.reverted, discarded);
+                        }
+
+                        invariant_test.merge_line_coverage(call_result.line_coverage.clone());
+                        if corpus_manager.merge_edge_coverage(&mut call_result) {
+                            current_run.new_coverage = true;
+                        }
+
+                        if discarded {
+                            current_run.rejects += 1;
+                            if current_run.rejects > self.config.max_assume_rejects {
+                                invariant_test.set_error(InvariantFuzzError::MaxAssumeRejects(
+                                    self.config.max_assume_rejects,
+                                ));
+                                break 'replay;
+                            }
+                        } else {
+                            current_run.executor.commit(&mut call_result);
+                            current_run.inputs.push(tx.clone());
+                            current_run.depth += 1;
+
+                            // Track gas for reports
+                            current_run.fuzz_runs.push(FuzzCase {
+                                calldata: tx.call_details.calldata.clone(),
+                                gas: call_result.gas_used,
+                                stipend: call_result.stipend,
+                            });
+
+                            let state_changeset = call_result.state_changeset.clone();
+
+                            // Check if test can continue
+                            let result = can_continue(
+                                &invariant_contract,
+                                &mut invariant_test,
+                                &mut current_run,
+                                &self.config,
+                                call_result,
+                                &state_changeset,
+                            )
+                            .map_err(|e| eyre!(e.to_string()))?;
+
+                            if !result.can_continue {
+                                invariant_test.set_last_run_inputs(&current_run.inputs);
+                                // Don't break out of replay entirely, just this sequence
+                                break;
+                            }
+
+                            invariant_test.set_last_call_results(result.call_result);
+                        }
+                    }
+
+                    // Call afterInvariant if declared
+                    if invariant_contract.call_after_invariant && !invariant_test.has_errors() {
+                        assert_after_invariant(
+                            &invariant_contract,
+                            &mut invariant_test,
+                            &current_run,
+                            &self.config,
+                        )
+                        .map_err(|_| eyre!("Failed to call afterInvariant during corpus replay"))?;
+                    }
+
+                    invariant_test.end_run(current_run, self.config.gas_report_samples as usize);
+                    runs += 1;
+
+                    if let Some(progress) = progress {
+                        progress.inc(1);
+                        if edge_coverage_enabled {
+                            progress.set_message(format!("{}", &corpus_manager.metrics));
+                        }
+                    }
+                }
+
+                // Keep eviction disabled for mutation phase when replay_corpus_first is set.
+                // This preserves the original corpus for differential testing.
+                // Eviction is only re-enabled if we're NOT in replay_corpus_first mode.
+                // (corpus_replay_only returns early before reaching here)
+
+                trace!(target: "invariant", "Completed corpus replay phase, {} runs executed", runs);
+            }
+
+            // If corpus_replay_only, skip the mutation phase entirely
+            if self.config.corpus_replay_only {
+                trace!(?fuzz_fixtures);
+                invariant_test.fuzz_state.log_stats();
+
+                let result = invariant_test.test_data;
+                return Ok(InvariantFuzzTestResult {
+                    error: result.failures.error,
+                    cases: result.fuzz_cases,
+                    reverts: result.failures.reverts,
+                    last_run_inputs: result.last_run_inputs,
+                    gas_report_traces: result.gas_report_traces,
+                    line_coverage: result.line_coverage,
+                    metrics: result.metrics,
+                    failed_corpus_replays: corpus_manager.failed_replays(),
+                });
+            }
+        }
+
+        // Phase 2: Normal mutation-based fuzzing
         'stop: while continue_campaign(runs) {
             let initial_seq = corpus_manager.new_inputs(
                 &mut invariant_test.test_data.branch_runner,

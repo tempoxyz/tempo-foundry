@@ -144,12 +144,19 @@ impl Executor {
     }
 
     fn clone_with_backend(&self, backend: Backend) -> Self {
-        let env = Env::new_with_spec_id(
-            self.env.evm_env.cfg_env.clone(),
-            self.env.evm_env.block_env.clone(),
-            self.env.tx.clone(),
-            self.spec_id(),
-        );
+        // For Tempo hardforks, preserve the hardfork directly since all map to SpecId::OSAKA.
+        let env = {
+            let mut env = Env::new_with_spec_id(
+                self.env.evm_env.cfg_env.clone(),
+                self.env.evm_env.block_env.clone(),
+                self.env.tx.clone(),
+                self.spec_id(),
+            );
+            if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+                env.evm_env.cfg_env.spec = tempo_hf;
+            }
+            env
+        };
         Self::new(
             backend,
             env,
@@ -196,13 +203,26 @@ impl Executor {
     }
 
     /// Sets the EVM spec ID.
+    ///
+    /// Note: For Tempo hardforks, this also preserves the configured hardfork from `self.hardfork`
+    /// since all Tempo hardforks map to the same SpecId (OSAKA).
     pub fn set_spec_id(&mut self, spec_id: SpecId) {
-        self.env.evm_env.cfg_env.spec = spec_id.into();
+        // For Tempo hardforks, preserve the specific hardfork (T0, T1, etc.)
+        // since the SpecId round-trip loses this information.
+        if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+            self.env.evm_env.cfg_env.spec = tempo_hf;
+        } else {
+            self.env.evm_env.cfg_env.spec = spec_id.into();
+        }
     }
 
     /// Sets the EVM hardfork.
     pub fn set_hardfork(&mut self, hardfork: Option<FoundryHardfork>) {
         self.hardfork = hardfork;
+        // Also update cfg_env.spec for Tempo hardforks
+        if let Some(FoundryHardfork::Tempo(tempo_hf)) = hardfork {
+            self.env.evm_env.cfg_env.spec = tempo_hf;
+        }
     }
 
     /// Returns the EVM hardfork.
@@ -730,7 +750,13 @@ impl Executor {
             evm_env: EvmEnv {
                 cfg_env: {
                     let mut cfg = self.env().evm_env.cfg_env.clone();
-                    cfg.spec = self.spec_id().into();
+                    // For Tempo hardforks, preserve the specific hardfork (T0, T1, etc.)
+                    // since spec_id().into() loses the distinction (all map to OSAKA).
+                    if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+                        cfg.spec = tempo_hf;
+                    } else {
+                        cfg.spec = self.spec_id().into();
+                    }
                     cfg
                 },
                 block_env,

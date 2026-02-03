@@ -27,7 +27,8 @@ use revm::{
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::{TempoBlockEnv, TempoHaltReason};
 use tempo_revm::{
-    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, handler::TempoEvmHandler,
+    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, gas_params::tempo_gas_params,
+    handler::TempoEvmHandler,
 };
 
 pub fn new_evm_with_inspector<'db, I: InspectorExt>(
@@ -35,14 +36,18 @@ pub fn new_evm_with_inspector<'db, I: InspectorExt>(
     env: Env,
     inspector: I,
 ) -> FoundryEvm<'db, I> {
+    // Apply TIP-1000 gas params for Tempo hardforks (T0/T1)
+    let mut cfg = env.evm_env.cfg_env;
+    cfg.gas_params = tempo_gas_params(cfg.spec);
+
     let mut ctx = TempoContext {
         journaled_state: {
             let mut journal = Journal::new(db);
-            journal.set_spec_id(env.evm_env.cfg_env.spec.into());
+            journal.set_spec_id(cfg.spec.into());
             journal
         },
         block: env.evm_env.block_env,
-        cfg: env.evm_env.cfg_env,
+        cfg,
         tx: env.tx,
         chain: (),
         local: LocalContext::default(),

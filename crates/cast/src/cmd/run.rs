@@ -233,12 +233,19 @@ impl RunArgs {
             create2_deployer,
             None,
         )?;
-        let mut env = Env::new_with_spec_id(
-            env.evm_env.cfg_env.clone(),
-            env.evm_env.block_env.clone(),
-            env.tx.clone(),
-            executor.spec_id(),
-        );
+        // Preserve the original cfg.spec (TempoHardfork) when no hardfork override is specified.
+        // This is important because the SpecId round-trip loses the distinction between T0/T1
+        // (all Tempo hardforks map to OSAKA).
+        let mut env = if self.hardfork.is_none() {
+            Env::from(env.evm_env.cfg_env.clone(), env.evm_env.block_env.clone(), env.tx.clone())
+        } else {
+            Env::new_with_spec_id(
+                env.evm_env.cfg_env.clone(),
+                env.evm_env.block_env.clone(),
+                env.tx.clone(),
+                executor.spec_id(),
+            )
+        };
 
         // Set the state to the moment right before the transaction
         if !self.quick {

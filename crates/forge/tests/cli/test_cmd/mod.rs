@@ -1849,6 +1849,7 @@ contract ATest is DSTest {
 
     cmd.args(["test"]).with_no_redact().assert_success().stdout_eq(str![[r#"
 ...
+[PASS] testMemoryOnReset(uint8[1]) (runs: [..], μ: [..], ~: [..])
 [PASS] testResetGas() (gas: 96)
 [PASS] testResetGas1() (gas: 96)
 [PASS] testResetGas2() (gas: 96)
@@ -2796,7 +2797,7 @@ contract ContractTest {
 ...
 Failing tests:
 Encountered 1 failing test in test/Foo.t.sol:ContractTest
-[FAIL: EVM error; transaction validation error: call [GAS_COST] exceeds the [GAS_LIMIT]] setUp() ([GAS])
+[FAIL: EVM error; transaction validation error: insufficient gas for intrinsic cost: gas_limit 100 < intrinsic_gas [..]] setUp() ([GAS])
 
 Encountered a total of 1 failing tests, 0 tests succeeded
 

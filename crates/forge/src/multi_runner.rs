@@ -374,6 +374,7 @@ impl TestRunnerConfig {
             Some(known_contracts),
             Some(artifact_id.clone()),
             None,
+            false,
         ));
         ExecutorBuilder::new()
             .inspectors(|stack| {

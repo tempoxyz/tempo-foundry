@@ -183,6 +183,7 @@ pub fn get_pretty_tx_receipt_attr(
 /// or a [`TxEnvelope`], already signed
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum TransactionMaybeSigned {
     Signed {
         #[serde(flatten)]

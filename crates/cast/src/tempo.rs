@@ -1,5 +1,6 @@
 use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 use alloy_consensus::{SidecarBuilder, SignableTransaction, SimpleCoder};
+use alloy_eips::eip2718::Encodable2718;
 use alloy_ens::NameOrAddress;
 use alloy_json_abi::Function;
 use alloy_network::{TransactionBuilder, TransactionBuilder4844, TransactionBuilder7702};
@@ -9,7 +10,7 @@ use alloy_rpc_types::{Authorization, TransactionInputKind};
 use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use alloy_transport::TransportError;
-use eyre::{OptionExt, Result};
+use eyre::{OptionExt, Result, eyre};
 use foundry_cli::opts::{CliAuthorizationList, TransactionOpts};
 use foundry_common::abi::{
     encode_function_args, encode_function_args_raw, get_func, get_func_etherscan,
@@ -17,7 +18,11 @@ use foundry_common::abi::{
 use foundry_config::{Chain, Config};
 use futures::future::join_all;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
-use tempo_primitives::transaction::TempoTypedTransaction;
+use tempo_primitives::transaction::{
+    TempoTxEnvelope, TempoTypedTransaction,
+    tt_signature::{KeychainSignature, PrimitiveSignature, TempoSignature},
+    tt_signed::AASigned,
+};
 
 impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
@@ -50,12 +55,25 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx.set_max_priority_fee_per_gas(priority_fee.to());
         }
 
-        if let Some(nonce) = tx_opts.nonce {
-            tx.set_nonce(nonce.to());
+        // Handle expiring nonce mode: sets nonce=0 and nonce_key=U256::MAX
+        if tx_opts.expiring_nonce {
+            tx.set_nonce(0);
+            tx.set_nonce_key(U256::MAX);
+        } else {
+            if let Some(nonce) = tx_opts.nonce {
+                tx.set_nonce(nonce.to());
+            }
+            if let Some(nonce_key) = tx_opts.nonce_key {
+                tx.set_nonce_key(nonce_key);
+            }
         }
 
-        if let Some(nonce_key) = tx_opts.nonce_key {
-            tx.set_nonce_key(nonce_key);
+        // Set validity window for expiring nonces
+        if let Some(valid_before) = tx_opts.valid_before {
+            tx.set_valid_before(valid_before);
+        }
+        if let Some(valid_after) = tx_opts.valid_after {
+            tx.set_valid_after(valid_after);
         }
 
         Ok(Self {
@@ -155,7 +173,20 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, true, false, fee_token).await
+        self._build(sender, true, false, fee_token, None).await
+    }
+
+    /// Builds [TempoTransactionRequest] with sponsor signature for gasless transactions.
+    ///
+    /// The sponsor signs the `fee_payer_signature_hash` to commit to paying gas fees
+    /// for the transaction on behalf of the sender.
+    pub async fn build_sponsored(
+        self,
+        sender: impl Into<SenderKind<'_>>,
+        fee_token: Option<Address>,
+        tx_opts: &TransactionOpts,
+    ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
+        self._build(sender, true, false, fee_token, Some(tx_opts)).await
     }
 
     /// Builds [TempoTransactionRequest] without filling missing fields. Used for read-only calls
@@ -165,7 +196,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         sender: impl Into<SenderKind<'_>>,
         fee_token: Option<Address>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
-        self._build(sender, false, false, fee_token).await
+        self._build(sender, false, false, fee_token, None).await
     }
 
     /// Builds an unsigned RLP-encoded raw transaction.
@@ -176,7 +207,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         from: Address,
         fee_token: Option<Address>,
     ) -> Result<String> {
-        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token).await?;
+        let (tx, _) = self._build(SenderKind::Address(from), true, true, fee_token, None).await?;
         let tx = tx.inner.build_unsigned()?;
         match tx {
             TempoTypedTransaction::Legacy(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
@@ -193,6 +224,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
         fill: bool,
         unsigned: bool,
         fee_token: Option<Address>,
+        tx_opts: Option<&TransactionOpts>,
     ) -> Result<(WithOtherFields<TempoTransactionRequest>, Option<Function>)> {
         let sender = sender.into();
         let from = sender.address();
@@ -269,8 +301,47 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             }
         }
 
+        // For batch transactions with calls, clear `to` and `value` so the node correctly
+        // identifies this as an AA batch transaction. The `calls` field determines the actual
+        // targets, data, and per-call values. AA transactions don't support tx-level value.
+        if !self.tx.calls.is_empty() {
+            self.tx.inner.inner.to = None;
+            self.tx.inner.inner.value = None;
+        }
+
         if self.tx.inner.inner.gas.is_none() {
             self.estimate_gas().await?;
+        }
+
+        // Handle sponsored transactions: compute and set fee_payer_signature
+        if let Some(opts) = tx_opts
+            && (opts.sponsor.is_sponsor() || opts.sponsor.should_print_hash())
+        {
+            // Force AA transaction type by setting nonce_key if not already set.
+            // This is needed because output_tx_type() doesn't check fee_payer_signature,
+            // so without this the transaction would be built as EIP-1559 instead of AA.
+            if self.tx.inner.nonce_key.is_none() {
+                self.tx.inner.nonce_key = Some(alloy_primitives::U256::ZERO);
+            }
+
+            // Build a temporary TempoTransaction to compute the fee_payer_signature_hash
+            let tempo_tx = self.tx.inner.clone().build_aa().map_err(|e| {
+                eyre!("Failed to build AA transaction for sponsor signature: {:?}", e)
+            })?;
+
+            // Compute the fee payer signature hash (commits to sender address)
+            let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
+
+            // If print-sponsor-hash mode, output the hash and return early
+            if opts.sponsor.should_print_hash() {
+                sh_println!("{:?}", fee_payer_hash)?;
+                std::process::exit(0);
+            }
+
+            // Get sponsor signature from provided signature
+            if let Some(sponsor_sig) = opts.sponsor.get_signature()? {
+                self.tx.inner.set_fee_payer_signature(sponsor_sig);
+            }
         }
 
         Ok((self.tx, self.state.func))
@@ -352,6 +423,14 @@ impl<P, S> CastTxBuilder<P, S, TempoTransactionRequest>
 where
     P: Provider<TempoNetwork>,
 {
+    /// Sets the key_id for access key transactions.
+    /// This should be called before `build()` so gas estimation includes Keychain signature
+    /// overhead.
+    pub fn with_key_id(mut self, key_id: Address) -> Self {
+        self.tx.key_id = Some(key_id);
+        self
+    }
+
     /// Populates the blob sidecar for the transaction if any blob data was provided.
     pub fn with_blob_data(mut self, blob_data: Option<Vec<u8>>) -> Result<Self> {
         let Some(blob_data) = blob_data else { return Ok(self) };
@@ -433,4 +512,34 @@ async fn resolve_name_args<P: Provider<TempoNetwork>>(
         }
     }))
     .await
+}
+
+/// Signs a transaction request with an access key, producing a type 0x76 AA transaction
+/// with a Keychain signature.
+///
+/// Returns the RLP-encoded signed transaction bytes.
+pub async fn sign_with_access_key<S: Signer>(
+    tx_request: TempoTransactionRequest,
+    signer: &S,
+    root_account: Address,
+) -> Result<Vec<u8>> {
+    // 1. Build TempoTransaction from the request
+    let tempo_tx =
+        tx_request.build_aa().map_err(|e| eyre!("Failed to build AA transaction: {:?}", e))?;
+
+    // 2. Compute the signature hash
+    let sig_hash = tempo_tx.signature_hash();
+
+    // 3. Sign the hash with the access key
+    let raw_sig = signer.sign_hash(&sig_hash).await?;
+
+    // 4. Wrap in KeychainSignature with root account address
+    let primitive_sig = PrimitiveSignature::Secp256k1(raw_sig);
+    let keychain_sig = KeychainSignature::new(root_account, primitive_sig);
+    let tempo_sig = TempoSignature::Keychain(keychain_sig);
+
+    // 5. Create signed AA transaction and encode
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::from(signed_tx);
+    Ok(envelope.encoded_2718())
 }
