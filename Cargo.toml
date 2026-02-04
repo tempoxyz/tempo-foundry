@@ -305,7 +305,8 @@ alloy-rpc-types-beacon = { version = "1.4", default-features = true }
 alloy-rpc-types-eth = { version = "1.4", default-features = false }
 alloy-serde = { version = "1.4", default-features = false }
 alloy-signer = { version = "1.4", default-features = false }
-alloy-signer-aws = { version = "1.4", default-features = false }
+# Pinned to 1.4.x due to Rust compiler bug in 1.5.x causing "queries overflow the depth limit" error
+alloy-signer-aws = { version = "~1.4", default-features = false }
 alloy-signer-gcp = { version = "1.4", default-features = false }
 alloy-signer-ledger = { version = "1.4", default-features = false }
 alloy-signer-local = { version = "1.4", default-features = false }
