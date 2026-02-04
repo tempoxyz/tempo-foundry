@@ -33,9 +33,9 @@ pub struct WalletOpts {
     /// Use an access key to sign on behalf of a root account.
     ///
     /// The access key is a delegated key that can sign transactions for the root account.
-    /// Requires --root-account to specify the account the key signs for.
+    /// Requires --tempo.root-account to specify the account the key signs for.
     #[arg(
-        long = "access-key",
+        long = "tempo.access-key",
         help_heading = "Wallet options - access key",
         value_name = "PRIVATE_KEY",
         env = "TEMPO_ACCESS_KEY"
@@ -44,10 +44,10 @@ pub struct WalletOpts {
 
     /// The root account address that the access key signs on behalf of.
     ///
-    /// Required when using --access-key. This is the account that holds the funds
+    /// Required when using --tempo.access-key. This is the account that holds the funds
     /// and whose nonce is used for the transaction.
     #[arg(
-        long = "root-account",
+        long = "tempo.root-account",
         help_heading = "Wallet options - access key",
         value_name = "ADDRESS",
         requires = "access_key",
@@ -275,7 +275,7 @@ flag to set your key via:
 --interactive
 --private-key
 --mnemonic-path
---access-key (with --root-account for Tempo access keys)
+--tempo.access-key (with --tempo.root-account for Tempo access keys)
 --aws
 --gcp
 --turnkey

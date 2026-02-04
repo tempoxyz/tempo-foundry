@@ -183,7 +183,7 @@ to                   0x20C000000000000000000000000000000000042a
 
 // Test access key CLI argument parsing
 casttest!(tempo_access_key_mktx, |_prj, cmd| {
-    // This test verifies that --access-key and --root-account flags are properly parsed
+    // This test verifies that --tempo.access-key and --tempo.root-account flags are properly parsed
     // and used to construct a Tempo AA transaction with Keychain signature.
     //
     // Note: Gas estimation requires the access key to be authorized on-chain, so we
@@ -206,9 +206,9 @@ casttest!(tempo_access_key_mktx, |_prj, cmd| {
         rpc.as_str(),
         "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D",
         "increment()",
-        "--access-key",
+        "--tempo.access-key",
         access_key,
-        "--root-account",
+        "--tempo.root-account",
         root_account,
         // Skip gas estimation since access key isn't authorized on-chain
         "--gas-limit",
