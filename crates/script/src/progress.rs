@@ -247,6 +247,7 @@ impl ScriptProgress {
                         deployment_sequence.chain.into(),
                         &receipt,
                         fee_token_symbol.clone(),
+                        Some(deployment_sequence),
                     );
                     seq_progress.inner.write().finish_tx_spinner_with_msg(tx_hash, &msg)?;
 
@@ -264,6 +265,7 @@ impl ScriptProgress {
                         deployment_sequence.chain.into(),
                         &receipt,
                         fee_token_symbol.clone(),
+                        Some(deployment_sequence),
                     );
                     seq_progress.inner.write().finish_tx_spinner_with_msg(tx_hash, &msg)?;
 

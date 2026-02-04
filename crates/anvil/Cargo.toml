@@ -30,6 +30,13 @@ foundry-evm.workspace = true
 foundry-evm-networks.workspace = true
 foundry-primitives.workspace = true
 
+# tempo
+tempo-chainspec.workspace = true
+tempo-evm.workspace = true
+tempo-precompiles.workspace = true
+tempo-primitives.workspace = true
+tempo-revm.workspace = true
+
 # alloy
 alloy-evm = { workspace = true, features = ["call-util"] }
 alloy-op-evm.workspace = true
@@ -38,7 +45,6 @@ alloy-consensus = { workspace = true, features = ["k256", "kzg"] }
 alloy-contract = { workspace = true, features = ["pubsub"] }
 alloy-network.workspace = true
 alloy-eips.workspace = true
-alloy-eip5792.workspace = true
 alloy-rlp.workspace = true
 alloy-signer = { workspace = true, features = ["eip712"] }
 alloy-signer-local = { workspace = true, features = ["mnemonic"] }
@@ -118,6 +124,7 @@ foundry-test-utils.workspace = true
 tokio = { workspace = true, features = ["full"] }
 
 op-alloy-rpc-types.workspace = true
+tempo-alloy.workspace = true
 
 [features]
 default = ["cli", "jemalloc"]
@@ -134,4 +141,5 @@ cmd = [
     "anvil-server/clap",
     "tokio/signal",
 ]
-js-tracer = ["revm-inspectors/js-tracer"]
+# Disabled: incompatible with reth at f0c9cb9 which doesn't handle DebugInspectorError::JsInspector
+# js-tracer = ["revm-inspectors/js-tracer"]

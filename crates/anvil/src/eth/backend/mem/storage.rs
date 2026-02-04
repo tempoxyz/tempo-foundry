@@ -426,6 +426,13 @@ impl BlockchainStorage {
             let block_number = block.header.number;
             self.blocks.insert(block_hash, block);
             self.hashes.insert(block_number, block_hash);
+
+            // Update genesis_hash if we are loading block 0, so that Finalized/Safe/Earliest
+            // block tag lookups return the correct hash.
+            // See: https://github.com/foundry-rs/foundry/issues/12645
+            if block_number == 0 {
+                self.genesis_hash = block_hash;
+            }
         }
     }
 
@@ -507,6 +514,9 @@ pub struct MinedBlockOutcome {
     /// All transactions that were attempted to be included but were invalid at the time of
     /// execution
     pub invalid: Vec<Arc<PoolTransaction>>,
+    /// Transactions that were skipped because they're not yet valid (e.g., valid_after in future)
+    /// These remain in the pool and should be retried later
+    pub not_yet_valid: Vec<Arc<PoolTransaction>>,
 }
 
 /// Container type for a mined transaction

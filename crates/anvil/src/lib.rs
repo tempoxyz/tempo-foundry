@@ -25,7 +25,7 @@ use alloy_signer_local::PrivateKeySigner;
 use eth::backend::fork::ClientFork;
 use eyre::Result;
 use foundry_common::provider::{ProviderBuilder, RetryProvider};
-pub use foundry_evm::hardfork::EthereumHardfork;
+pub use foundry_evm::hardforks::EthereumHardfork;
 use futures::{FutureExt, TryFutureExt};
 use parking_lot::Mutex;
 use revm::primitives::hardfork::SpecId;

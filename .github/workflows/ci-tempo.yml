@@ -44,11 +44,12 @@ jobs:
       - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
 
-      # Build and install forge and cast
-      - name: Build and install Forge and Cast
+      # Build and install forge, cast, and anvil
+      - name: Build and install Forge, Cast, and Anvil
         run: |
           cargo install --path ./crates/forge --profile dev --force --locked
           cargo install --path ./crates/cast --profile dev --force --locked
+          cargo install --path ./crates/anvil --profile dev --force --locked
 
       - name: Run Tempo check on devnet
         if: |

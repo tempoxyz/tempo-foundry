@@ -820,7 +820,7 @@ fn test_redactions() -> snapbox::Redactions {
             ("[GAS_COST]", r"[Gg]as cost\s*\(\d+\)"),
             ("[GAS_LIMIT]", r"[Gg]as limit\s*\(\d+\)"),
             ("[AVG_GAS]", r"μ: \d+, ~: \d+"),
-            ("[FILE]", r"-->.*\.sol"),
+            ("[FILE]", r"(-->|╭▸).*\.sol"),
             ("[FILE]", r"Location(.|\n)*\.rs(.|\n)*Backtrace"),
             ("[COMPILING_FILES]", r"Compiling \d+ files?"),
             ("[TX_HASH]", r"Transaction hash: 0x[0-9A-Fa-f]{64}"),
@@ -832,10 +832,12 @@ fn test_redactions() -> snapbox::Redactions {
             ("[SAVED_SENSITIVE_VALUES]", r"Sensitive values saved to: .*\.json"),
             ("[ESTIMATED_GAS_PRICE]", r"Estimated gas price:\s*(\d+(\.\d+)?)\s*gwei"),
             ("[ESTIMATED_TOTAL_GAS_USED]", r"Estimated total gas used for script: \d+"),
+            ("[ESTIMATED_AMOUNT_REQUIRED]", r"Estimated amount required:\s*(\d+(\.\d+)?)\s*\S+"),
             (
                 "[ESTIMATED_AMOUNT_REQUIRED]",
                 r"Estimated amount required:\s*(\d+(\.\d+)?)\s*[A-Z]{3}",
             ),
+            ("[SEED]", r"Fuzz seed: 0x[0-9A-Fa-f]+"),
         ])
     });
     REDACTIONS.clone()

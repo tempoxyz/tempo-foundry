@@ -64,7 +64,17 @@ fn sablier_v2_core() {
 // <https://github.com/Vectorized/solady>
 #[test]
 fn solady() {
-    ExtTester::new("Vectorized", "solady", "cbcfe0009477aa329574f17e8db0a05703bb8bdd").run();
+    let mut tester =
+        ExtTester::new("Vectorized", "solady", "cbcfe0009477aa329574f17e8db0a05703bb8bdd");
+
+    // This test expects the mover contract created via CREATE2 to be selfdestructed within the
+    // same transaction. In isolation mode, each top-level call runs as a separate transaction
+    // context, so the selfdestruct doesn't clear the code as expected by the test.
+    if cfg!(feature = "isolate-by-default") {
+        tester = tester.args(["--nmt", "testSafeMoveETHViaMover"]);
+    }
+
+    tester.run();
 }
 
 // <https://github.com/pcaversaccio/snekmate>
@@ -110,7 +120,6 @@ fn makerdao_multicall() {
 
 // <https://github.com/hexonaut/guni-lev>
 #[test]
-#[ignore = "tempo skip"]
 fn gunilev() {
     ExtTester::new("hexonaut", "guni-lev", "15ee8b4c2d28e553c5cd5ba9a2a274af97563bc4")
         .fork_block(13633752)
@@ -119,7 +128,6 @@ fn gunilev() {
 
 // <https://github.com/mds1/convex-shutdown-simulation>
 #[test]
-#[ignore = "tempo skip"]
 fn convex_shutdown_simulation() {
     ExtTester::new(
         "mds1",

@@ -30,6 +30,9 @@ revm.workspace = true
 yansi.workspace = true
 tempo-alloy.workspace = true
 
+# foundry primitives
+foundry-primitives.workspace = true
+
 [dev-dependencies]
 foundry-macros.workspace = true
 similar-asserts.workspace = true

@@ -2,7 +2,10 @@ use crate::{ScriptSequence, TransactionWithMetadata};
 use eyre::{Result, bail};
 use foundry_common::fs;
 use revm_inspectors::tracing::types::CallKind;
-use std::path::{Component, Path, PathBuf};
+use std::{
+    cmp::Reverse,
+    path::{Component, Path, PathBuf},
+};
 use tempo_alloy::rpc::TempoTransactionReceipt;
 
 /// This type reads broadcast files in the
@@ -125,7 +128,7 @@ impl BroadcastReader {
             .collect::<Vec<_>>();
 
         // Sort by descending timestamp
-        seqs.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        seqs.sort_by_key(|s| Reverse(s.timestamp));
 
         seqs
     }
@@ -163,7 +166,7 @@ impl BroadcastReader {
         }
 
         // Sort by descending block number
-        targets.sort_by(|a, b| b.1.block_number.cmp(&a.1.block_number));
+        targets.sort_by_key(|t| Reverse(t.1.block_number));
 
         targets
     }

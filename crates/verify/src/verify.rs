@@ -250,7 +250,7 @@ impl VerifyArgs {
         self.etherscan.chain = Some(chain);
         self.etherscan.key = config.get_etherscan_config_with_chain(Some(chain))?.map(|c| c.key);
 
-        // For chains with Sourcify-compatible APIs registered in etherscan_urls, use that URL
+        // For chains with Sourcify-compatible APIs, use the chain's URL from etherscan_urls
         if self.verifier.verifier.is_sourcify()
             && self.verifier.verifier_url.is_none()
             && let Some(url) = sourcify_api_url(chain)
@@ -540,9 +540,8 @@ impl figment::Provider for VerifyCheckArgs {
 
 /// Returns the Sourcify-compatible API URL for chains that have one registered in `etherscan_urls`.
 ///
-/// Some chains (like Tempo) register their Sourcify-compatible verification API under
-/// `etherscan_urls` in alloy-chains. This function returns the properly formatted URL
-/// for such chains.
+/// Some chains register their Sourcify-compatible verification API under `etherscan_urls` in
+/// alloy-chains. This function returns the properly formatted URL for such chains.
 fn sourcify_api_url(chain: Chain) -> Option<String> {
     if chain.is_custom_sourcify() {
         chain.etherscan_urls().map(|(api_url, _)| format!("{api_url}/").replace("//", "/"))
