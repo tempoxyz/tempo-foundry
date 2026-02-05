@@ -110,18 +110,20 @@ pub fn init_progress(len: u64, label: &str) -> indicatif::ProgressBar {
 }
 
 /// True if the network calculates gas costs differently.
+/// After T1 hardfork, all Tempo chains require RPC gas estimation due to
+/// significantly different gas costs:
+/// - CREATE: 500k (vs 32k standard)
+/// - New account: 250k additional
+/// - SSTORE set: 250k (vs 20k standard)
+/// - Code deposit: 1k/byte (vs 200/byte standard)
 pub fn has_different_gas_calc(chain_id: u64) -> bool {
-    // Tempo chains have significantly different gas costs (T1 hardfork):
-    // - CREATE: 500k (vs 32k standard)
-    // - New account: 250k additional
-    // - SSTORE set: 250k (vs 20k standard)
-    // - Code deposit: 1k/byte (vs 200/byte standard)
-    if is_tempo_chain(chain_id) {
+    if is_tempo_devnet_chain(chain_id) {
         return true;
     }
 
     if let Some(chain) = Chain::from(chain_id).named() {
-        return chain.is_arbitrum()
+        return chain.is_tempo()
+            || chain.is_arbitrum()
             || chain.is_elastic()
             || matches!(
                 chain,
@@ -149,8 +151,8 @@ pub fn has_different_gas_calc(chain_id: u64) -> bool {
     false
 }
 
-/// Returns true if the chain is a Tempo devnet.
-pub fn is_tempo_chain(chain_id: u64) -> bool {
+/// True if it is a Tempo devnet.
+pub fn is_tempo_devnet_chain(chain_id: u64) -> bool {
     chain_id == 31318
 }
 
