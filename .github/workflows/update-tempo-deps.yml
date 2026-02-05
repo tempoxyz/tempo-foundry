@@ -1,0 +1,74 @@
+name: Update Tempo Dependencies
+
+on:
+  schedule:
+    # Run before tempo docker builds (9:05 AM and 8:30 PM UTC)
+    - cron: '0 8 * * *'   # 8:00 AM UTC (before 9:05 AM docker build)
+    - cron: '30 19 * * *' # 7:30 PM UTC (before 8:30 PM docker build)
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tempo
+
+      - name: Get latest tempo commit
+        id: get-sha
+        run: |
+          LATEST_SHA=$(gh api repos/tempoxyz/tempo/commits/main --jq '.sha')
+          echo "sha=$LATEST_SHA" >> $GITHUB_OUTPUT
+          echo "short_sha=${LATEST_SHA:0:7}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if update needed
+        id: check
+        run: |
+          OLD_REV=$(grep -oP 'tempo-alloy = \{ git = "https://github.com/tempoxyz/tempo", rev = "\K[^"]+' Cargo.toml)
+          NEW_REV="${{ steps.get-sha.outputs.sha }}"
+
+          if [ "$OLD_REV" = "$NEW_REV" ]; then
+            echo "Already up to date at $OLD_REV"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Will update from $OLD_REV to $NEW_REV"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "old_rev=$OLD_REV" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update tempo dependencies in Cargo.toml
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          OLD_REV="${{ steps.check.outputs.old_rev }}"
+          NEW_REV="${{ steps.get-sha.outputs.sha }}"
+          sed -i "s|rev = \"$OLD_REV\"|rev = \"$NEW_REV\"|g" Cargo.toml
+          echo "Updated tempo deps from $OLD_REV to $NEW_REV"
+
+      - name: Install Rust
+        if: steps.check.outputs.skip == 'false'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update Cargo.lock
+        if: steps.check.outputs.skip == 'false'
+        run: cargo update -p tempo-alloy -p tempo-contracts -p tempo-revm -p tempo-evm -p tempo-chainspec -p tempo-primitives -p tempo-precompiles
+
+      - name: Create Pull Request
+        if: steps.check.outputs.skip == 'false'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update tempo to ${{ steps.get-sha.outputs.short_sha }}"
+          title: "chore(nightly): update tempo to ${{ steps.get-sha.outputs.short_sha }}"
+          body: |
+            Automated nightly update of tempo dependencies.
+
+            **Tempo commit:** https://github.com/tempoxyz/tempo/commit/${{ steps.get-sha.outputs.sha }}
+
+            This PR will be used by the invariant tests workflow.
+          branch: update-tempo-deps
+          base: tempo
+          labels: dependencies,automated
+          delete-branch: true
