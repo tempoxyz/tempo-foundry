@@ -47,9 +47,7 @@ use alloy_primitives::{
 use alloy_rpc_types::{
     AccessList, AccessListResult, BlockId, BlockNumberOrTag as BlockNumber, BlockTransactions,
     EIP1186AccountProofResponse, FeeHistory, Filter, FilteredParams, Index, Log, Work,
-    anvil::{
-        ForkedNetwork, Forking, Metadata, MineOptions, NodeEnvironment, NodeForkConfig,
-    },
+    anvil::{ForkedNetwork, Forking, Metadata, MineOptions, NodeEnvironment, NodeForkConfig},
     request::TransactionRequest,
     simulate::{SimulatePayload, SimulatedBlock},
     state::{AccountOverride, EvmOverrides, StateOverridesBuilder},
