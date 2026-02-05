@@ -85,13 +85,13 @@ impl ProviderInfo {
         #[serde(rename_all = "camelCase")]
         struct NodeInfo {
             #[serde(default)]
-            is_tempo: bool,
+            network: Option<String>,
         }
 
         let result: Result<NodeInfo, _> =
             provider.client().request_noparams("anvil_nodeInfo").await;
 
-        result.map(|info| info.is_tempo).unwrap_or(false)
+        result.map(|info| info.network.as_deref() == Some("tempo")).unwrap_or(false)
     }
 
     /// Returns the gas price to use

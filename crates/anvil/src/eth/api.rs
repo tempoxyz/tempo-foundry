@@ -95,8 +95,8 @@ use tokio::{
     try_join,
 };
 
-/// Extended node info that includes Tempo-specific fields.
-/// This wraps the standard `NodeInfo` and adds `is_tempo` for network detection.
+/// Extended node info that includes network-specific fields.
+/// This wraps the standard `NodeInfo` and adds `network` for network detection.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TempoNodeInfo {
@@ -115,8 +115,10 @@ pub struct TempoNodeInfo {
     pub environment: NodeEnvironment,
     /// Info about the node's fork configuration
     pub fork_config: NodeForkConfig,
-    /// Whether this node is running in Tempo mode
-    pub is_tempo: bool,
+    /// The network type this node is running (e.g., "tempo" for Tempo mode).
+    /// None for standard Ethereum.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<String>,
 }
 
 /// The client version: `anvil/v{major}.{minor}.{patch}`
@@ -2489,7 +2491,7 @@ impl EthApi {
                     }
                 })
                 .unwrap_or_default(),
-            is_tempo: self.backend.is_tempo(),
+            network: if self.backend.is_tempo() { Some("tempo".to_string()) } else { None },
         })
     }
 

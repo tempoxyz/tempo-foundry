@@ -459,7 +459,7 @@ async fn can_get_node_info() {
             fork_block_number: None,
             fork_retry_backoff: None,
         },
-        is_tempo: false,
+        network: None,
     };
 
     assert_eq!(node_info, expected_node_info);
@@ -493,7 +493,7 @@ async fn can_get_node_info_tempo_t0() {
             fork_block_number: None,
             fork_retry_backoff: None,
         },
-        is_tempo: true,
+        network: Some("tempo".to_string()),
     };
 
     assert_eq!(node_info, expected_node_info);
@@ -530,7 +530,7 @@ async fn can_get_node_info_tempo_t1() {
             fork_block_number: None,
             fork_retry_backoff: None,
         },
-        is_tempo: true,
+        network: Some("tempo".to_string()),
     };
 
     assert_eq!(node_info, expected_node_info);
