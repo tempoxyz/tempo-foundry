@@ -47,5 +47,5 @@ jobs:
           gh pr create \
             --title "chore(deps): bump tempo dependencies to ${LATEST_REV:0:7}" \
             --body-file "${{ steps.bump.outputs.changelog }}" \
-            --base master \
+            --base tempo \
             --head "$BRANCH_NAME"
