@@ -34,6 +34,19 @@ use crate::{
     progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
 };
 
+/// Detect if connected to an Anvil node running in Tempo mode by querying anvil_nodeInfo.
+async fn detect_tempo_mode(provider: &TempoRetryProvider) -> bool {
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NodeInfo {
+        #[serde(default)]
+        is_tempo: bool,
+    }
+
+    let result: Result<NodeInfo, _> = provider.client().request_noparams("anvil_nodeInfo").await;
+    result.map(|info| info.is_tempo).unwrap_or(false)
+}
+
 pub async fn estimate_gas<P: Provider<TempoNetwork>>(
     tx: &mut WithOtherFields<TempoTransactionRequest>,
     provider: &P,
@@ -442,8 +455,9 @@ impl BundledState {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
+                let is_tempo = detect_tempo_mode(&provider).await;
                 let estimate_via_rpc =
-                    has_different_gas_calc(sequence.chain) || self.args.skip_simulation;
+                    has_different_gas_calc(sequence.chain) || is_tempo || self.args.skip_simulation;
 
                 // We only wait for a transaction receipt before sending the next transaction, if
                 // there is more than one signer. There would be no way of assuring

@@ -42,6 +42,9 @@ pub struct ProviderInfo {
     pub provider: Arc<TempoRetryProvider>,
     pub chain: u64,
     pub gas_price: GasPrice,
+    /// Whether this provider is connected to a node running in Tempo mode.
+    /// Detected by querying anvil_nodeInfo and checking if the hardfork is a Tempo hardfork.
+    pub is_tempo: bool,
 }
 
 /// Represents the outcome of a gas price request
@@ -70,7 +73,25 @@ impl ProviderInfo {
             )
         };
 
-        Ok(Self { provider, chain, gas_price })
+        // Detect if connected to an Anvil node running in Tempo mode
+        let is_tempo = Self::detect_tempo_mode(&provider).await;
+
+        Ok(Self { provider, chain, gas_price, is_tempo })
+    }
+
+    /// Detect if connected to an Anvil node running in Tempo mode by querying anvil_nodeInfo.
+    async fn detect_tempo_mode(provider: &TempoRetryProvider) -> bool {
+        #[derive(Debug, serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct NodeInfo {
+            #[serde(default)]
+            is_tempo: bool,
+        }
+
+        let result: Result<NodeInfo, _> =
+            provider.client().request_noparams("anvil_nodeInfo").await;
+
+        result.map(|info| info.is_tempo).unwrap_or(false)
     }
 
     /// Returns the gas price to use

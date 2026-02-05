@@ -48,7 +48,7 @@ use alloy_rpc_types::{
     AccessList, AccessListResult, BlockId, BlockNumberOrTag as BlockNumber, BlockTransactions,
     EIP1186AccountProofResponse, FeeHistory, Filter, FilteredParams, Index, Log, Work,
     anvil::{
-        ForkedNetwork, Forking, Metadata, MineOptions, NodeEnvironment, NodeForkConfig, NodeInfo,
+        ForkedNetwork, Forking, Metadata, MineOptions, NodeEnvironment, NodeForkConfig,
     },
     request::TransactionRequest,
     simulate::{SimulatePayload, SimulatedBlock},
@@ -96,6 +96,30 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, unbounded_channel},
     try_join,
 };
+
+/// Extended node info that includes Tempo-specific fields.
+/// This wraps the standard `NodeInfo` and adds `is_tempo` for network detection.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TempoNodeInfo {
+    /// The current block number
+    #[serde(with = "alloy_serde::quantity")]
+    pub current_block_number: u64,
+    /// The current block timestamp
+    pub current_block_timestamp: u64,
+    /// The current block hash
+    pub current_block_hash: alloy_primitives::B256,
+    /// The enabled hardfork
+    pub hard_fork: String,
+    /// How transactions are ordered for mining
+    pub transaction_order: String,
+    /// Info about the node's block environment
+    pub environment: NodeEnvironment,
+    /// Info about the node's fork configuration
+    pub fork_config: NodeForkConfig,
+    /// Whether this node is running in Tempo mode
+    pub is_tempo: bool,
+}
 
 /// The client version: `anvil/v{major}.{minor}.{patch}`
 pub const CLIENT_VERSION: &str = concat!("anvil/v", env!("CARGO_PKG_VERSION"));
@@ -2433,7 +2457,7 @@ impl EthApi {
     /// Retrieves the Anvil node configuration params.
     ///
     /// Handler for RPC call: `anvil_nodeInfo`
-    pub async fn anvil_node_info(&self) -> Result<NodeInfo> {
+    pub async fn anvil_node_info(&self) -> Result<TempoNodeInfo> {
         node_info!("anvil_nodeInfo");
 
         let env = self.backend.env().read();
@@ -2441,7 +2465,7 @@ impl EthApi {
         let tx_order = self.transaction_order.read();
         let hard_fork: &str = env.evm_env.cfg_env.spec.name();
 
-        Ok(NodeInfo {
+        Ok(TempoNodeInfo {
             current_block_number: self.backend.best_number(),
             current_block_timestamp: env.evm_env.block_env.timestamp.saturating_to(),
             current_block_hash: self.backend.best_hash(),
@@ -2467,6 +2491,7 @@ impl EthApi {
                     }
                 })
                 .unwrap_or_default(),
+            is_tempo: self.backend.is_tempo(),
         })
     }
 
