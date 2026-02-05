@@ -12430,8 +12430,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-alloy"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -12453,8 +12453,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-chainspec"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-eips",
  "alloy-evm",
@@ -12472,8 +12472,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-consensus"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12488,8 +12488,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-contracts"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -12498,8 +12498,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-evm"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12527,8 +12527,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-payload-types"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
@@ -12544,8 +12544,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -12561,8 +12561,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles-macros"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -12572,8 +12572,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-primitives"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12599,8 +12599,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-revm"
-version = "1.0.2"
-source = "git+https://github.com/tempoxyz/tempo?rev=1f363ff441dde9c4319f588fd78295b9550f54d6#1f363ff441dde9c4319f588fd78295b9550f54d6"
+version = "1.1.0"
+source = "git+https://github.com/tempoxyz/tempo?rev=2fe3367a96878b3ec80f76350fae1e6874e5aac0#2fe3367a96878b3ec80f76350fae1e6874e5aac0"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
