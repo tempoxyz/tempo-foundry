@@ -24,3 +24,6 @@ _
 .vite
 .wrangler
 *.zip
+
+# Generated files
+tempo-changelog.md
