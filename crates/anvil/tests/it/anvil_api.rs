@@ -466,6 +466,7 @@ async fn can_get_node_info() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Flaky: gas price varies based on timing, see https://tempoxyz.slack.com/archives/C0A6PD3BQ3F/p1770372075110599"]
 async fn can_get_node_info_tempo_t0() {
     let (api, handle) = spawn(NodeConfig::test_tempo()).await;
 
@@ -500,6 +501,7 @@ async fn can_get_node_info_tempo_t0() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Flaky: gas price varies based on timing, see https://tempoxyz.slack.com/archives/C0A6PD3BQ3F/p1770372075110599"]
 async fn can_get_node_info_tempo_t1() {
     use tempo_chainspec::hardfork::TempoHardfork;
 
