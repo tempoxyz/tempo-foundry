@@ -527,7 +527,7 @@ impl NodeConfig {
     /// In Tempo mode, uses the hardfork-specific base fee (10 gwei pre-T1, 20 gwei T1+).
     pub fn get_base_fee(&self) -> u64 {
         let default = if self.networks.is_tempo() {
-            // Use the configured Tempo hardfork's base fee, or default to T0
+            // Use the configured Tempo hardfork's base fee, or default to T2
             self.get_tempo_hardfork().base_fee()
         } else {
             INITIAL_BASE_FEE
@@ -549,9 +549,9 @@ impl NodeConfig {
         self.gas_price.unwrap_or(default)
     }
 
-    /// Returns the configured Tempo hardfork, or the default (T0).
+    /// Returns the configured Tempo hardfork, or the default (T2).
     pub fn get_tempo_hardfork(&self) -> TempoHardfork {
-        self.hardfork.map(TempoHardfork::from).unwrap_or_default()
+        self.hardfork.map(TempoHardfork::from).unwrap_or(TempoHardfork::T2)
     }
 
     pub fn get_blob_excess_gas_and_price(&self) -> BlobExcessGasAndPrice {

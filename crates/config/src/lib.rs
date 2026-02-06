@@ -2544,7 +2544,7 @@ impl Default for Config {
             include_paths: vec![],
             force: false,
             evm_version: EvmVersion::Osaka,
-            hardfork: Some(FoundryHardfork::Tempo(TempoHardfork::default())),
+            hardfork: Some(FoundryHardfork::Tempo(TempoHardfork::T2)),
             gas_reports: vec!["*".to_string()],
             gas_reports_ignore: vec![],
             gas_reports_include_tests: false,

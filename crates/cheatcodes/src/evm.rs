@@ -55,7 +55,7 @@ use serde::Serialize;
 use tempo_alloy::primitives::TempoTxEnvelope;
 use tempo_revm::TempoTxEnv;
 
-/// TIP-1000 sets transaction gas limit cap to 30 million gas for T1 hardfork.
+/// TIP-1000 sets transaction gas limit cap to 30 million gas for T1+ hardforks.
 const TIP1000_TX_GAS_LIMIT_CAP: u64 = 30_000_000;
 
 mod fork;
@@ -1142,7 +1142,7 @@ impl Cheatcode for executeTransactionCall {
             env.cfg.limit_contract_initcode_size =
                 Some(revm::primitives::eip3860::MAX_INITCODE_SIZE);
 
-            // TIP-1000: Enforce transaction gas limit cap (30M) for T1 hardfork.
+            // TIP-1000: Enforce transaction gas limit cap (30M) for T1+ hardforks.
             // This ensures executeTransaction validates gas limits the same way as
             // the production Tempo chain.
             if env.cfg.spec.is_t1() {

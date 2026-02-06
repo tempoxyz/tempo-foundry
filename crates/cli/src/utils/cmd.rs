@@ -110,7 +110,7 @@ pub fn init_progress(len: u64, label: &str) -> indicatif::ProgressBar {
 }
 
 /// True if the network calculates gas costs differently.
-/// After T1 hardfork, all Tempo chains require RPC gas estimation due to
+/// After T1 hardfork (and continuing through T2), all Tempo chains require RPC gas estimation due to
 /// significantly different gas costs:
 /// - CREATE: 500k (vs 32k standard)
 /// - New account: 250k additional

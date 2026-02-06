@@ -537,6 +537,43 @@ async fn can_get_node_info_tempo_t1() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn can_get_node_info_tempo_t2() {
+    use tempo_chainspec::hardfork::TempoHardfork;
+
+    let config = NodeConfig::test_tempo().with_hardfork(Some(TempoHardfork::T2.into()));
+    let (api, handle) = spawn(config).await;
+
+    let node_info = api.anvil_node_info().await.unwrap();
+
+    let provider = handle.http_provider();
+
+    let block_number = provider.get_block_number().await.unwrap();
+    let block = provider.get_block(BlockId::from(block_number)).await.unwrap().unwrap();
+
+    let expected_node_info = TempoNodeInfo {
+        current_block_number: 0_u64,
+        current_block_timestamp: 1,
+        current_block_hash: block.header.hash,
+        hard_fork: "T2".to_string(),
+        transaction_order: "fees".to_owned(),
+        environment: NodeEnvironment {
+            base_fee: 20_000_000_000,
+            chain_id: 31337,
+            gas_limit: 30_000_000,
+            gas_price: 21_000_000_000,
+        },
+        fork_config: NodeForkConfig {
+            fork_url: None,
+            fork_block_number: None,
+            fork_retry_backoff: None,
+        },
+        network: Some("tempo".to_string()),
+    };
+
+    assert_eq!(node_info, expected_node_info);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn can_get_metadata() {
     let (api, handle) = spawn(NodeConfig::test()).await;
 

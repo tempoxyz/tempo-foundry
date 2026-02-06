@@ -239,4 +239,17 @@ contract TempoHardforkTest is Test {
         gas_diff >= 25_000,
         "Gas difference ({gas_diff}) should be at least 25k (TIP-1000 nonce=0 cost). T0: {gas_t0}, T1: {gas_t1}"
     );
+
+    // Test T2 hardfork - T2 inherits T1 gas rules, so gas should be the same as T1
+    prj.update_config(|config| {
+        config.hardfork =
+            Some(forge::hardforks::FoundryHardfork::Tempo(forge::hardforks::TempoHardfork::T2));
+    });
+
+    let output_t2 = cmd.forge_fuse().args(["test", "--mc", "TempoHardforkTest"]).assert_success();
+    let stdout_t2 = String::from_utf8_lossy(&output_t2.get_output().stdout);
+    let gas_t2 = extract_gas(&stdout_t2).expect("Failed to extract gas for T2");
+
+    // T2 should have the same gas costs as T1 (same TIP-1000 rules apply)
+    assert_eq!(gas_t2, gas_t1, "T2 gas ({gas_t2}) should equal T1 gas ({gas_t1})");
 });
