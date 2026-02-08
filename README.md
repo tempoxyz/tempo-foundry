@@ -75,6 +75,14 @@ Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
 ```bash
 cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
 ```
+## Troubleshooting
+
+### Verify you installed the Tempo fork (not upstream Foundry)
+After running `foundryup -n tempo`, confirm the binaries are available and report versions:
+
+```bash
+which forge && forge --version
+which cast && cast --version
 
 ## Changeset
 
