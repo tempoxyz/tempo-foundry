@@ -39,7 +39,7 @@ use foundry_compilers::{
     multi::{MultiCompilerParser, MultiCompilerRestrictions},
     solc::{CliSettings, SolcLanguage, SolcSettings},
 };
-use foundry_evm_hardforks::{FoundryHardfork, TempoHardfork};
+use foundry_evm_hardforks::{FoundryHardfork, DEFAULT_TEMPO_HARDFORK};
 use regex::Regex;
 use revm::primitives::hardfork::SpecId;
 use semver::Version;
@@ -2544,7 +2544,7 @@ impl Default for Config {
             include_paths: vec![],
             force: false,
             evm_version: EvmVersion::Osaka,
-            hardfork: Some(FoundryHardfork::Tempo(TempoHardfork::default())),
+            hardfork: Some(FoundryHardfork::Tempo(DEFAULT_TEMPO_HARDFORK)),
             gas_reports: vec!["*".to_string()],
             gas_reports_ignore: vec![],
             gas_reports_include_tests: false,

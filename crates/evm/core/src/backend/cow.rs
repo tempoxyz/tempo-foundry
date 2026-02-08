@@ -24,6 +24,7 @@ use revm::{
 };
 use std::{borrow::Cow, collections::BTreeMap};
 use tempo_alloy::rpc::TempoTransactionRequest;
+use foundry_evm_hardforks::DEFAULT_TEMPO_HARDFORK;
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_revm::TempoHaltReason;
 
@@ -61,7 +62,7 @@ impl<'a> CowBackend<'a> {
         Self {
             backend: Cow::Borrowed(backend),
             is_initialized: false,
-            hardfork: TempoHardfork::default(),
+            hardfork: DEFAULT_TEMPO_HARDFORK,
         }
     }
 

@@ -9,6 +9,9 @@ pub use alloy_hardforks::EthereumHardfork;
 pub use alloy_op_hardforks::OpHardfork;
 pub use tempo_chainspec::hardfork::TempoHardfork;
 
+/// The default Tempo hardfork for Foundry tools (forge, anvil, cast).
+pub const DEFAULT_TEMPO_HARDFORK: TempoHardfork = TempoHardfork::T2;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(into = "String")]
 pub enum FoundryHardfork {
@@ -227,6 +230,7 @@ mod tests {
     #[test]
     fn test_tempo_spec_id_mapping() {
         assert_eq!(SpecId::from(TempoHardfork::Genesis), SpecId::OSAKA);
+        assert_eq!(SpecId::from(TempoHardfork::T2), SpecId::OSAKA);
     }
 
     #[test]
