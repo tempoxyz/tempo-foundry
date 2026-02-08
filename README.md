@@ -75,6 +75,15 @@ Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
 ```bash
 cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
 ```
+## Troubleshooting
+
+### `forge test` invariants may appear to hang when used with `--fork-url`
+In some Foundry versions, invariant tests can hang after compilation when run with `--fork-url` / `--fork-block-number`.
+If you hit this, try one of the following:
+- Run the invariant tests without forking (locally), and use `--fork-url` only for non-invariant tests.
+- If you only need a quick sanity check, temporarily rename `invariant_*` to `test_*` to confirm your setup works.
+
+Upstream tracking: https://github.com/foundry-rs/foundry/issues/4656
 
 ## Changeset
 
