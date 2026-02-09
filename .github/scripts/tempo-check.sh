@@ -501,7 +501,21 @@ for i in {1..100}; do
   echo "[$i] $OUT"
   sleep 0.2
 done
-sleep 5
+
+# Wait until the funding txs are mined and the account has fee token balance
+echo "Waiting for fork wallet to be funded..."
+for i in {1..30}; do
+  BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$FORK_ADDR" 2>/dev/null || echo "0")
+  if [[ "$BAL" != "0" && -n "$BAL" ]]; then
+    echo "Fork wallet funded with $BAL fee tokens"
+    break
+  fi
+  if [[ $i -eq 30 ]]; then
+    echo "ERROR: Fork wallet funding timed out"
+    exit 1
+  fi
+  sleep 1
+done
 
 ANVIL_PORT=8547
 echo "Starting forked anvil..."
