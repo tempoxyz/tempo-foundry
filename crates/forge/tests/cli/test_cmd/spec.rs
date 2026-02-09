@@ -251,5 +251,8 @@ contract TempoHardforkTest is Test {
     let gas_t2 = extract_gas(&stdout_t2).expect("Failed to extract gas for T2");
 
     // T2 should have same gas as T1 (T2 doesn't change gas parameters)
-    assert_eq!(gas_t1, gas_t2, "T2 gas ({gas_t2}) should equal T1 gas ({gas_t1}) since T2 doesn't change gas parameters");
+    assert_eq!(
+        gas_t1, gas_t2,
+        "T2 gas ({gas_t2}) should equal T1 gas ({gas_t1}) since T2 doesn't change gas parameters"
+    );
 });

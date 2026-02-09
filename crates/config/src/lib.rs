@@ -39,7 +39,7 @@ use foundry_compilers::{
     multi::{MultiCompilerParser, MultiCompilerRestrictions},
     solc::{CliSettings, SolcLanguage, SolcSettings},
 };
-use foundry_evm_hardforks::{FoundryHardfork, DEFAULT_TEMPO_HARDFORK};
+use foundry_evm_hardforks::{DEFAULT_TEMPO_HARDFORK, FoundryHardfork};
 use regex::Regex;
 use revm::primitives::hardfork::SpecId;
 use semver::Version;

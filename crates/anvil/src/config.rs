@@ -41,7 +41,7 @@ use foundry_evm::{
     constants::DEFAULT_CREATE2_DEPLOYER,
     core::AsEnvMut,
     hardforks::{
-        FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag,
+        DEFAULT_TEMPO_HARDFORK, FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag,
         spec_id_from_ethereum_hardfork,
     },
     utils::{apply_chain_and_block_specific_env_changes, get_blob_base_fee_update_fraction},
@@ -579,6 +579,9 @@ impl NodeConfig {
     pub fn get_hardfork(&self) -> FoundryHardfork {
         if let Some(hardfork) = self.hardfork {
             return hardfork;
+        }
+        if self.networks.is_tempo() {
+            return DEFAULT_TEMPO_HARDFORK.into();
         }
         if self.networks.is_optimism() {
             return OpHardfork::default().into();

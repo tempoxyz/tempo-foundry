@@ -13,6 +13,7 @@ use alloy_evm::Evm;
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
 use eyre::WrapErr;
+use foundry_evm_hardforks::DEFAULT_TEMPO_HARDFORK;
 use foundry_fork_db::DatabaseError;
 use revm::{
     Database, DatabaseCommit,
@@ -24,7 +25,6 @@ use revm::{
 };
 use std::{borrow::Cow, collections::BTreeMap};
 use tempo_alloy::rpc::TempoTransactionRequest;
-use foundry_evm_hardforks::DEFAULT_TEMPO_HARDFORK;
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_revm::TempoHaltReason;
 
