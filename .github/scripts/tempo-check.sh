@@ -21,6 +21,33 @@ fi
 echo -e "\n=== USING HARDFORK: $HARDFORK ==="
 echo -e "=== USING FEE TOKEN: $FEE_TOKEN ==="
 
+# Fund an address and wait for the fee token balance to be non-zero
+fund_and_wait() {
+  local addr="$1"
+  for i in {1..100}; do
+    OUT=$(cast rpc tempo_fundAddress "$addr" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+      echo "$OUT" | jq
+      break
+    fi
+    echo "[$i] $OUT"
+    sleep 0.2
+  done
+  echo "Waiting for $addr to be funded..."
+  for i in {1..30}; do
+    BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$addr" 2>/dev/null || echo "0")
+    if [[ "$BAL" != "0" && -n "$BAL" ]]; then
+      echo "Funded with $BAL fee tokens"
+      return 0
+    fi
+    if [[ $i -eq 30 ]]; then
+      echo "ERROR: Funding timed out for $addr"
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
 echo -e "\n=== INIT TEMPO PROJECT ==="
 tmp_dir=$(mktemp -d)
 cd "$tmp_dir"
@@ -51,23 +78,8 @@ echo -e "\n=== CREATE AND FUND ADDRESS ==="
 wallet_json="$(cast wallet new --json)"
 ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
 PK="$(jq -r '.[0].private_key' <<<"$wallet_json")"
-
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    echo "$OUT" | jq
-    break
-  fi
-
-  echo "[$i] $OUT"
-  sleep 0.2
-done
-
-printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
-
-echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
-sleep 5
+printf "address: %s\nprivate_key: %s\n" "$ADDR" "$PK"
+fund_and_wait "$ADDR"
 
 echo -e "\n=== ADD AlphaUSD FEE TOKEN LIQUIDITY ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
@@ -156,14 +168,7 @@ if [[ "$HARDFORK" == "T1" ]]; then
     --private-key "$PK"
 
   # Fund the access key address (needed for gas)
-  for i in {1..100}; do
-    OUT=$(cast rpc tempo_fundAddress "$ACCESS_KEY_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-      break
-    fi
-    sleep 0.2
-  done
-  sleep 3
+  fund_and_wait "$ACCESS_KEY_ADDR"
 
   echo -e "\n=== CAST MKTX WITH ACCESS-KEY ==="
   # Use original address as root account (access key signs on behalf of root)
@@ -194,14 +199,7 @@ SPONSOR_ADDR="$(jq -r '.[0].address' <<<"$sponsor_wallet_json")"
 printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
 
 # Fund the sponsor address (sponsor pays gas)
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$SPONSOR_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.2
-done
-sleep 3
+fund_and_wait "$SPONSOR_ADDR"
 
 echo -e "\n=== CAST SEND WITH SPONSOR (--tempo.sponsor-signature) ==="
 # Test sponsored transactions using pre-signed signature.
@@ -491,31 +489,7 @@ fork_wallet_json="$(cast wallet new --json)"
 FORK_ADDR="$(jq -r '.[0].address' <<<"$fork_wallet_json")"
 FORK_PK="$(jq -r '.[0].private_key' <<<"$fork_wallet_json")"
 printf "Fork test address: %s\n" "$FORK_ADDR"
-
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$FORK_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    echo "$OUT" | jq
-    break
-  fi
-  echo "[$i] $OUT"
-  sleep 0.2
-done
-
-# Wait until the funding txs are mined and the account has fee token balance
-echo "Waiting for fork wallet to be funded..."
-for i in {1..30}; do
-  BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$FORK_ADDR" 2>/dev/null || echo "0")
-  if [[ "$BAL" != "0" && -n "$BAL" ]]; then
-    echo "Fork wallet funded with $BAL fee tokens"
-    break
-  fi
-  if [[ $i -eq 30 ]]; then
-    echo "ERROR: Fork wallet funding timed out"
-    exit 1
-  fi
-  sleep 1
-done
+fund_and_wait "$FORK_ADDR"
 
 ANVIL_PORT=8547
 echo "Starting forked anvil..."
