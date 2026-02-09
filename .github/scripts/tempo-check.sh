@@ -485,7 +485,24 @@ trap - EXIT
 echo -e "\n=== ANVIL LOCAL TESTS COMPLETE ==="
 
 echo -e "\n=== ANVIL FORK TESTS ==="
-# Test anvil forking the Tempo network using the faucet-funded account
+# Use a fresh wallet for fork tests to avoid fee token exhaustion from prior devnet tests
+echo -e "\n=== ANVIL FORK: CREATE AND FUND FRESH WALLET ==="
+fork_wallet_json="$(cast wallet new --json)"
+FORK_ADDR="$(jq -r '.[0].address' <<<"$fork_wallet_json")"
+FORK_PK="$(jq -r '.[0].private_key' <<<"$fork_wallet_json")"
+printf "Fork test address: %s\n" "$FORK_ADDR"
+
+for i in {1..100}; do
+  OUT=$(cast rpc tempo_fundAddress "$FORK_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+    echo "$OUT" | jq
+    break
+  fi
+  echo "[$i] $OUT"
+  sleep 0.2
+done
+sleep 5
+
 ANVIL_PORT=8547
 echo "Starting forked anvil..."
 # Pass hardfork to anvil (lowercase for CLI compatibility)
@@ -522,32 +539,31 @@ echo -e "\n=== ANVIL FORK: FORGE TEST ==="
 TEMPO_FEE_TOKEN="$FEE_TOKEN" forge test --rpc-url http://127.0.0.1:$ANVIL_PORT
 
 echo -e "\n=== ANVIL FORK: FORGE SCRIPT SIMULATE ==="
-TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$PK"
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK"
 
 echo -e "\n=== ANVIL FORK: FORGE SCRIPT BROADCAST ==="
-TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$PK" --broadcast
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK" --broadcast
 
 echo -e "\n=== ANVIL FORK: CAST SEND ==="
-# Use the faucet-funded account with explicit fee token (account state is forked from devnet)
-cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK"
 
 echo -e "\n=== ANVIL FORK: ERC20 TRANSFER ==="
-cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$PK"
+cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK"
 
 # T1-only features on anvil fork
 if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== ANVIL FORK: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
-  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --tempo.nonce-key 100
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --nonce 0 --tempo.nonce-key 100
 
   echo -e "\n=== ANVIL FORK: CAST SEND WITH EXPIRING NONCE ==="
-  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))"
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))"
 fi
 
 echo -e "\n=== ANVIL FORK: BATCH SEND ==="
 cast batch-send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT \
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
   --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
-  --private-key "$PK"
+  --private-key "$FORK_PK"
 
 # Stop anvil
 kill "$ANVIL_PID" 2>/dev/null || true
