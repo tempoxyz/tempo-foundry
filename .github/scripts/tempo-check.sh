@@ -491,6 +491,10 @@ FORK_PK="$(jq -r '.[0].private_key' <<<"$fork_wallet_json")"
 printf "Fork test address: %s\n" "$FORK_ADDR"
 fund_and_wait "$FORK_ADDR"
 
+# Set the fee token on devnet before forking so the fork snapshot includes it
+cast send --rpc-url "$ETH_RPC_URL" 0xfeec000000000000000000000000000000000000 \
+  'setUserToken(address)' "$FEE_TOKEN" --private-key "$FORK_PK"
+
 ANVIL_PORT=8547
 echo "Starting forked anvil..."
 # Pass hardfork to anvil (lowercase for CLI compatibility)
