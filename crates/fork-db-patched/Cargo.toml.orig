@@ -1,0 +1,59 @@
+[package]
+name = "foundry-fork-db"
+description = "Fork database used by Foundry"
+version = "0.22.0"
+edition = "2021"
+# Remember to update clippy.toml as well
+rust-version = "1.88"
+authors = ["Foundry Contributors"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/foundry-rs/foundry-fork-db"
+repository = "https://github.com/foundry-rs/foundry-fork-db"
+
+[lints]
+rust.unused_must_use = "deny"
+rust.rust_2018_idioms = { level = "deny", priority = -1 }
+rustdoc.all = "warn"
+
+[lints.clippy]
+missing_const_for_fn = "allow" # TODO: https://github.com/rust-lang/rust-clippy/issues/14020
+use_self = "warn"
+option_if_let_else = "warn"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+alloy-chains = { version = "0.2", default-features = false, features = ["serde"] }
+alloy-consensus = { version = "1.0.38", default-features = false }
+alloy-hardforks = { version = "0.4.0", default-features = false }
+alloy-primitives = { version = "1.4", features = ["map"] }
+alloy-provider = { version = "1.0.38", default-features = false }
+alloy-rpc-types = { version = "1.0.38", features = ["eth"] }
+
+eyre = "0.6"
+futures = "0.3"
+
+parking_lot = "0.12"
+
+revm = { version = "34.0.0", features = ["std", "serde"] }
+
+serde = "1.0"
+serde_json = "1.0"
+
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tracing = "0.1"
+
+url = "2"
+
+[dev-dependencies]
+alloy-rpc-client = "1.0.38"
+tiny_http = "0.12"
+
+# [patch.crates-io]
+# alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "a4e7099" }
+# alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy", rev = "a4e7099" }
+# alloy-consensus = { git = "https://github.com/alloy-rs/alloy", rev = "a4e7099" }
+# alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "a4e7099" }

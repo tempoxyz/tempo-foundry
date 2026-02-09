@@ -120,24 +120,29 @@ impl ForkedDatabase {
             }
             let ForkDbStateSnapshot {
                 local,
-                state_snapshot: StateSnapshot { accounts, storage, block_hashes },
+                ..
             } = state_snapshot;
-            let db = self.inner().db();
-            {
-                let mut accounts_lock = db.accounts.write();
-                accounts_lock.clear();
-                accounts_lock.extend(accounts);
-            }
-            {
-                let mut storage_lock = db.storage.write();
-                storage_lock.clear();
-                storage_lock.extend(storage);
-            }
-            {
-                let mut block_hashes_lock = db.block_hashes.write();
-                block_hashes_lock.clear();
-                block_hashes_lock.extend(block_hashes);
-            }
+
+            // let ForkDbStateSnapshot {
+            //     local,
+            //     state_snapshot: StateSnapshot { accounts, storage, block_hashes },
+            // } = state_snapshot;
+            // let db = self.inner().db();
+            // {
+            //     let mut accounts_lock = db.accounts.write();
+            //     accounts_lock.clear();
+            //     accounts_lock.extend(accounts);
+            // }
+            // {
+            //     let mut storage_lock = db.storage.write();
+            //     storage_lock.clear();
+            //     storage_lock.extend(storage);
+            // }
+            // {
+            //     let mut block_hashes_lock = db.block_hashes.write();
+            //     block_hashes_lock.clear();
+            //     block_hashes_lock.extend(block_hashes);
+            // }
 
             self.cache_db = local;
 
