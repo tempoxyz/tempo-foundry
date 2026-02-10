@@ -24,6 +24,19 @@ use tempo_precompiles::{
 
 use crate::backend::Backend;
 
+/// PathUSD token address.
+pub const PATH_USD_ADDRESS: Address = address!("20C0000000000000000000000000000000000000");
+/// AlphaUSD token address.
+pub const ALPHA_USD_ADDRESS: Address = address!("20C0000000000000000000000000000000000001");
+/// BetaUSD token address.
+pub const BETA_USD_ADDRESS: Address = address!("20C0000000000000000000000000000000000002");
+/// ThetaUSD token address.
+pub const THETA_USD_ADDRESS: Address = address!("20C0000000000000000000000000000000000003");
+
+/// All well-known TIP20 fee token addresses on Tempo networks.
+pub const TEMPO_TIP20_TOKENS: &[Address] =
+    &[PATH_USD_ADDRESS, ALPHA_USD_ADDRESS, BETA_USD_ADDRESS, THETA_USD_ADDRESS];
+
 /// Storage provider adapter for Foundry's backend to work with Tempo precompiles.
 ///
 /// This wraps Foundry's backend to implement the `PrecompileStorageProvider` trait,

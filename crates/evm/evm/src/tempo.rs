@@ -1,15 +1,15 @@
-use alloy_primitives::{Address, Bytes, U256, address};
+use alloy_primitives::{Address, Bytes, U256};
 use foundry_evm_core::{
     backend::DatabaseError,
     constants::{CALLER, TEST_CONTRACT_ADDRESS},
-    tempo::{FoundryStorageProvider, initialize_tempo_genesis},
+    tempo::{FoundryStorageProvider, TEMPO_TIP20_TOKENS, initialize_tempo_genesis},
 };
 use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_networks::NetworkConfigs;
 use revm::state::{AccountInfo, Bytecode};
 use tempo_precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_DEX_ADDRESS,
-    TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS, TIP_FEE_MANAGER_ADDRESS,
+    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS,
     VALIDATOR_CONFIG_ADDRESS, error::TempoPrecompileError,
 };
 
@@ -40,14 +40,6 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     initialize_tempo_genesis(&mut storage, admin, sender)
 }
-
-/// Well-known TIP20 fee token addresses on Tempo networks.
-const TEMPO_TIP20_TOKENS: &[Address] = &[
-    address!("20C0000000000000000000000000000000000000"), // PathUSD
-    address!("20C0000000000000000000000000000000000001"), // AlphaUSD
-    address!("20C0000000000000000000000000000000000002"), // BetaUSD
-    address!("20C0000000000000000000000000000000000003"), // ThetaUSD
-];
 
 /// Pre-warm Tempo precompile accounts in the fork backend cache.
 ///
