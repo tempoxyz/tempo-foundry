@@ -29,7 +29,7 @@ use foundry_evm::{
         BasicTxDetails, CallDetails, CounterExample, FuzzFixtures, fixture_name,
         invariant::InvariantContract, strategies::EvmFuzzState,
     },
-    tempo::initialize_tempo_precompiles_and_contracts,
+    tempo::{initialize_tempo_precompiles_and_contracts, warm_tempo_precompile_accounts},
     traces::{TraceKind, TraceMode, load_contracts},
 };
 use itertools::Itertools;
@@ -162,10 +162,17 @@ impl<'a> ContractRunner<'a> {
         // construction
         self.executor.set_balance(address, self.initial_balance())?;
 
-        // Initialize Tempo precompiles and contracts if we're not in fork mode.
+        // Initialize Tempo precompiles and contracts.
         let hardfork = self.executor.hardfork();
         if self.evm_opts.fork_url.is_none() {
+            // Non-fork mode: full genesis initialization (bytecode, tokens, storage).
             initialize_tempo_precompiles_and_contracts(&mut self.executor, hardfork)?;
+        } else {
+            // Fork mode: pre-warm precompile accounts in the local cache to prevent
+            // repeated RPC fetches for Rust-native precompile addresses that have no
+            // EVM bytecode on-chain. Without this, invariant fuzzing hangs due to a
+            // pathological RPC storm from uncached account/storage lookups.
+            warm_tempo_precompile_accounts(&mut self.executor)?;
         }
 
         // Deploy the test contract

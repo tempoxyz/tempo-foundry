@@ -1,10 +1,17 @@
-use alloy_primitives::U256;
+use alloy_primitives::{Address, Bytes, U256, address};
 use foundry_evm_core::{
+    backend::DatabaseError,
     constants::{CALLER, TEST_CONTRACT_ADDRESS},
     tempo::{FoundryStorageProvider, initialize_tempo_genesis},
 };
 use foundry_evm_hardforks::FoundryHardfork;
-use tempo_precompiles::error::TempoPrecompileError;
+use foundry_evm_networks::NetworkConfigs;
+use revm::state::{AccountInfo, Bytecode};
+use tempo_precompiles::{
+    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_DEX_ADDRESS,
+    TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS, TIP_FEE_MANAGER_ADDRESS,
+    VALIDATOR_CONFIG_ADDRESS, error::TempoPrecompileError,
+};
 
 use crate::executors::Executor;
 
@@ -32,4 +39,57 @@ pub fn initialize_tempo_precompiles_and_contracts(
         FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp, tempo_hardfork);
 
     initialize_tempo_genesis(&mut storage, admin, sender)
+}
+
+/// Well-known TIP20 fee token addresses on Tempo networks.
+const TEMPO_TIP20_TOKENS: &[Address] = &[
+    address!("20C0000000000000000000000000000000000000"), // PathUSD
+    address!("20C0000000000000000000000000000000000001"), // AlphaUSD
+    address!("20C0000000000000000000000000000000000002"), // BetaUSD
+    address!("20C0000000000000000000000000000000000003"), // ThetaUSD
+];
+
+/// Pre-warm Tempo precompile accounts in the fork backend cache.
+///
+/// In fork mode, Tempo precompile addresses (0xDEc0..., 0x20C0...) are Rust-native
+/// precompiles on the Tempo node with no real EVM bytecode. The RPC returns empty code
+/// (`0x`) or sentinel bytecode (`0xef`) for these addresses, causing the fork backend to
+/// repeatedly fetch them via RPC on every access (cache misses). During invariant fuzzing
+/// this creates a pathological RPC storm that effectively hangs the test runner.
+///
+/// This function inserts sentinel bytecode (`0xef`) into the local fork cache for all
+/// known precompile addresses, preventing repeated RPC round-trips without overwriting
+/// any on-chain storage state.
+///
+/// Only applies when the fork target is a known Tempo chain (by chain ID).
+pub fn warm_tempo_precompile_accounts(executor: &mut Executor) -> Result<(), DatabaseError> {
+    let chain_id = executor.env().evm_env.cfg_env.chain_id;
+    if !NetworkConfigs::is_tempo_chain_id(chain_id) {
+        return Ok(());
+    }
+
+    let sentinel = Bytecode::new_legacy(Bytes::from_static(&[0xef]));
+    let precompile_addresses: &[Address] = &[
+        NONCE_PRECOMPILE_ADDRESS,
+        STABLECOIN_DEX_ADDRESS,
+        TIP20_FACTORY_ADDRESS,
+        TIP403_REGISTRY_ADDRESS,
+        TIP_FEE_MANAGER_ADDRESS,
+        VALIDATOR_CONFIG_ADDRESS,
+        ACCOUNT_KEYCHAIN_ADDRESS,
+    ];
+
+    for addr in precompile_addresses.iter().chain(TEMPO_TIP20_TOKENS.iter()) {
+        executor.backend_mut().insert_account_info(
+            *addr,
+            AccountInfo {
+                code_hash: sentinel.hash_slow(),
+                code: Some(sentinel.clone()),
+                nonce: 1,
+                ..Default::default()
+            },
+        );
+    }
+
+    Ok(())
 }
