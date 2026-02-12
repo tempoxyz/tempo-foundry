@@ -44,10 +44,24 @@ RESULT=$(curl -s -X POST -H "Content-Type: application/json" -d '{
 
 if echo "$RESULT" | jq -e '.result' >/dev/null 2>&1; then
   GAS=$(echo "$RESULT" | jq -r '.result')
-  echo "PASS: raw JSON-RPC estimate succeeded (gas: $GAS)"
+  echo "PASS: eth_estimateGas succeeded (gas: $GAS)"
 else
   ERROR_MSG=$(echo "$RESULT" | jq -r '.error.message // "unknown error"')
-  echo "FAIL: raw JSON-RPC estimate failed: $ERROR_MSG"
+  ERROR_DATA=$(echo "$RESULT" | jq -r '.error.data // ""')
+  echo "FAIL: eth_estimateGas failed: $ERROR_MSG"
+
+  # Check if this is the validator token mismatch bug:
+  # validatorTokens[address(0)] returns a non-default token (e.g. DONOTUSE),
+  # causing the fee AMM swap to fail during RPC simulation.
+  VALIDATOR_TOKEN_LOWER=$(echo "$VALIDATOR_TOKEN_ZERO" | tr '[:upper:]' '[:lower:]')
+  DEFAULT_TOKEN_LOWER=$(echo "$DEFAULT_TOKEN" | tr '[:upper:]' '[:lower:]')
+  if [[ "$VALIDATOR_TOKEN_LOWER" != "$DEFAULT_TOKEN_LOWER" && "$VALIDATOR_TOKEN_LOWER" != "0x0000000000000000000000000000000000000000" ]]; then
+    echo ""
+    echo "ROOT CAUSE: validatorTokens[address(0)] = $VALIDATOR_TOKEN_ZERO (expected $DEFAULT_TOKEN or 0x0)"
+    echo "The RPC simulation beneficiary resolves to a non-default fee token, causing AMM swap failures."
+    echo "Fix: use TIP_FEE_MANAGER_ADDRESS as beneficiary instead of address(0) in BuildPendingEnv."
+  fi
+
   TEST_FAILED=1
 fi
 
@@ -56,6 +70,6 @@ if [[ $TEST_FAILED -eq 0 ]]; then
   echo "ALL TESTS PASSED"
   exit 0
 else
-  echo "TESTS FAILED: eth_estimateGas is broken (likely validator token mismatch)"
+  echo "TESTS FAILED"
   exit 1
 fi
