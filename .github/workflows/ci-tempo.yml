@@ -63,6 +63,7 @@ jobs:
         run: |
           ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-deploy.sh
+          ./.github/scripts/gas-estimation-smoke.sh
 
       - name: Run Tempo check on testnet
         if: |
@@ -74,6 +75,7 @@ jobs:
         run: |
           ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-deploy.sh
+          ./.github/scripts/gas-estimation-smoke.sh
 
       - name: Run Tempo check on mainnet
         if: |
@@ -86,3 +88,4 @@ jobs:
         run: |
           ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-deploy.sh
+          ./.github/scripts/gas-estimation-smoke.sh
