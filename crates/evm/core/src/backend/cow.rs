@@ -11,7 +11,7 @@ use crate::{
 };
 use alloy_evm::Evm;
 use alloy_genesis::GenesisAccount;
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, B256, U256, map::AddressMap};
 use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
 use revm::{
@@ -19,7 +19,6 @@ use revm::{
     bytecode::Bytecode,
     context_interface::result::ResultAndState,
     database::DatabaseRef,
-    primitives::HashMap as Map,
     state::{Account, AccountInfo},
 };
 use std::{borrow::Cow, collections::BTreeMap};
@@ -337,7 +336,7 @@ impl Database for CowBackend<'_> {
 }
 
 impl DatabaseCommit for CowBackend<'_> {
-    fn commit(&mut self, changes: Map<Address, Account>) {
+    fn commit(&mut self, changes: AddressMap<Account>) {
         self.backend.to_mut().commit(changes)
     }
 }

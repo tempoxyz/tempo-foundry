@@ -1,13 +1,12 @@
 //! In-memory database.
 
 use crate::state_snapshot::StateSnapshots;
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, B256, U256, map::AddressMap};
 use foundry_fork_db::DatabaseError;
 use revm::{
     Database, DatabaseCommit,
     bytecode::Bytecode,
     database::{CacheDB, DatabaseRef, EmptyDB},
-    primitives::HashMap as Map,
     state::{Account, AccountInfo},
 };
 
@@ -73,7 +72,7 @@ impl Database for MemDb {
 }
 
 impl DatabaseCommit for MemDb {
-    fn commit(&mut self, changes: Map<Address, Account>) {
+    fn commit(&mut self, changes: AddressMap<Account>) {
         DatabaseCommit::commit(&mut self.inner, changes)
     }
 }

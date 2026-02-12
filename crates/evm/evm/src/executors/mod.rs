@@ -16,7 +16,7 @@ use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{
     Address, Bytes, Log, TxKind, U256, keccak256,
-    map::{AddressHashMap, HashMap},
+    map::{AddressHashMap, U256Map},
 };
 use alloy_sol_types::{SolCall, sol};
 use foundry_evm_core::{
@@ -327,11 +327,7 @@ impl Executor {
     }
 
     /// Set the storage of an account.
-    pub fn set_storage(
-        &mut self,
-        address: Address,
-        storage: HashMap<U256, U256>,
-    ) -> BackendResult<()> {
+    pub fn set_storage(&mut self, address: Address, storage: U256Map<U256>) -> BackendResult<()> {
         self.backend_mut().replace_account_storage(address, storage)?;
         Ok(())
     }
@@ -975,13 +971,13 @@ impl Default for RawCallResult {
             gas_refunded: 0,
             stipend: 0,
             logs: Vec::new(),
-            labels: HashMap::default(),
+            labels: AddressHashMap::default(),
             traces: None,
             line_coverage: None,
             edge_coverage: None,
             tempo_cmp_values: None,
             transactions: None,
-            state_changeset: HashMap::default(),
+            state_changeset: StateChangeset::default(),
             env: Env::default(),
             cheatcodes: Default::default(),
             out: None,
@@ -1123,19 +1119,19 @@ fn convert_executed_result(
     has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
-        ExecutionResult::Success { reason, gas_used, gas_refunded, output, logs, .. } => {
-            (reason.into(), gas_refunded, gas_used, Some(output), logs)
+        ExecutionResult::Success { reason, gas, output, logs, .. } => {
+            (reason.into(), gas.inner_refunded(), gas.used(), Some(output), logs)
         }
-        ExecutionResult::Revert { gas_used, output } => {
+        ExecutionResult::Revert { gas, output } => {
             // Need to fetch the unused gas
-            (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
+            (InstructionResult::Revert, 0_u64, gas.used(), Some(Output::Call(output)), vec![])
         }
-        ExecutionResult::Halt { reason, gas_used } => {
+        ExecutionResult::Halt { reason, gas } => {
             let instruction_result = match reason {
                 TempoHaltReason::Ethereum(halt) => halt.into(),
                 TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
             };
-            (instruction_result, 0_u64, gas_used, None, vec![])
+            (instruction_result, 0_u64, gas.used(), None, vec![])
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
