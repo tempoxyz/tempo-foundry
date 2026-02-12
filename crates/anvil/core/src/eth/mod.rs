@@ -1,5 +1,5 @@
 use crate::{eth::subscription::SubscriptionId, types::ReorgOptions};
-use alloy_primitives::{Address, B64, B256, Bytes, TxHash, U256};
+use alloy_primitives::{Address, B64, B256, Bytes, TxHash, U256, map::HashSet};
 use alloy_rpc_types::{
     BlockId, BlockNumberOrTag as BlockNumber, BlockOverrides, Filter, Index,
     anvil::{Forking, MineOptions},
@@ -10,6 +10,7 @@ use alloy_rpc_types::{
     trace::{
         filter::TraceFilter,
         geth::{GethDebugTracingCallOptions, GethDebugTracingOptions},
+        parity::TraceType,
     },
 };
 use alloy_serde::WithOtherFields;
@@ -201,16 +202,12 @@ pub enum EthRequest {
     #[serde(rename = "anvil_getBlobsByTransactionHash", with = "sequence")]
     GetBlobByTransactionHash(TxHash),
 
-    /// Returns the blobs for a given transaction hash.
-    #[serde(rename = "anvil_getBlobSidecarsByBlockId", with = "sequence")]
-    GetBlobSidecarsByBlockId(BlockId),
-
     /// Returns the genesis time for the chain
     #[serde(rename = "anvil_getGenesisTime", with = "empty_params")]
     GetGenesisTime(()),
 
     #[serde(rename = "eth_getTransactionByBlockHashAndIndex")]
-    EthGetTransactionByBlockHashAndIndex(TxHash, Index),
+    EthGetTransactionByBlockHashAndIndex(B256, Index),
 
     #[serde(rename = "eth_getTransactionByBlockNumberAndIndex")]
     EthGetTransactionByBlockNumberAndIndex(BlockNumber, Index),
@@ -219,7 +216,7 @@ pub enum EthRequest {
     EthGetRawTransactionByHash(TxHash),
 
     #[serde(rename = "eth_getRawTransactionByBlockHashAndIndex")]
-    EthGetRawTransactionByBlockHashAndIndex(TxHash, Index),
+    EthGetRawTransactionByBlockHashAndIndex(B256, Index),
 
     #[serde(rename = "eth_getRawTransactionByBlockNumberAndIndex")]
     EthGetRawTransactionByBlockNumberAndIndex(BlockNumber, Index),
@@ -328,6 +325,13 @@ pub enum EthRequest {
     // Return filtered traces over blocks
     #[serde(rename = "trace_filter", with = "sequence")]
     TraceFilter(TraceFilter),
+
+    /// Trace transaction endpoint for parity's `trace_replayBlockTransactions`
+    #[serde(rename = "trace_replayBlockTransactions")]
+    TraceReplayBlockTransactions(
+        #[serde(deserialize_with = "lenient_block_number::lenient_block_number")] BlockNumber,
+        HashSet<TraceType>,
+    ),
 
     // Custom endpoints, they're not extracted to a separate type out of serde convenience
     /// send transactions impersonating specific account and contract addresses.
@@ -710,18 +714,6 @@ pub enum EthRequest {
     /// Rollback the chain
     #[serde(rename = "anvil_rollback", with = "sequence")]
     Rollback(Option<u64>),
-
-    /// Wallet
-    #[serde(rename = "wallet_getCapabilities", with = "empty_params")]
-    WalletGetCapabilities(()),
-
-    /// Add an address to the delegation capability of the wallet
-    #[serde(rename = "anvil_addCapability", with = "sequence")]
-    AnvilAddCapability(Address),
-
-    /// Set the executor (sponsor) wallet
-    #[serde(rename = "anvil_setExecutor", with = "sequence")]
-    AnvilSetExecutor(String),
 }
 
 /// Represents ethereum JSON-RPC API

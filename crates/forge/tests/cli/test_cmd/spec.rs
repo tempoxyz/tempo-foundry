@@ -4,7 +4,7 @@ use foundry_test_utils::{rpc, str};
 // <https://github.com/foundry-rs/foundry/issues/9840>
 // <https://github.com/foundry-rs/foundry/issues/6228>
 forgetest_init!(
-    #[ignore = "tempo skip"]
+    #[ignore = "tempo skip - uses Ethereum archive RPC fork which lacks Tempo block fields"]
     test_set_evm_version,
     |prj, cmd| {
         let endpoint = rpc::next_http_archive_rpc_url();

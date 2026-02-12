@@ -12,7 +12,7 @@ use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::TransactionOpts,
-    utils::{LoadConfig, get_tempo_provider},
+    utils::{LoadConfig, get_tempo_provider_with_curl},
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
@@ -74,6 +74,7 @@ pub enum SendTxSubcommands {
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
         let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, data } = self;
+        let fee_token = tx.tempo.fee_token;
 
         if let Some(data) = data {
             sig = Some(data);
@@ -101,14 +102,14 @@ impl SendTxArgs {
         };
 
         let config = send_tx.eth.load_config()?;
-        let provider = get_tempo_provider(&config)?;
+        let provider = get_tempo_provider_with_curl(&config, send_tx.eth.rpc.curl)?;
 
         if let Some(interval) = send_tx.poll_interval {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
         // Clone tx_opts if sponsor is present or print-sponsor-hash mode
-        let sponsor_opts = if tx.sponsor.is_sponsor() || tx.sponsor.should_print_hash() {
+        let sponsor_opts = if tx.tempo.is_sponsor() || tx.tempo.should_print_hash() {
             Some(tx.clone())
         } else {
             None
@@ -131,6 +132,14 @@ impl SendTxArgs {
         }
 
         let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
+
+        // Check if this is a Tempo transaction - requires special handling for local signing
+        let is_tempo = builder.is_tempo();
+
+        // Tempo transactions with browser wallets are not supported
+        if is_tempo && send_tx.eth.wallet.browser {
+            return Err(eyre!("Tempo transactions are not supported with browser wallets."));
+        }
 
         // Case 1:
         // Default to sending via eth_sendTransaction if the --unlocked flag is passed.
@@ -157,14 +166,14 @@ impl SendTxArgs {
             }
 
             let (tx, _) = if let Some(ref opts) = sponsor_opts {
-                builder.build_sponsored(config.sender, send_tx.fee_token, opts).await?
+                builder.build_sponsored(config.sender, fee_token, opts).await?
             } else {
-                builder.build(config.sender, send_tx.fee_token).await?
+                builder.build(config.sender, fee_token).await?
             };
 
             cast_send(
                 provider,
-                tx.inner,
+                tx.into_inner(),
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,
@@ -196,9 +205,9 @@ impl SendTxArgs {
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
                 let (tx_request, _) = if let Some(ref opts) = sponsor_opts {
-                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
+                    builder.build_sponsored(from, fee_token, opts).await?
                 } else {
-                    builder.build(from, send_tx.fee_token).await?
+                    builder.build(from, fee_token).await?
                 };
                 let tx_hash =
                     browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
@@ -225,14 +234,10 @@ impl SendTxArgs {
             // use the correct address. For regular transactions, pass the signer so EIP-7702
             // authorization signing can work.
             let (tx_request, _) = match (&access_key_config, &sponsor_opts) {
-                (Some(_), Some(opts)) => {
-                    builder.build_sponsored(from, send_tx.fee_token, opts).await?
-                }
-                (Some(_), None) => builder.build(from, send_tx.fee_token).await?,
-                (None, Some(opts)) => {
-                    builder.build_sponsored(&signer, send_tx.fee_token, opts).await?
-                }
-                (None, None) => builder.build(&signer, send_tx.fee_token).await?,
+                (Some(_), Some(opts)) => builder.build_sponsored(from, fee_token, opts).await?,
+                (Some(_), None) => builder.build(from, fee_token).await?,
+                (None, Some(opts)) => builder.build_sponsored(&signer, fee_token, opts).await?,
+                (None, None) => builder.build(&signer, fee_token).await?,
             };
 
             if let Some(ref config) = access_key_config {

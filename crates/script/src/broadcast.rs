@@ -23,6 +23,7 @@ use foundry_common::{
     shell,
 };
 use foundry_config::Config;
+use foundry_wallets::{WalletSigner, wallet_browser::signer::BrowserSigner};
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
 use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
@@ -32,6 +33,19 @@ use crate::{
     ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
     progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
 };
+
+/// Detect if connected to an Anvil node running in Tempo mode by querying anvil_nodeInfo.
+async fn detect_tempo_mode(provider: &TempoRetryProvider) -> bool {
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NodeInfo {
+        #[serde(default)]
+        network: Option<String>,
+    }
+
+    let result: Result<NodeInfo, _> = provider.client().request_noparams("anvil_nodeInfo").await;
+    result.map(|info| info.network.as_deref() == Some("tempo")).unwrap_or(false)
+}
 
 pub async fn estimate_gas<P: Provider<TempoNetwork>>(
     tx: &mut WithOtherFields<TempoTransactionRequest>,
@@ -64,6 +78,7 @@ pub async fn next_nonce(
 pub enum SendTransactionKind<'a> {
     Unlocked(WithOtherFields<TempoTransactionRequest>),
     Raw(WithOtherFields<TempoTransactionRequest>, &'a EthereumWallet),
+    Browser(WithOtherFields<TempoTransactionRequest>, &'a BrowserSigner),
     Signed(TempoTxEnvelope),
 }
 
@@ -82,7 +97,7 @@ impl<'a> SendTransactionKind<'a> {
         estimate_via_rpc: bool,
         estimate_multiplier: u64,
     ) -> Result<()> {
-        if let Self::Raw(tx, _) | Self::Unlocked(tx) = self {
+        if let Self::Raw(tx, _) | Self::Unlocked(tx) | Self::Browser(tx, _) = self {
             if sequential_broadcast {
                 let from = tx.from.expect("no sender");
 
@@ -131,27 +146,35 @@ impl<'a> SendTransactionKind<'a> {
     /// - Sign and submit via `eth_sendRawTransaction` for raw transactions
     /// - Submit pre-signed transaction via `eth_sendRawTransaction`
     pub async fn send(self, provider: Arc<TempoRetryProvider>) -> Result<TxHash> {
-        let pending = match self {
+        match self {
             Self::Unlocked(tx) => {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
                 // Submit the transaction
-                provider.send_transaction(tx.inner).await?
+                let pending = provider.send_transaction(tx.into_inner()).await?;
+                Ok(*pending.tx_hash())
             }
             Self::Raw(tx, signer) => {
                 debug!("sending transaction: {:?}", tx);
                 let signed = tx.inner.build(signer).await?;
 
                 // Submit the raw transaction
-                provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?
+                let pending = provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?;
+                Ok(*pending.tx_hash())
             }
             Self::Signed(tx) => {
                 debug!("sending transaction: {:?}", tx);
-                provider.send_raw_transaction(tx.encoded_2718().as_ref()).await?
+                let pending = provider.send_raw_transaction(tx.encoded_2718().as_ref()).await?;
+                Ok(*pending.tx_hash())
             }
-        };
+            Self::Browser(tx, signer) => {
+                debug!("sending transaction: {:?}", tx);
 
-        Ok(*pending.tx_hash())
+                // Sign and send the transaction via the browser wallet
+                // Convert TempoTransactionRequest to TransactionRequest for browser wallet
+                Ok(signer.send_transaction_via_browser(tx.into_inner().into()).await?)
+            }
+        }
     }
 
     /// Prepares and sends the transaction in one operation.
@@ -179,12 +202,40 @@ impl<'a> SendTransactionKind<'a> {
     }
 }
 
+/// Convenience enum to represent either an Ethereum wallet or a browser signer
+pub enum EitherSigner {
+    Ethereum(EthereumWallet),
+    Browser(BrowserSigner),
+}
+
+impl From<EthereumWallet> for EitherSigner {
+    fn from(wallet: EthereumWallet) -> Self {
+        Self::Ethereum(wallet)
+    }
+}
+
+impl From<WalletSigner> for EitherSigner {
+    fn from(wallet: WalletSigner) -> Self {
+        match wallet {
+            WalletSigner::Browser(wallet) => Self::Browser(wallet),
+            // Convert any other signer to an Ethereum wallet
+            signer => EthereumWallet::new(signer).into(),
+        }
+    }
+}
+
+impl From<BrowserSigner> for EitherSigner {
+    fn from(wallet: BrowserSigner) -> Self {
+        Self::Browser(wallet)
+    }
+}
+
 /// Represents how to send _all_ transactions
 pub enum SendTransactionsKind {
     /// Send via `eth_sendTransaction` and rely on the  `from` address being unlocked.
     Unlocked(AddressHashSet),
     /// Send a signed transaction via `eth_sendRawTransaction`
-    Raw(AddressHashMap<EthereumWallet>),
+    Raw(AddressHashMap<EitherSigner>),
 }
 
 impl SendTransactionsKind {
@@ -205,7 +256,12 @@ impl SendTransactionsKind {
             }
             Self::Raw(wallets) => {
                 if let Some(wallet) = wallets.get(addr) {
-                    Ok(SendTransactionKind::Raw(tx, wallet))
+                    match wallet {
+                        EitherSigner::Ethereum(wallet) => Ok(SendTransactionKind::Raw(tx, wallet)),
+                        EitherSigner::Browser(signer) => {
+                            Ok(SendTransactionKind::Browser(tx, signer))
+                        }
+                    }
                 } else {
                     bail!("No matching signer for {:?} found", addr)
                 }
@@ -308,10 +364,7 @@ impl BundledState {
                 );
             }
 
-            let signers = signers
-                .into_iter()
-                .map(|(addr, signer)| (addr, EthereumWallet::new(signer)))
-                .collect();
+            let signers = signers.into_iter().map(|(addr, signer)| (addr, signer.into())).collect();
 
             SendTransactionsKind::Raw(signers)
         };
@@ -402,8 +455,9 @@ impl BundledState {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
+                let is_tempo = detect_tempo_mode(&provider).await;
                 let estimate_via_rpc =
-                    has_different_gas_calc(sequence.chain) || self.args.skip_simulation;
+                    has_different_gas_calc(sequence.chain) || is_tempo || self.args.skip_simulation;
 
                 // We only wait for a transaction receipt before sending the next transaction, if
                 // there is more than one signer. There would be no way of assuring
@@ -516,8 +570,12 @@ impl BundledState {
                     (acc.0 + gas_used, acc.1 + gas_price, acc.2 + gas_used * gas_price)
                 });
             let paid = format_units(total_paid, 18).unwrap_or_else(|_| "N/A".to_string());
-            let avg_gas_price = format_units(total_gas_price / sequence.receipts.len() as u64, 9)
-                .unwrap_or_else(|_| "N/A".to_string());
+            let avg_gas_price = if sequence.receipts.is_empty() {
+                "N/A".to_string()
+            } else {
+                format_units(total_gas_price / sequence.receipts.len() as u64, 9)
+                    .unwrap_or_else(|_| "N/A".to_string())
+            };
 
             seq_progress.inner.write().set_status(&format!(
                 "Total Paid: {} {} ({} gas * avg {} gwei)\n",

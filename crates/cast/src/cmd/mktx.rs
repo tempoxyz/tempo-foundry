@@ -1,7 +1,7 @@
 use crate::tx::{self, CastTxBuilder};
 
 use crate::tempo::sign_with_access_key;
-use alloy_eips::eip2718::Encodable2718;
+use alloy_eips::Encodable2718;
 use alloy_ens::NameOrAddress;
 use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, hex};
@@ -11,7 +11,7 @@ use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig, get_tempo_provider, parse_fee_token_address},
+    utils::{LoadConfig, get_tempo_provider},
 };
 use std::{path::PathBuf, str::FromStr};
 use tempo_alloy::rpc::TempoTransactionRequest;
@@ -60,10 +60,6 @@ pub struct MakeTxArgs {
     /// Call `eth_signTransaction` using the `--from` argument or $ETH_FROM as sender
     #[arg(long, requires = "from", conflicts_with = "raw_unsigned")]
     ethsign: bool,
-
-    /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
-    fee_token: Option<Address>,
 }
 
 #[derive(Debug, Parser)]
@@ -85,18 +81,8 @@ pub enum MakeTxSubcommands {
 
 impl MakeTxArgs {
     pub async fn run(self) -> Result<()> {
-        let Self {
-            to,
-            mut sig,
-            mut args,
-            command,
-            tx,
-            path,
-            eth,
-            raw_unsigned,
-            ethsign,
-            fee_token,
-        } = self;
+        let Self { to, mut sig, mut args, command, tx, path, eth, raw_unsigned, ethsign } = self;
+        let fee_token = tx.tempo.fee_token;
 
         let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
 
@@ -118,7 +104,7 @@ impl MakeTxArgs {
         let provider = get_tempo_provider(&config)?;
 
         // Clone tx_opts if sponsor is present or print-sponsor-hash mode
-        let sponsor_opts = if tx.sponsor.is_sponsor() || tx.sponsor.should_print_hash() {
+        let sponsor_opts = if tx.tempo.is_sponsor() || tx.tempo.should_print_hash() {
             Some(tx.clone())
         } else {
             None

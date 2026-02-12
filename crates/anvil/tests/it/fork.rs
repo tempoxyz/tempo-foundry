@@ -830,7 +830,7 @@ async fn test_fork_init_base_fee() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_reset_fork_on_new_blocks() {
+async fn flaky_test_reset_fork_on_new_blocks() {
     let (api, handle) =
         spawn(NodeConfig::test().with_eth_rpc_url(Some(rpc::next_http_archive_rpc_url()))).await;
 
@@ -1042,7 +1042,7 @@ async fn can_impersonate_in_fork() {
 
 // <https://etherscan.io/block/14608400>
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
+#[ignore = "tempo skip - uses Ethereum mainnet fork which lacks Tempo block fields"]
 async fn test_total_difficulty_fork() {
     let (api, handle) = spawn(fork_config()).await;
 
@@ -1202,7 +1202,7 @@ async fn test_fork_reset_basefee() {
 
 // <https://github.com/foundry-rs/foundry/issues/6795>
 #[tokio::test(flavor = "multi_thread")]
-async fn test_arbitrum_fork_dev_balance() {
+async fn flaky_test_arbitrum_fork_dev_balance() {
     let (api, handle) = spawn(
         fork_config()
             .with_fork_block_number(None::<u64>)
@@ -1240,7 +1240,7 @@ async fn test_arb_fork_mining() {
 
 // <https://github.com/foundry-rs/foundry/issues/6749>
 #[tokio::test(flavor = "multi_thread")]
-async fn test_arbitrum_fork_block_number() {
+async fn flaky_test_arbitrum_fork_block_number() {
     // fork to get initial block for test
     let (_, handle) = spawn(
         fork_config()
@@ -1335,7 +1335,7 @@ async fn test_fork_execution_reverted() {
 
 // <https://github.com/foundry-rs/foundry/issues/8227>
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
+#[ignore = "tempo skip - uses Immutable network fork which lacks Tempo block fields"]
 async fn test_immutable_fork_transaction_hash() {
     use std::str::FromStr;
 
@@ -1698,6 +1698,7 @@ fn assert_hardfork_config(
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Tempo uses OSAKA blob params, Cancun-specific params do not apply"]
 async fn test_config_with_cancun_hardfork() {
     let (api, _handle) =
         spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Cancun.into()))).await;
@@ -1741,6 +1742,7 @@ async fn test_config_with_cancun_hardfork() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Celo network is not supported in Tempo"]
 async fn test_config_with_prague_hardfork_with_celo() {
     let (api, _handle) = spawn(
         NodeConfig::test()

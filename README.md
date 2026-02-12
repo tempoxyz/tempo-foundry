@@ -81,24 +81,20 @@ cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
 Key extensions:
 
 - In `foundryup`:
-
   - `foundryup -n tempo`: download the latest `nightly` release of Tempo's fork of Foundry.
   - `foundryup -n tempo -i <TAG>`: download a specific `nightly` release by tag `nightly-<hash>`.
 
 - In `forge`:
-
   - `forge init -n tempo`: adds a Tempo-specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
   - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for Tempo-specific testing and utilities.
-  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+  - `--tempo.fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
 - In `cast`:
-
   - `cast run`: updated to correctly process Tempo's system transactions when replaying a block.
   - `cast tip20`: alias to `cast erc20`.
-  - `--fee-token` support: pay gas fees in any `TIP20` stablecoin.
+  - `--tempo.fee-token` support: pay gas fees in any `TIP20` stablecoin.
 
 - Additionally:
-
   - Support for local and forked simulation of the Tempo execution environment.
   - Support for Tempo's (stateful) precompiles and default contracts including labels in traces.
   - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate differences Tempo introduces to optimize for payments.
@@ -112,9 +108,8 @@ Key extensions:
 &nbsp;
 
 [![Github Actions][gha-badge]][gha-url] [![Telegram Chat][tg-badge]][tg-url] [![Telegram Support][tg-support-badge]][tg-support-url]
-![Foundry](https://img.shields.io/badge/Foundry-grey?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAElElEQVR4nH1VUUhUaRg9984YdzBpkqR0Z210rIESIXSabEbcHgydrpNRRj00kWaztj0U1MOW0MOIbD300IvLMqBpMTGYxdoqyoRNDUESBDWwUuPugCSSsTM7u0Oj1/+efdiMcmnP2/fDd77D4f/OB6xCa2urQZbllVICYGtqanK1tLS4AdgAyAAgyzJaW1sNq/ulT4twOGw4fPiwAGDp7Ow8VV1d7bVarRWxWCw/k8mgsbExm0wmZ+Lx+M/Xr1//CcAsSVmSJH01McLhsAEAnE5nx+Tk5B/xeJxOp5N9fX2sqqqixWLhnTt36HA4GIvFGI1GU3V1df5Pe/9D1t7eHkgkEuzo6GBPT49WWloq7Ha7fujQITocDu7atUs3m83i6tWr2okTJ/jixQuePn265zPScDhskGUZe/fubXv8+DFv3rypbdiwQaxbt46RSIT79u3j0NAQb926RVVVOT4+TqvVyvz8fD0YDC5NTk6ysbHxlCRJ/5KSlAAURyKRTFNTkwAg7t69S5/Px76+Pq7GyMgI9+/fz9HRUQIQO3bsEKOjo38DsJCUJADw+/0BVVW7otHo8ps3b4yvXr3CxMQETCYTTCYTNE0DAOTl5SGXy0FRFOzZswdmsxkVFRXLNTU1xmg0+kNvb+/3AGAcGBiI7969Wwcg6urq+OTJE967d49btmzh9PT0R3WJRIKBQIDBYJBTU1NsaGggAGGz2fTe3t5fAeQZAWwuLi4uP3nypOT1emEwGFBeXo7a2losLCygoaEB/f39MJlMCIVCkCQJBw8ehNVqhcfjQXNzs1RSUiKtX7++DEAZqqqq3KFQiABYUFDAM2fOkCQXFxdJkvfv32dhYSG9Xi+vXbvG2dnZj4oDgQCLioqoKAqHhobodDq/Mc7NzUklJSUIBoOw2WzYtm0blpeXsWbNGkxMTODp06doa2vD4OAgNm7cCIvFApLQdR3nzp3Dzp078fLlSxQVFeHdu3cAgIpHjx69/zBUX5k+MDBAt9vNY8eOsbu7m6lUigcOHKDL5WImkyHJz9TGYrEcALsMIPn69esZTdMIgM+ePUNXVxdu376NsrIyuN1uXLp0CWazGcPDw3C5XFBVFWfPnkVNTQ18Pp+ezWY5MzPzO4DfAABHjhzpJslUKqVdvHiR4+PjbG9vZy6XI0kuLS0xmUxSCEGS9Pv9LC0tpdFoZGVlpSaEoM/nuwIAKx/7q5GRkb9CoZBQVVWcP3+ez58/J0mm02kODg7ywoULjMViTKfTtNvtXLt2LTdt2qTncrnlsbGxLICvSUqfrl5HJBLh1NTUkhBCJ8mFhQX29/dTVVUWFBTwwYMH1HWdly9fpqIoeiKRWJqfn2d1dXWnLMuf7zMAHD16tGd+fn7FZy2bzYrKykodAAFQVVV9cXFRkNTevn3Lubk5trS0XPnfxHE4HN8ODw+nV/yanp6mx+Ohx+P5aIMQgmNjY3/W1tZ+t5rsSwG7+fjx4/76+vrm7du32woLC00AkE6n38fj8ZmHDx/+cuPGjR8BJL8YsCtYdQIMALYqilKvKEo9APuHty+egH8A3GfFDJXmxmMAAAAASUVORK5CYII%3D&link=https%3A%2F%2Fbook.getfoundry.sh%2F)
 
-[gha-badge]: https://img.shields.io/github/actions/workflow/status/foundry-rs/foundry/test.yml?branch=master
+[gha-badge]: https://img.shields.io/github/actions/workflow/status/foundry-rs/foundry/test.yml?branch=master&style=flat-square
 [gha-url]: https://github.com/foundry-rs/foundry/actions
 [tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&style=flat-square&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Ffoundry_rs
 [tg-url]: https://t.me/foundry_rs
@@ -123,6 +118,7 @@ Key extensions:
 
 **[Install](https://getfoundry.sh/getting-started/installation)**
 | [Docs][foundry-docs]
+| [Benchmarks](https://www.getfoundry.sh/benchmarks)
 | [Developer Guidelines](./docs/dev/README.md)
 | [Contributing](./CONTRIBUTING.md)
 | [Crate Docs](https://foundry-rs.github.io/foundry)
@@ -131,7 +127,7 @@ Key extensions:
 
 ---
 
-### Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.
+Blazing fast, portable and modular toolkit for Ethereum application development, written in Rust.
 
 Tempo's fork of Foundry consists of:
 
@@ -145,7 +141,6 @@ Tempo's fork of Foundry consists of:
 ## Features
 
 - **High-Performance Compilation**
-
   - **Fast and Flexible**: Automatically detects and installs the required Solidity compiler version.
   - **Solidity and Vyper Support**: Fully supports both Solidity and Vyper out-of-the-box.
   - **Incremental Compilation**: Re-compiles only changed files, saving time.
@@ -153,7 +148,6 @@ Tempo's fork of Foundry consists of:
   - **Broad Compatibility**: Supports non-standard directory structures, including [Hardhat repos](https://twitter.com/gakonst/status/1461289225337421829).
 
 - **Advanced Testing**
-
   - **No Context Switching**: Write tests directly in Solidity.
   - **Fuzz Testing**: Quickly identify edge cases with input shrinking and counter-example generation.
   - **Invariant Testing**: Ensure complex system properties hold across a wide range of inputs.
@@ -161,12 +155,10 @@ Tempo's fork of Foundry consists of:
   - **Interactive Debugger**: Step through your Solidity code with Foundry's interactive debugger, making it easy to pinpoint issues.
 
 - **Powerful Runtime Features**
-
   - **RPC Forking**: Fast and efficient remote RPC forking backed by [Alloy][alloy].
   - **Lightweight & Portable**: No dependency on Nix or other package managers for installation.
 
 - **Streamlined CI/CD**
-
   - **Optimized CI**: Accelerate builds, run tests and execute scripts using [Foundry's GitHub action][foundry-gha].
 
 ## How Fast?
@@ -221,71 +213,18 @@ First, let's initialize a new `counter` example repository:
 forge init counter
 ```
 
-Next `cd` into `counter` and build :
+Next `cd` into `counter` and build:
 
 ```sh
+forge init counter && cd counter
 forge build
-```
-
-```console
-[⠊] Compiling...
-[⠔] Compiling 27 files with Solc 0.8.28
-[⠒] Solc 0.8.28 finished in 452.13ms
-Compiler run successful!
-```
-
-Let's [test](https://getfoundry.sh/forge/tests#tests) our contracts:
-
-```sh
 forge test
 ```
 
-```console
-[⠊] Compiling...
-No files changed, compilation skipped
-
-Ran 2 tests for test/Counter.t.sol:CounterTest
-[PASS] testFuzz_SetNumber(uint256) (runs: 256, μ: 31121, ~: 31277)
-[PASS] test_Increment() (gas: 31293)
-Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 5.35ms (4.86ms CPU time)
-
-Ran 1 test suite in 5.91ms (5.35ms CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
-```
-
-Finally, let's run our deployment script:
-
-```sh
-forge script script/Counter.s.sol
-```
-
-```console
-[⠊] Compiling...
-No files changed, compilation skipped
-Script ran successfully.
-Gas used: 109037
-
-If you wish to simulate on-chain transactions pass a RPC URL.
-```
-
-Run `forge --help` to explore the full list of available subcommands and their usage.
-
-More documentation can be found in the [forge](https://getfoundry.sh/forge/overview) section of the Foundry Docs.
-
-## Cast
-
-Cast is a Swiss Army knife for interacting with Ethereum applications from the command line.
-
-Here are a few examples of what you can do:
-
-**Check the latest block on Ethereum Mainnet**:
+Interact with a live network:
 
 ```sh
 cast block-number --rpc-url https://eth.merkle.io
-```
-
-**Check the Ether balance of `vitalik.eth`**
-
-```sh
 cast balance vitalik.eth --ether --rpc-url https://eth.merkle.io
 ```
 
@@ -307,6 +246,12 @@ More documentation can be found in the [cast](https://getfoundry.sh/cast/overvie
 
 Foundry is highly configurable, allowing you to tailor it to your needs. Configuration is managed via a file called [`foundry.toml`](./crates/config) located in the root of your project or any parent directory. For a full list of configuration options, refer to the [config package documentation](./crates/config/README.md#all-options).
 
+You can find additional [setup and configurations guides](https://getfoundry.sh/config/overview) in the [Foundry Docs][foundry-docs] and in the [config crate](./crates/config/README.md):
+
+- [Configuring with `foundry.toml`](https://getfoundry.sh/config/overview)
+- [Setting up VSCode][vscode-setup]
+- [Shell autocompletions][shell-setup]
+
 **Profiles and Namespaces**
 
 - Configuration can be organized into **profiles**, which are arbitrarily namespaced for flexibility.
@@ -316,27 +261,11 @@ Foundry is highly configurable, allowing you to tailor it to your needs. Configu
 
 ---
 
-You can find additional [setup and configurations guides](https://getfoundry.sh/config/overview) in the [Foundry Docs][foundry-docs] and in the [config crate](./crates/config/README.md):
-
-- [Configuring with `foundry.toml`](https://getfoundry.sh/config/overview)
-- [Setting up VSCode][vscode-setup]
-- [Shell autocompletions][shell-setup]
-
 ## Contributing
 
-See our [contributing guidelines](./CONTRIBUTING.md).
+Contributions are welcome and highly appreciated. To get started, check out the [contributing guidelines](./CONTRIBUTING.md).
 
-## Getting Help
-
-First, see if the answer to your question can be found in the [Foundry Docs][foundry-docs], or in the relevant crate.
-
-If the answer is not there:
-
-- Join the [support Telegram][tg-support-url] to get help, or
-- Open a [discussion](https://github.com/foundry-rs/foundry/discussions/new) with your question, or
-- Open an issue with [the bug](https://github.com/foundry-rs/foundry/issues/new)
-
-If you want to contribute, or follow along with contributor discussion, you can use our [main telegram](https://t.me/foundry_rs) to chat with us about the development of Foundry!
+Join our [Telegram][tg-url] to chat about the development of Foundry.
 
 ## Security
 
@@ -344,37 +273,26 @@ See [`SECURITY.md`](https://github.com/tempoxyz/tempo-foundry?tab=security-ov-fi
 
 ## License
 
-Licensed under either of [Apache License](./LICENSE-APACHE), Version
-2.0 or [MIT License](./LICENSE-MIT) at your option.
+Having trouble? See if the answer to your question can be found in the [Foundry Docs][foundry-docs].
 
+If the answer is not there:
+
+- Join the [support Telegram][tg-support-url] to get help, or
+- Open an issue with [the bug](https://github.com/foundry-rs/foundry/issues/new)
+
+#### License
+
+<sup>
+Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
+2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
+
+<br>
+
+<sub>
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in these crates by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
+</sub>
 
-## Acknowledgements
-
-- Foundry is a clean-room rewrite of the testing framework [DappTools][dapptools]. None of this would have been possible without the DappHub team's work over the years.
-- [Matthias Seitz](https://twitter.com/mattsse_): Created [ethers-solc] (now [foundry-compilers]) which is the backbone of our compilation pipeline, as well as countless contributions to ethers, in particular the `abigen` macros.
-- [Rohit Narurkar](https://twitter.com/rohitnarurkar): Created the Rust Solidity version manager [svm-rs](https://github.com/roynalnaruto/svm-rs) which we use to auto-detect and manage multiple Solidity versions.
-- [Brock Elmore](https://twitter.com/brockjelmore): For extending the VM's cheatcodes and implementing [structured call tracing](https://github.com/foundry-rs/foundry/pull/192), a critical feature for debugging smart contract calls.
-- Thank you to [Depot](https://depot.dev) for sponsoring us with their fast GitHub runners and sccache, which we use in CI to reduce build and test times significantly.
-- All the other [contributors](https://github.com/foundry-rs/foundry/graphs/contributors) to the [ethers-rs](https://github.com/gakonst/ethers-rs), [alloy][alloy] & [foundry](https://github.com/foundry-rs/foundry) repositories and chatrooms.
-
-[solidity]: https://soliditylang.org/
 [foundry-docs]: https://getfoundry.sh
-[foundry-gha]: https://github.com/foundry-rs/foundry-toolchain
-[foundry-compilers]: https://github.com/foundry-rs/compilers
-[ethers-solc]: https://github.com/gakonst/ethers-rs/tree/master/ethers-solc/
-[solady]: https://github.com/Vectorized/solady
-[openzeppelin]: https://github.com/OpenZeppelin/openzeppelin-contracts/tree/release-v5.1
-[morpho-blue]: https://github.com/morpho-org/morpho-blue
-[solmate]: https://github.com/transmissions11/solmate/
-[geb]: https://github.com/reflexer-labs/geb
-[benchmark-post]: https://www.paradigm.xyz/2022/03/foundry-02#blazing-fast-compilation--testing
-[convex]: https://github.com/mds1/convex-shutdown-simulation
-[vscode-setup]: https://getfoundry.sh/config/vscode.html
-[shell-setup]: https://getfoundry.sh/config/shell-autocompletion.html
-[foundry-0.2]: https://github.com/foundry-rs/foundry/releases/tag/nightly-5b7e4cb3c882b28f3c32ba580de27ce7381f415a
-[foundry-1.0]: https://github.com/foundry-rs/foundry/releases/tag/nightly-59f354c179f4e7f6d7292acb3d068815c79286d1
-[dapptools]: https://github.com/dapphub/dapptools
-[alloy]: https://github.com/alloy-rs/alloy

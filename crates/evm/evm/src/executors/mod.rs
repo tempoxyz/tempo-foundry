@@ -67,6 +67,9 @@ mod trace;
 
 pub use trace::TracingExecutor;
 
+mod tempo_cov;
+use tempo_cov::TempoCoverageGuard;
+
 const DURATION_BETWEEN_METRICS_REPORT: Duration = Duration::from_secs(5);
 
 sol! {
@@ -93,11 +96,14 @@ sol! {
 #[derive(Clone, Debug)]
 pub struct Executor {
     /// The underlying `revm::Database` that contains the EVM storage.
+    ///
+    /// Wrapped in `Arc` for efficient cloning during parallel fuzzing. Use [`Arc::make_mut`]
+    /// for copy-on-write semantics when mutation is needed.
     // Note: We do not store an EVM here, since we are really
     // only interested in the database. REVM's `EVM` is a thin
     // wrapper around spawning a new EVM on every call anyway,
     // so the performance difference should be negligible.
-    backend: Backend,
+    backend: Arc<Backend>,
     /// The EVM environment.
     env: Env,
     /// The Revm inspector stack.
@@ -140,7 +146,7 @@ impl Executor {
             },
         );
 
-        Self { backend, env, inspector, gas_limit, legacy_assertions, hardfork }
+        Self { backend: Arc::new(backend), env, inspector, gas_limit, legacy_assertions, hardfork }
     }
 
     fn clone_with_backend(&self, backend: Backend) -> Self {
@@ -173,8 +179,11 @@ impl Executor {
     }
 
     /// Returns a mutable reference to the EVM backend.
+    ///
+    /// Uses copy-on-write semantics: if other clones of this executor share the backend,
+    /// this will clone the backend first.
     pub fn backend_mut(&mut self) -> &mut Backend {
-        &mut self.backend
+        Arc::make_mut(&mut self.backend)
     }
 
     /// Returns a reference to the EVM environment.
@@ -552,19 +561,47 @@ impl Executor {
     #[instrument(name = "call", level = "debug", skip_all)]
     pub fn call_with_env(&self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let mut backend = CowBackend::new_borrowed(self.backend());
-        let result = backend.inspect(&mut env, stack.as_inspector())?;
-        convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())
+        let result = {
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
+            backend.inspect(&mut env, stack.as_inspector())?
+        };
+        let mut result =
+            convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
+        }
+        Ok(result)
     }
 
     /// Execute the transaction configured in `env.tx`.
     #[instrument(name = "transact", level = "debug", skip_all)]
     pub fn transact_with_env(&mut self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let backend = self.backend_mut();
-        let result = backend.inspect(&mut env, stack.as_inspector())?;
+        let result = {
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
+            backend.inspect(&mut env, stack.as_inspector())?
+        };
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
+        }
         self.commit(&mut result);
         Ok(result)
     }
@@ -905,6 +942,9 @@ pub struct RawCallResult {
     pub line_coverage: Option<HitMaps>,
     /// The edge coverage info collected during the call
     pub edge_coverage: Option<Vec<u8>>,
+    /// Comparison operands captured from Tempo precompile trace-cmp callbacks.
+    /// Each entry contains a width hint and a 32-byte big-endian value.
+    pub tempo_cmp_values: Option<Vec<foundry_tempo_coverage::CmpSample>>,
     /// Scripted transactions generated from this call
     pub transactions: Option<BroadcastableTransactions>,
     /// The changeset of the state.
@@ -935,6 +975,7 @@ impl Default for RawCallResult {
             traces: None,
             line_coverage: None,
             edge_coverage: None,
+            tempo_cmp_values: None,
             transactions: None,
             state_changeset: StateChangeset::default(),
             env: Env::default(),
@@ -953,14 +994,6 @@ impl RawCallResult {
             Ok(r) => Ok((r, None)),
             Err(EvmError::Execution(e)) => Ok((e.raw, Some(e.reason))),
             Err(e) => Err(e.into()),
-        }
-    }
-
-    /// Unpacks an execution result.
-    pub fn from_execution_result(r: Result<Self, ExecutionErr>) -> (Self, Option<String>) {
-        match r {
-            Ok(r) => (r, None),
-            Err(e) => (e.raw, Some(e.reason)),
         }
     }
 
@@ -1086,19 +1119,19 @@ fn convert_executed_result(
     has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
-        ExecutionResult::Success { reason, gas_used, gas_refunded, output, logs, .. } => {
-            (reason.into(), gas_refunded, gas_used, Some(output), logs)
+        ExecutionResult::Success { reason, gas, output, logs, .. } => {
+            (reason.into(), gas.inner_refunded(), gas.used(), Some(output), logs)
         }
-        ExecutionResult::Revert { gas_used, output } => {
+        ExecutionResult::Revert { gas, output } => {
             // Need to fetch the unused gas
-            (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
+            (InstructionResult::Revert, 0_u64, gas.used(), Some(Output::Call(output)), vec![])
         }
-        ExecutionResult::Halt { reason, gas_used } => {
+        ExecutionResult::Halt { reason, gas } => {
             let instruction_result = match reason {
                 TempoHaltReason::Ethereum(halt) => halt.into(),
                 TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
             };
-            (instruction_result, 0_u64, gas_used, None, vec![])
+            (instruction_result, 0_u64, gas.used(), None, vec![])
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
@@ -1148,6 +1181,7 @@ fn convert_executed_result(
         traces,
         line_coverage,
         edge_coverage,
+        tempo_cmp_values: None,
         transactions,
         state_changeset,
         env,

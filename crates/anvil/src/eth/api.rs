@@ -29,11 +29,10 @@ use crate::{
     filter::{EthFilter, Filters, LogsFilter},
     mem::transaction_build,
 };
-use alloy_consensus::{Account, Blob, Transaction, TxEip4844Variant, transaction::Recovered};
+use alloy_consensus::{Blob, Transaction, TrieAccount, TxEip4844Variant, transaction::Recovered};
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{
     eip2718::Encodable2718,
-    eip4844::BlobTransactionSidecar,
     eip7910::{EthConfig, EthForkConfig},
 };
 use alloy_evm::overrides::{OverrideBlockHashes, apply_state_overrides};
@@ -48,16 +47,14 @@ use alloy_primitives::{
 use alloy_rpc_types::{
     AccessList, AccessListResult, BlockId, BlockNumberOrTag as BlockNumber, BlockTransactions,
     EIP1186AccountProofResponse, FeeHistory, Filter, FilteredParams, Index, Log, Work,
-    anvil::{
-        ForkedNetwork, Forking, Metadata, MineOptions, NodeEnvironment, NodeForkConfig, NodeInfo,
-    },
+    anvil::{ForkedNetwork, Forking, Metadata, MineOptions, NodeEnvironment, NodeForkConfig},
     request::TransactionRequest,
     simulate::{SimulatePayload, SimulatedBlock},
     state::{AccountOverride, EvmOverrides, StateOverridesBuilder},
     trace::{
         filter::TraceFilter,
         geth::{GethDebugTracingCallOptions, GethDebugTracingOptions, GethTrace},
-        parity::LocalizedTransactionTrace,
+        parity::{LocalizedTransactionTrace, TraceResultsWithTransactionHash, TraceType},
     },
     txpool::{TxpoolContent, TxpoolInspect, TxpoolInspectSummary, TxpoolStatus},
 };
@@ -70,13 +67,13 @@ use anvil_core::{
         EthRequest,
         block::BlockInfo,
         transaction::{MaybeImpersonatedTransaction, PendingTransaction},
-        wallet::WalletCapabilities,
     },
     types::{ReorgOptions, TransactionData},
 };
 use anvil_rpc::{error::RpcError, response::ResponseResult};
 use foundry_common::provider::ProviderBuilder;
 use foundry_evm::decode::RevertDecoder;
+
 use foundry_primitives::{
     FoundryTransactionRequest, FoundryTxEnvelope, FoundryTxReceipt, FoundryTxType, FoundryTypedTx,
 };
@@ -86,17 +83,43 @@ use futures::{
 };
 use parking_lot::RwLock;
 use revm::{
-    context::BlockEnv,
     context_interface::{block::BlobExcessGasAndPrice, result::Output},
     database::CacheDB,
     interpreter::{InstructionResult, return_ok, return_revert},
     primitives::eip7702::PER_EMPTY_ACCOUNT_COST,
 };
 use std::{sync::Arc, time::Duration};
+use tempo_evm::TempoBlockEnv;
 use tokio::{
     sync::mpsc::{UnboundedReceiver, unbounded_channel},
     try_join,
 };
+
+/// Extended node info that includes network-specific fields.
+/// This wraps the standard `NodeInfo` and adds `network` for network detection.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TempoNodeInfo {
+    /// The current block number
+    #[serde(with = "alloy_serde::quantity")]
+    pub current_block_number: u64,
+    /// The current block timestamp
+    pub current_block_timestamp: u64,
+    /// The current block hash
+    pub current_block_hash: alloy_primitives::B256,
+    /// The enabled hardfork
+    pub hard_fork: String,
+    /// How transactions are ordered for mining
+    pub transaction_order: String,
+    /// Info about the node's block environment
+    pub environment: NodeEnvironment,
+    /// Info about the node's fork configuration
+    pub fork_config: NodeForkConfig,
+    /// The network type this node is running (e.g., "tempo" for Tempo mode).
+    /// None for standard Ethereum.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<String>,
+}
 
 /// The client version: `anvil/v{major}.{minor}.{patch}`
 pub const CLIENT_VERSION: &str = concat!("anvil/v", env!("CARGO_PKG_VERSION"));
@@ -289,9 +312,6 @@ impl EthApi {
             EthRequest::GetBlobByTransactionHash(hash) => {
                 self.anvil_get_blob_by_tx_hash(hash).to_rpc_result()
             }
-            EthRequest::GetBlobSidecarsByBlockId(block_id) => {
-                self.anvil_get_blob_sidecars_by_block_id(block_id).to_rpc_result()
-            }
             EthRequest::GetGenesisTime(()) => self.anvil_get_genesis_time().to_rpc_result(),
             EthRequest::EthGetRawTransactionByBlockHashAndIndex(hash, index) => {
                 self.raw_transaction_by_block_hash_and_index(hash, index).await.to_rpc_result()
@@ -349,6 +369,9 @@ impl EthApi {
             EthRequest::TraceTransaction(tx) => self.trace_transaction(tx).await.to_rpc_result(),
             EthRequest::TraceBlock(block) => self.trace_block(block).await.to_rpc_result(),
             EthRequest::TraceFilter(filter) => self.trace_filter(filter).await.to_rpc_result(),
+            EthRequest::TraceReplayBlockTransactions(block, trace_types) => {
+                self.trace_replay_block_transactions(block, trace_types).await.to_rpc_result()
+            }
             EthRequest::ImpersonateAccount(addr) => {
                 self.anvil_impersonate_account(addr).await.to_rpc_result()
             }
@@ -516,11 +539,6 @@ impl EthApi {
                 self.anvil_reorg(reorg_options).await.to_rpc_result()
             }
             EthRequest::Rollback(depth) => self.anvil_rollback(depth).await.to_rpc_result(),
-            EthRequest::WalletGetCapabilities(()) => self.get_capabilities().to_rpc_result(),
-            EthRequest::AnvilAddCapability(addr) => self.anvil_add_capability(addr).to_rpc_result(),
-            EthRequest::AnvilSetExecutor(executor_pk) => {
-                self.anvil_set_executor(executor_pk).to_rpc_result()
-            }
         };
 
         if let ResponseResult::Error(err) = &response {
@@ -751,7 +769,7 @@ impl EthApi {
         &self,
         address: Address,
         block_number: Option<BlockId>,
-    ) -> Result<Account> {
+    ) -> Result<TrieAccount> {
         node_info!("eth_getAccount");
         let block_request = self.block_request(block_number).await?;
 
@@ -1160,23 +1178,28 @@ impl EthApi {
 
         self.ensure_typed_transaction_supported(&transaction)?;
 
-        let pending_transaction = PendingTransaction::new(transaction)?;
+        let pending_transaction = PendingTransaction::new(transaction.clone())?;
 
         // pre-validate
         self.backend.validate_pool_transaction(&pending_transaction).await?;
 
-        let on_chain_nonce = self.backend.current_nonce(*pending_transaction.sender()).await?;
         let from = *pending_transaction.sender();
-        let nonce = pending_transaction.transaction.nonce();
-        let requires = required_marker(nonce, on_chain_nonce, from);
+
+        // Tempo transactions use a 2D nonce system (nonce_key + nonce) that is validated
+        // by the Tempo EVM itself. Skip standard nonce-based dependency tracking for these.
+        let is_tempo_tx = matches!(transaction, FoundryTxEnvelope::Tempo(_));
+        let (requires, provides) = if is_tempo_tx {
+            // Tempo txs have no dependencies and provide a unique marker based on tx hash
+            (vec![], vec![pending_transaction.hash().to_vec()])
+        } else {
+            let on_chain_nonce = self.backend.current_nonce(from).await?;
+            let nonce = pending_transaction.transaction.nonce();
+            (required_marker(nonce, on_chain_nonce, from), vec![to_marker(nonce, from)])
+        };
 
         let priority = self.transaction_priority(&pending_transaction.transaction);
-        let pool_transaction = PoolTransaction {
-            requires,
-            provides: vec![to_marker(nonce, *pending_transaction.sender())],
-            pending_transaction,
-            priority,
-        };
+        let pool_transaction =
+            PoolTransaction { requires, provides, pending_transaction, priority };
 
         let tx = self.pool.add_transaction(pool_transaction)?;
         trace!(target: "node", "Added transaction: [{:?}] sender={:?}", tx.hash(), from);
@@ -1415,15 +1438,6 @@ impl EthApi {
     ) -> Result<Option<Vec<Blob>>> {
         node_info!("anvil_getBlobsByBlockId");
         Ok(self.backend.get_blobs_by_block_id(block_id, versioned_hashes)?)
-    }
-
-    /// Handler for RPC call: `anvil_getBlobSidecarsByBlockId`
-    pub fn anvil_get_blob_sidecars_by_block_id(
-        &self,
-        block_id: BlockId,
-    ) -> Result<Option<BlobTransactionSidecar>> {
-        node_info!("anvil_getBlobSidecarsByBlockId");
-        Ok(self.backend.get_blob_sidecars_by_block_id(block_id)?)
     }
 
     /// Returns the genesis time for the Beacon chain
@@ -2009,6 +2023,18 @@ impl EthApi {
         node_info!("trace_filter");
         self.backend.trace_filter(filter).await
     }
+
+    /// Replays all transactions in a block returning the requested traces for each transaction
+    ///
+    /// Handler for RPC call: `trace_replayBlockTransactions`
+    pub async fn trace_replay_block_transactions(
+        &self,
+        block: BlockNumber,
+        trace_types: HashSet<TraceType>,
+    ) -> Result<Vec<TraceResultsWithTransactionHash>> {
+        node_info!("trace_replayBlockTransactions");
+        self.backend.trace_replay_block_transactions(block, trace_types).await
+    }
 }
 
 // == impl EthApi anvil endpoints ==
@@ -2446,15 +2472,15 @@ impl EthApi {
     /// Retrieves the Anvil node configuration params.
     ///
     /// Handler for RPC call: `anvil_nodeInfo`
-    pub async fn anvil_node_info(&self) -> Result<NodeInfo> {
+    pub async fn anvil_node_info(&self) -> Result<TempoNodeInfo> {
         node_info!("anvil_nodeInfo");
 
         let env = self.backend.env().read();
         let fork_config = self.backend.get_fork();
         let tx_order = self.transaction_order.read();
-        let hard_fork: &str = env.evm_env.cfg_env.spec.into();
+        let hard_fork: &str = env.evm_env.cfg_env.spec.name();
 
-        Ok(NodeInfo {
+        Ok(TempoNodeInfo {
             current_block_number: self.backend.best_number(),
             current_block_timestamp: env.evm_env.block_env.timestamp.saturating_to(),
             current_block_hash: self.backend.best_hash(),
@@ -2480,6 +2506,7 @@ impl EthApi {
                     }
                 })
                 .unwrap_or_default(),
+            network: if self.backend.is_tempo() { Some("tempo".to_string()) } else { None },
         })
     }
 
@@ -2794,15 +2821,6 @@ impl EthApi {
         Ok(blocks)
     }
 
-    /// Sets the reported block number
-    ///
-    /// Handler for ETH RPC call: `anvil_setBlock`
-    pub fn anvil_set_block(&self, block_number: u64) -> Result<()> {
-        node_info!("anvil_setBlock");
-        self.backend.set_block_number(block_number);
-        Ok(())
-    }
-
     /// Sets the backend rpc url
     ///
     /// Handler for ETH RPC call: `anvil_setRpcUrl`
@@ -2961,33 +2979,6 @@ impl EthApi {
     }
 }
 
-// ===== impl Wallet endpoints =====
-impl EthApi {
-    /// Get the capabilities of the wallet.
-    ///
-    /// See also [EIP-5792][eip-5792].
-    ///
-    /// [eip-5792]: https://eips.ethereum.org/EIPS/eip-5792
-    pub fn get_capabilities(&self) -> Result<WalletCapabilities> {
-        node_info!("wallet_getCapabilities");
-        Ok(self.backend.get_capabilities())
-    }
-
-    /// Add an address to the delegation capability of wallet.
-    ///
-    /// This entails that the executor will now be able to sponsor transactions to this address.
-    pub fn anvil_add_capability(&self, address: Address) -> Result<()> {
-        node_info!("anvil_addCapability");
-        self.backend.add_capability(address);
-        Ok(())
-    }
-
-    pub fn anvil_set_executor(&self, executor_pk: String) -> Result<Address> {
-        node_info!("anvil_setExecutor");
-        self.backend.set_executor(executor_pk)
-    }
-}
-
 impl EthApi {
     /// Executes the future on a new blocking task.
     async fn on_blocking_task<C, F, R>(&self, c: C) -> Result<R>
@@ -3091,25 +3082,29 @@ impl EthApi {
         &self,
         mut request: WithOtherFields<TransactionRequest>,
         state: &dyn DatabaseRef,
-        block_env: BlockEnv,
+        block_env: TempoBlockEnv,
     ) -> Result<u128> {
         // If the request is a simple native token transfer we can optimize
         // We assume it's a transfer if we have no input data.
-        let to = request.to.as_ref().and_then(TxKind::to);
+        // Skip this optimization for Tempo mode since native ETH transfers are not allowed
+        // and Tempo AA transactions have higher intrinsic gas costs (~46k).
+        if !self.backend.is_tempo() {
+            let to = request.to.as_ref().and_then(TxKind::to);
 
-        // check certain fields to see if the request could be a simple transfer
-        let maybe_transfer = (request.input.input().is_none()
-            || request.input.input().is_some_and(|data| data.is_empty()))
-            && request.authorization_list.is_none()
-            && request.access_list.is_none()
-            && request.blob_versioned_hashes.is_none();
+            // check certain fields to see if the request could be a simple transfer
+            let maybe_transfer = (request.input.input().is_none()
+                || request.input.input().is_some_and(|data| data.is_empty()))
+                && request.authorization_list.is_none()
+                && request.access_list.is_none()
+                && request.blob_versioned_hashes.is_none();
 
-        if maybe_transfer
-            && let Some(to) = to
-            && let Ok(target_code) = self.backend.get_code_with_state(&state, *to)
-            && target_code.as_ref().is_empty()
-        {
-            return Ok(MIN_TRANSACTION_GAS);
+            if maybe_transfer
+                && let Some(to) = to
+                && let Ok(target_code) = self.backend.get_code_with_state(&state, *to)
+                && target_code.as_ref().is_empty()
+            {
+                return Ok(MIN_TRANSACTION_GAS);
+            }
         }
 
         let fees = FeeDetails::new(
@@ -3124,9 +3119,15 @@ impl EthApi {
         // configured gas limit
         let mut highest_gas_limit = request.gas.map_or(block_env.gas_limit.into(), |g| g as u128);
 
+        // Check if this is a Tempo AA transaction (pays with fee tokens, not ETH)
+        let is_tempo_tx = request.other.contains_key("feeToken")
+            && request.other.get("feeToken").is_some_and(|v| !v.is_null());
+
         let gas_price = fees.gas_price.unwrap_or_default();
         // If we have non-zero gas price, cap gas limit by sender balance
+        // Skip this check for Tempo transactions which pay with fee tokens, not ETH
         if gas_price > 0
+            && !is_tempo_tx
             && let Some(from) = request.from
         {
             let mut available_funds = self.backend.get_balance_with_state(state, from)?;
@@ -3350,10 +3351,14 @@ impl EthApi {
         request.kind().is_none().then(|| request.set_kind(TxKind::default()));
         if request.gas_limit().is_none() {
             request.set_gas_limit(
-                self.do_estimate_gas(request.as_ref().clone(), None, EvmOverrides::default())
-                    .await
-                    .map(|v| v as u64)
-                    .unwrap_or(self.backend.gas_limit()),
+                self.do_estimate_gas(
+                    request.as_ref().clone().into(),
+                    None,
+                    EvmOverrides::default(),
+                )
+                .await
+                .map(|v| v as u64)
+                .unwrap_or(self.backend.gas_limit()),
             );
         }
 
@@ -3370,17 +3375,19 @@ impl EthApi {
             }
             if matches!(
                 tx_type,
-                FoundryTxType::Eip1559 | FoundryTxType::Eip4844 | FoundryTxType::Eip7702
+                FoundryTxType::Eip1559
+                    | FoundryTxType::Eip4844
+                    | FoundryTxType::Eip7702
+                    | FoundryTxType::Tempo
             ) {
                 request
                     .max_fee_per_gas()
                     .is_none()
                     .then(|| request.set_max_fee_per_gas(self.gas_price()));
-                // TODO: use suggested tip instead of 0
                 request
                     .max_priority_fee_per_gas()
                     .is_none()
-                    .then(|| request.set_max_priority_fee_per_gas(Default::default()));
+                    .then(|| request.set_max_priority_fee_per_gas(MIN_SUGGESTED_PRIORITY_FEE));
             }
             if tx_type == FoundryTxType::Eip4844 {
                 request.as_ref().max_fee_per_blob_gas().is_none().then(|| {
@@ -3413,24 +3420,17 @@ impl EthApi {
     /// The signature used to bypass signing via the `eth_sendUnsignedTransaction` cheat RPC
     fn impersonated_signature(&self, request: &FoundryTypedTx) -> Signature {
         match request {
-            // Only the legacy transaction type requires v to be in {27, 28}, thus
-            // requiring the use of Parity::NonEip155
-            FoundryTypedTx::Legacy(_) => Signature::from_scalars_and_parity(
-                B256::with_last_byte(1),
-                B256::with_last_byte(1),
-                false,
-            ),
-            FoundryTypedTx::Eip2930(_)
+            FoundryTypedTx::Legacy(_)
+            | FoundryTypedTx::Eip2930(_)
             | FoundryTypedTx::Eip1559(_)
             | FoundryTypedTx::Eip7702(_)
             | FoundryTypedTx::Eip4844(_)
-            | FoundryTypedTx::Deposit(_) => Signature::from_scalars_and_parity(
+            | FoundryTypedTx::Deposit(_)
+            | FoundryTypedTx::Tempo(_) => Signature::from_scalars_and_parity(
                 B256::with_last_byte(1),
                 B256::with_last_byte(1),
                 false,
             ),
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTypedTx::Tempo(_) => todo!(),
         }
     }
 
@@ -3500,9 +3500,8 @@ impl EthApi {
             FoundryTxEnvelope::Eip4844(_) => self.backend.ensure_eip4844_active(),
             FoundryTxEnvelope::Eip7702(_) => self.backend.ensure_eip7702_active(),
             FoundryTxEnvelope::Deposit(_) => self.backend.ensure_op_deposits_active(),
+            FoundryTxEnvelope::Tempo(_) => self.backend.ensure_tempo_active(),
             FoundryTxEnvelope::Legacy(_) => Ok(()),
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTxEnvelope::Tempo(_) => todo!(),
         }
     }
 }
@@ -3533,7 +3532,6 @@ fn ensure_return_ok(exit: InstructionResult, out: &Option<Output>) -> Result<Byt
     }
 }
 
-/// Determines the minimum gas needed for a transaction depending on the transaction kind.
 fn determine_base_gas_by_kind(request: &WithOtherFields<TransactionRequest>) -> u128 {
     match request.kind() {
         Some(TxKind::Call(_)) => {
@@ -3566,6 +3564,13 @@ impl TryFrom<Result<(InstructionResult, Option<Output>, u128, State)>> for GasEs
         match res {
             // Exceptional case: init used too much gas, treated as out of gas error
             Err(BlockchainError::InvalidTransaction(InvalidTransactionError::GasTooHigh(_))) => {
+                Ok(Self::OutOfGas)
+            }
+            // Tempo intrinsic gas errors come through as Message variants
+            // These should be treated as out-of-gas for binary search purposes
+            Err(BlockchainError::Message(ref msg))
+                if msg.contains("insufficient gas for intrinsic cost") =>
+            {
                 Ok(Self::OutOfGas)
             }
             Err(err) => Err(err),
@@ -3605,6 +3610,7 @@ impl TryFrom<Result<(InstructionResult, Option<Output>, u128, State)>> for GasEs
                 | InstructionResult::CreateContractSizeLimit
                 | InstructionResult::CreateContractStartingWithEF
                 | InstructionResult::CreateInitCodeSizeLimit
+                | InstructionResult::InvalidImmediateEncoding
                 | InstructionResult::FatalExternalError => Ok(Self::EvmError(exit)),
             },
         }

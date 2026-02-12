@@ -56,23 +56,23 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
         }
 
         // Handle expiring nonce mode: sets nonce=0 and nonce_key=U256::MAX
-        if tx_opts.expiring_nonce {
+        if tx_opts.tempo.expiring_nonce {
             tx.set_nonce(0);
             tx.set_nonce_key(U256::MAX);
         } else {
             if let Some(nonce) = tx_opts.nonce {
                 tx.set_nonce(nonce.to());
             }
-            if let Some(nonce_key) = tx_opts.nonce_key {
+            if let Some(nonce_key) = tx_opts.tempo.nonce_key {
                 tx.set_nonce_key(nonce_key);
             }
         }
 
         // Set validity window for expiring nonces
-        if let Some(valid_before) = tx_opts.valid_before {
+        if let Some(valid_before) = tx_opts.tempo.valid_before {
             tx.set_valid_before(valid_before);
         }
-        if let Some(valid_after) = tx_opts.valid_after {
+        if let Some(valid_after) = tx_opts.tempo.valid_after {
             tx.set_valid_after(valid_after);
         }
 
@@ -81,6 +81,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx,
             legacy,
             blob: tx_opts.blob,
+            eip4844: tx_opts.eip4844,
             chain,
             etherscan_api_key,
             auth: tx_opts.auth,
@@ -100,6 +101,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
             tx: self.tx,
             legacy: self.legacy,
             blob: self.blob,
+            eip4844: self.eip4844,
             chain: self.chain,
             etherscan_api_key: self.etherscan_api_key,
             auth: self.auth,
@@ -156,6 +158,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, ToState, TempoTransactionReques
             tx: self.tx,
             legacy: self.legacy,
             blob: self.blob,
+            eip4844: self.eip4844,
             chain: self.chain,
             etherscan_api_key: self.etherscan_api_key,
             auth: self.auth,
@@ -216,6 +219,12 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             TempoTypedTransaction::Eip7702(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
             TempoTypedTransaction::AA(t) => Ok(hex::encode_prefixed(t.encoded_for_signing())),
         }
+    }
+
+    /// Returns whether this builder will produce a Tempo transaction.
+    /// For TempoTransactionRequest, this always returns true.
+    pub fn is_tempo(&self) -> bool {
+        true
     }
 
     async fn _build(
@@ -315,7 +324,7 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
 
         // Handle sponsored transactions: compute and set fee_payer_signature
         if let Some(opts) = tx_opts
-            && (opts.sponsor.is_sponsor() || opts.sponsor.should_print_hash())
+            && (opts.tempo.is_sponsor() || opts.tempo.should_print_hash())
         {
             // Force AA transaction type by setting nonce_key if not already set.
             // This is needed because output_tx_type() doesn't check fee_payer_signature,
@@ -333,13 +342,13 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InputState, TempoTransactionReq
             let fee_payer_hash = tempo_tx.fee_payer_signature_hash(from);
 
             // If print-sponsor-hash mode, output the hash and return early
-            if opts.sponsor.should_print_hash() {
+            if opts.tempo.should_print_hash() {
                 sh_println!("{:?}", fee_payer_hash)?;
                 std::process::exit(0);
             }
 
             // Get sponsor signature from provided signature
-            if let Some(sponsor_sig) = opts.sponsor.get_signature()? {
+            if let Some(sponsor_sig) = opts.tempo.get_signature()? {
                 self.tx.inner.set_fee_payer_signature(sponsor_sig);
             }
         }

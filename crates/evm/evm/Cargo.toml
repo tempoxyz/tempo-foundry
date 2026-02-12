@@ -20,6 +20,7 @@ foundry-compilers.workspace = true
 foundry-config.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-coverage.workspace = true
+foundry-tempo-coverage = { path = "../tempo-coverage" }
 foundry-evm-fuzz.workspace = true
 foundry-evm-hardforks.workspace = true
 foundry-evm-networks.workspace = true
@@ -49,7 +50,6 @@ revm = { workspace = true, default-features = false, features = [
 ] }
 revm-inspectors.workspace = true
 
-tempo-contracts.workspace = true
 tempo-precompiles.workspace = true
 tempo-revm.workspace = true
 
@@ -62,3 +62,5 @@ indicatif.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 uuid.workspace = true
+rayon.workspace = true
+tokio.workspace = true

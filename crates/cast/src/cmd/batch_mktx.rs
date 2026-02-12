@@ -17,7 +17,7 @@ use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::{EthereumOpts, TransactionOpts},
-    utils::{LoadConfig, get_tempo_provider, parse_fee_token_address},
+    utils::{LoadConfig, get_tempo_provider},
 };
 use tempo_alloy::rpc::TempoTransactionRequest;
 use tempo_primitives::transaction::Call;
@@ -49,15 +49,12 @@ pub struct BatchMakeTxArgs {
     /// Call `eth_signTransaction` using the `--from` argument or $ETH_FROM as sender
     #[arg(long, requires = "from", conflicts_with = "raw_unsigned")]
     pub ethsign: bool,
-
-    /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
-    pub fee_token: Option<Address>,
 }
 
 impl BatchMakeTxArgs {
     pub async fn run(self) -> Result<()> {
-        let Self { calls, tx, eth, raw_unsigned, ethsign, fee_token } = self;
+        let Self { calls, tx, eth, raw_unsigned, ethsign } = self;
+        let fee_token = tx.tempo.fee_token;
 
         if calls.is_empty() {
             return Err(eyre!("No calls specified. Use --call to specify at least one call."));

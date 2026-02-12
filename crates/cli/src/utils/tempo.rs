@@ -1,31 +1,35 @@
 use alloy_primitives::{Address, hex};
-use alloy_provider::network::EthereumWallet;
-use foundry_common::provider::tempo::{
-    TempoProviderBuilder, TempoRetryProvider, TempoRetryProviderWithSigner,
-};
+use eyre::Result;
+use foundry_common::provider::tempo::{TempoProviderBuilder, TempoRetryProvider};
 use foundry_config::Config;
-use foundry_wallets::WalletSigner;
 use std::{str::FromStr, time::Duration};
 
 /// Returns a [foundry_common::provider::RetryProvider] instantiated using [Config]'s
 /// RPC
 pub fn get_tempo_provider(config: &Config) -> eyre::Result<TempoRetryProvider> {
-    get_tempo_provider_builder(config)?.build()
+    get_tempo_provider_builder(config, false)?.build()
 }
 
-pub fn get_tempo_signer_provider(
+/// Returns a [RetryProvider] with curl mode option.
+///
+/// When `curl_mode` is true, the provider will print equivalent curl commands
+/// to stdout instead of executing RPC requests.
+pub fn get_tempo_provider_with_curl(
     config: &Config,
-    signer: WalletSigner,
-) -> eyre::Result<TempoRetryProviderWithSigner> {
-    let wallet = EthereumWallet::from(signer);
-    get_tempo_provider_builder(config)?.build_with_wallet(wallet)
+    curl_mode: bool,
+) -> Result<TempoRetryProvider> {
+    get_tempo_provider_builder(config, curl_mode)?.build()
 }
 
-pub fn get_tempo_provider_builder(config: &Config) -> eyre::Result<TempoProviderBuilder> {
+pub fn get_tempo_provider_builder(
+    config: &Config,
+    curl_mode: bool,
+) -> eyre::Result<TempoProviderBuilder> {
     let url = config.get_rpc_url_or_localhost_http()?;
     let mut builder = TempoProviderBuilder::new(url.as_ref());
 
     builder = builder.accept_invalid_certs(config.eth_rpc_accept_invalid_certs);
+    builder = builder.curl_mode(curl_mode);
 
     if let Ok(chain) = config.chain.unwrap_or_default().try_into() {
         builder = builder.chain(chain);

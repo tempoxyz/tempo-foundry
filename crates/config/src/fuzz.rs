@@ -12,11 +12,8 @@ pub struct FuzzConfig {
     pub runs: u32,
     /// Fails the fuzzed test if a revert occurs.
     pub fail_on_revert: bool,
-    /// The maximum number of test case rejections allowed by proptest, to be
-    /// encountered during usage of `vm.assume` cheatcode. This will be used
-    /// to set the `max_global_rejects` value in proptest test runner config.
-    /// `max_local_rejects` option isn't exposed here since we're not using
-    /// `prop_filter`.
+    /// The maximum number of test case rejections allowed,
+    /// encountered during usage of `vm.assume` cheatcode.
     pub max_test_rejects: u32,
     /// Optional seed for the fuzzing RNG algorithm
     pub seed: Option<U256>,
@@ -116,6 +113,17 @@ pub struct FuzzCorpusConfig {
     pub corpus_min_size: usize,
     /// Whether to collect and display edge coverage metrics.
     pub show_edge_coverage: bool,
+    /// Whether to collect Tempo Rust precompile edge coverage via SanitizerCoverage.
+    /// When enabled, coverage from Tempo precompile execution is fed into the
+    /// same hitcount map used by the EVM edge coverage, making the fuzzer
+    /// coverage-guided for precompile code paths.
+    /// Requires building with sancov RUSTFLAGS (see docs/tempo-coverage.md).
+    pub tempo_precompile_edges: bool,
+    /// Whether to capture comparison operands from Tempo precompile execution
+    /// via SanitizerCoverage trace-cmp callbacks and inject them into the fuzz
+    /// dictionary. Independent of edge coverage — can be enabled alone.
+    /// Requires building with sancov RUSTFLAGS (see docs/tempo-coverage.md).
+    pub tempo_precompile_trace_cmp: bool,
 }
 
 impl FuzzCorpusConfig {
@@ -127,7 +135,22 @@ impl FuzzCorpusConfig {
 
     /// Whether edge coverage should be collected and displayed.
     pub fn collect_edge_coverage(&self) -> bool {
-        self.corpus_dir.is_some() || self.show_edge_coverage
+        self.corpus_dir.is_some() || self.show_edge_coverage || self.tempo_precompile_edges
+    }
+
+    /// Whether Tempo precompile edge coverage collection is enabled.
+    pub fn collect_tempo_precompile_edges(&self) -> bool {
+        self.tempo_precompile_edges && self.collect_edge_coverage()
+    }
+
+    /// Whether Tempo precompile trace-cmp capture is enabled.
+    pub fn collect_tempo_precompile_trace_cmp(&self) -> bool {
+        self.tempo_precompile_trace_cmp
+    }
+
+    /// Whether either Tempo precompile coverage mode is enabled (needs the guard).
+    pub fn tempo_precompile_active(&self) -> bool {
+        self.tempo_precompile_edges || self.tempo_precompile_trace_cmp
     }
 
     /// Whether coverage guided fuzzing is enabled.
@@ -144,6 +167,8 @@ impl Default for FuzzCorpusConfig {
             corpus_min_mutations: 5,
             corpus_min_size: 0,
             show_edge_coverage: false,
+            tempo_precompile_edges: false,
+            tempo_precompile_trace_cmp: false,
         }
     }
 }

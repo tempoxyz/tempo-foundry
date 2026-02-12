@@ -16,11 +16,17 @@ snapshots/
 # NPM
 .env
 node_modules
-dist
-bin
+npm/dist
+npm/bin
 _
 *.tgz
 .vercel
 .vite
 .wrangler
 *.zip
+
+# Generated files
+tempo-changelog.md
+
+# LLVM profiling data
+*.profraw

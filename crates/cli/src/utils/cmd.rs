@@ -2,10 +2,7 @@ use alloy_json_abi::JsonAbi;
 use eyre::{Result, WrapErr};
 use foundry_common::{TestFunctionExt, fs, fs::json_files, selectors::SelectorKind, shell};
 use foundry_compilers::{
-    Artifact, ArtifactId, ProjectCompileOutput,
-    artifacts::{CompactBytecode, Settings},
-    cache::{CacheEntry, CompilerCache},
-    utils::read_json_file,
+    Artifact, ArtifactId, ProjectCompileOutput, artifacts::CompactBytecode, utils::read_json_file,
 };
 use foundry_config::{Chain, Config, NamedChain, error::ExtractConfigError, figment::Figment};
 use foundry_evm::{
@@ -65,47 +62,6 @@ pub fn find_contract_artifacts(
     Ok((abi, bin, id))
 }
 
-/// Helper function for finding a contract by ContractName
-// TODO: Is there a better / more ergonomic way to get the artifacts given a project and a
-// contract name?
-pub fn get_cached_entry_by_name(
-    cache: &CompilerCache<Settings>,
-    name: &str,
-) -> Result<(PathBuf, CacheEntry)> {
-    let mut cached_entry = None;
-    let mut alternatives = Vec::new();
-
-    for (abs_path, entry) in &cache.files {
-        for artifact_name in entry.artifacts.keys() {
-            if artifact_name == name {
-                if cached_entry.is_some() {
-                    eyre::bail!(
-                        "contract with duplicate name `{}`. please pass the path instead",
-                        name
-                    )
-                }
-                cached_entry = Some((abs_path.to_owned(), entry.to_owned()));
-            } else {
-                alternatives.push(artifact_name);
-            }
-        }
-    }
-
-    if let Some(entry) = cached_entry {
-        return Ok(entry);
-    }
-
-    let mut err = format!("could not find artifact: `{name}`");
-    if let Some(suggestion) = super::did_you_mean(name, &alternatives).pop() {
-        err = format!(
-            r#"{err}
-
-        Did you mean `{suggestion}`?"#
-        );
-    }
-    eyre::bail!(err)
-}
-
 /// Returns error if constructor has arguments.
 pub fn ensure_clean_constructor(abi: &JsonAbi) -> Result<()> {
     if let Some(constructor) = &abi.constructor
@@ -154,18 +110,20 @@ pub fn init_progress(len: u64, label: &str) -> indicatif::ProgressBar {
 }
 
 /// True if the network calculates gas costs differently.
+/// After T1 hardfork, all Tempo chains require RPC gas estimation due to
+/// significantly different gas costs:
+/// - CREATE: 500k (vs 32k standard)
+/// - New account: 250k additional
+/// - SSTORE set: 250k (vs 20k standard)
+/// - Code deposit: 1k/byte (vs 200/byte standard)
 pub fn has_different_gas_calc(chain_id: u64) -> bool {
-    // Tempo chains have significantly different gas costs (T1 hardfork):
-    // - CREATE: 500k (vs 32k standard)
-    // - New account: 250k additional
-    // - SSTORE set: 250k (vs 20k standard)
-    // - Code deposit: 1k/byte (vs 200/byte standard)
-    if is_tempo_chain(chain_id) {
+    if is_tempo_devnet_chain(chain_id) {
         return true;
     }
 
     if let Some(chain) = Chain::from(chain_id).named() {
-        return chain.is_arbitrum()
+        return chain.is_tempo()
+            || chain.is_arbitrum()
             || chain.is_elastic()
             || matches!(
                 chain,
@@ -178,20 +136,23 @@ pub fn has_different_gas_calc(chain_id: u64) -> bool {
                     | NamedChain::KaruraTestnet
                     | NamedChain::Mantle
                     | NamedChain::MantleSepolia
+                    | NamedChain::Metis
                     | NamedChain::Monad
                     | NamedChain::MonadTestnet
                     | NamedChain::Moonbase
                     | NamedChain::Moonbeam
                     | NamedChain::MoonbeamDev
                     | NamedChain::Moonriver
-                    | NamedChain::Metis
+                    | NamedChain::PolkadotTestnet
+                    | NamedChain::Kusama
+                    | NamedChain::Polkadot
             );
     }
     false
 }
 
-/// Returns true if the chain is a Tempo devnet.
-pub fn is_tempo_chain(chain_id: u64) -> bool {
+/// True if it is a Tempo devnet.
+pub fn is_tempo_devnet_chain(chain_id: u64) -> bool {
     chain_id == 31318
 }
 

@@ -3,19 +3,23 @@ use std::str::FromStr;
 use crate::{
     cmd::send::cast_send,
     format_uint_exp,
-    tx::{SendTxOpts, signing_provider},
+    tx::{SendTxOpts, signing_provider_with_curl},
 };
 use alloy_eips::BlockId;
 use alloy_ens::NameOrAddress;
-use alloy_primitives::U256;
+use alloy_network::TransactionBuilder;
+use alloy_primitives::{U64, U256};
+use alloy_provider::Provider;
 use alloy_sol_types::sol;
-use clap::Parser;
+use clap::{Args, Parser};
 use foundry_cli::{
-    opts::RpcOpts,
-    utils::{LoadConfig, get_provider},
+    opts::{RpcOpts, TempoOpts},
+    utils::{LoadConfig, get_provider_with_curl},
 };
+use foundry_common::shell;
 #[doc(hidden)]
-pub use foundry_config::utils::*;
+pub use foundry_config::{Chain, utils::*};
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 sol! {
     #[sol(rpc)]
@@ -34,6 +38,70 @@ sol! {
     }
 }
 
+/// Transaction options for ERC20 operations.
+///
+/// This struct contains only the transaction options relevant to ERC20 token interactions
+#[derive(Debug, Clone, Args)]
+pub struct Erc20TxOpts {
+    /// Gas limit for the transaction.
+    #[arg(long, env = "ETH_GAS_LIMIT")]
+    pub gas_limit: Option<U256>,
+
+    /// Gas price for legacy transactions, or max fee per gas for EIP1559 transactions.
+    #[arg(long, env = "ETH_GAS_PRICE")]
+    pub gas_price: Option<U256>,
+
+    /// Max priority fee per gas for EIP1559 transactions.
+    #[arg(long, env = "ETH_PRIORITY_GAS_PRICE")]
+    pub priority_gas_price: Option<U256>,
+
+    /// Nonce for the transaction.
+    #[arg(long)]
+    pub nonce: Option<U64>,
+
+    #[command(flatten)]
+    pub tempo: TempoOpts,
+}
+
+/// Apply transaction options to a TempoTransactionRequest for ERC20 operations.
+fn apply_tempo_tx_opts(tx: &mut TempoTransactionRequest, tx_opts: &Erc20TxOpts, is_legacy: bool) {
+    if let Some(gas_limit) = tx_opts.gas_limit {
+        tx.set_gas_limit(gas_limit.to());
+    }
+
+    if let Some(gas_price) = tx_opts.gas_price {
+        if is_legacy {
+            tx.set_gas_price(gas_price.to());
+        } else {
+            tx.set_max_fee_per_gas(gas_price.to());
+        }
+    }
+
+    if !is_legacy && let Some(priority_fee) = tx_opts.priority_gas_price {
+        tx.set_max_priority_fee_per_gas(priority_fee.to());
+    }
+
+    if let Some(nonce) = tx_opts.nonce {
+        tx.set_nonce(nonce.to());
+    }
+
+    // Apply Tempo-specific options
+    tx.fee_token = tx_opts.tempo.fee_token;
+
+    if let Some(nonce_key) = tx_opts.tempo.sequence_key {
+        tx.set_nonce_key(nonce_key);
+    }
+}
+
+/// Send an ERC20 transaction using TempoNetwork provider.
+async fn send_erc20_tx<P: Provider<TempoNetwork>>(
+    provider: P,
+    tx: TempoTransactionRequest,
+    send_tx: &SendTxOpts,
+    timeout: u64,
+) -> eyre::Result<()> {
+    cast_send(provider, tx, send_tx.cast_async, send_tx.sync, send_tx.confirmations, timeout).await
+}
 /// Interact with ERC20 tokens.
 #[derive(Debug, Parser, Clone)]
 pub enum Erc20Subcommand {
@@ -57,7 +125,7 @@ pub enum Erc20Subcommand {
     },
 
     /// Transfer ERC20 tokens.
-    #[command(visible_alias = "t")]
+    #[command(visible_aliases = ["t", "send"])]
     Transfer {
         /// The ERC20 token contract address.
         #[arg(value_parser = NameOrAddress::from_str)]
@@ -72,6 +140,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tx: Erc20TxOpts,
     },
 
     /// Approve ERC20 token spending.
@@ -90,6 +161,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tx: Erc20TxOpts,
     },
 
     /// Query ERC20 token allowance.
@@ -191,6 +265,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tx: Erc20TxOpts,
     },
 
     /// Burn ERC20 tokens.
@@ -205,6 +282,9 @@ pub enum Erc20Subcommand {
 
         #[command(flatten)]
         send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tx: Erc20TxOpts,
     },
 }
 
@@ -229,8 +309,8 @@ impl Erc20Subcommand {
 
         match self {
             // Read-only
-            Self::Allowance { token, owner, spender, block, .. } => {
-                let provider = get_provider(&config)?;
+            Self::Allowance { token, owner, spender, block, rpc, .. } => {
+                let provider = get_provider_with_curl(&config, rpc.curl)?;
                 let token = token.resolve(&provider).await?;
                 let owner = owner.resolve(&provider).await?;
                 let spender = spender.resolve(&provider).await?;
@@ -241,10 +321,14 @@ impl Erc20Subcommand {
                     .call()
                     .await?;
 
-                sh_println!("{}", format_uint_exp(allowance))?
+                if shell::is_json() {
+                    sh_println!("{}", serde_json::to_string(&allowance.to_string())?)?
+                } else {
+                    sh_println!("{}", format_uint_exp(allowance))?
+                }
             }
-            Self::Balance { token, owner, block, .. } => {
-                let provider = get_provider(&config)?;
+            Self::Balance { token, owner, block, rpc, .. } => {
+                let provider = get_provider_with_curl(&config, rpc.curl)?;
                 let token = token.resolve(&provider).await?;
                 let owner = owner.resolve(&provider).await?;
 
@@ -253,10 +337,15 @@ impl Erc20Subcommand {
                     .block(block.unwrap_or_default())
                     .call()
                     .await?;
-                sh_println!("{}", format_uint_exp(balance))?
+
+                if shell::is_json() {
+                    sh_println!("{}", serde_json::to_string(&balance.to_string())?)?
+                } else {
+                    sh_println!("{}", format_uint_exp(balance))?
+                }
             }
-            Self::Name { token, block, .. } => {
-                let provider = get_provider(&config)?;
+            Self::Name { token, block, rpc, .. } => {
+                let provider = get_provider_with_curl(&config, rpc.curl)?;
                 let token = token.resolve(&provider).await?;
 
                 let name = IERC20::new(token, &provider)
@@ -264,10 +353,15 @@ impl Erc20Subcommand {
                     .block(block.unwrap_or_default())
                     .call()
                     .await?;
-                sh_println!("{}", name)?
+
+                if shell::is_json() {
+                    sh_println!("{}", serde_json::to_string(&name)?)?
+                } else {
+                    sh_println!("{}", name)?
+                }
             }
-            Self::Symbol { token, block, .. } => {
-                let provider = get_provider(&config)?;
+            Self::Symbol { token, block, rpc, .. } => {
+                let provider = get_provider_with_curl(&config, rpc.curl)?;
                 let token = token.resolve(&provider).await?;
 
                 let symbol = IERC20::new(token, &provider)
@@ -275,10 +369,15 @@ impl Erc20Subcommand {
                     .block(block.unwrap_or_default())
                     .call()
                     .await?;
-                sh_println!("{}", symbol)?
+
+                if shell::is_json() {
+                    sh_println!("{}", serde_json::to_string(&symbol)?)?
+                } else {
+                    sh_println!("{}", symbol)?
+                }
             }
-            Self::Decimals { token, block, .. } => {
-                let provider = get_provider(&config)?;
+            Self::Decimals { token, block, rpc, .. } => {
+                let provider = get_provider_with_curl(&config, rpc.curl)?;
                 let token = token.resolve(&provider).await?;
 
                 let decimals = IERC20::new(token, &provider)
@@ -288,8 +387,8 @@ impl Erc20Subcommand {
                     .await?;
                 sh_println!("{}", decimals)?
             }
-            Self::TotalSupply { token, block, .. } => {
-                let provider = get_provider(&config)?;
+            Self::TotalSupply { token, block, rpc, .. } => {
+                let provider = get_provider_with_curl(&config, rpc.curl)?;
                 let token = token.resolve(&provider).await?;
 
                 let total_supply = IERC20::new(token, &provider)
@@ -297,69 +396,82 @@ impl Erc20Subcommand {
                     .block(block.unwrap_or_default())
                     .call()
                     .await?;
-                sh_println!("{}", format_uint_exp(total_supply))?
+
+                if shell::is_json() {
+                    sh_println!("{}", serde_json::to_string(&total_supply.to_string())?)?
+                } else {
+                    sh_println!("{}", format_uint_exp(total_supply))?
+                }
             }
             // State-changing
-            Self::Transfer { token, to, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
+            Self::Transfer { token, to, amount, send_tx, tx: tx_opts, .. } => {
+                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
+
+                // Apply transaction options using helper
+                apply_tempo_tx_opts(&mut tx, &tx_opts, is_legacy);
+
+                send_erc20_tx(
                     provider,
                     tx,
-                    send_tx.cast_async,
-                    send_tx.sync,
-                    send_tx.confirmations,
+                    &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
                 )
                 .await?
             }
-            Self::Approve { token, spender, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
+            Self::Approve { token, spender, amount, send_tx, tx: tx_opts, .. } => {
+                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
+
+                // Apply transaction options using helper
+                apply_tempo_tx_opts(&mut tx, &tx_opts, is_legacy);
+
+                send_erc20_tx(
                     provider,
                     tx,
-                    send_tx.cast_async,
-                    send_tx.sync,
-                    send_tx.confirmations,
+                    &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
                 )
                 .await?
             }
-            Self::Mint { token, to, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
+            Self::Mint { token, to, amount, send_tx, tx: tx_opts, .. } => {
+                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
+
+                // Apply transaction options using helper
+                apply_tempo_tx_opts(&mut tx, &tx_opts, is_legacy);
+
+                send_erc20_tx(
                     provider,
                     tx,
-                    send_tx.cast_async,
-                    send_tx.sync,
-                    send_tx.confirmations,
+                    &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
                 )
                 .await?
             }
-            Self::Burn { token, amount, send_tx, .. } => {
-                let provider = signing_provider(&send_tx).await?;
+            Self::Burn { token, amount, send_tx, tx: tx_opts, .. } => {
+                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .burn(U256::from_str(&amount)?)
                     .into_transaction_request();
-                tx.fee_token = send_tx.fee_token;
-                cast_send(
+
+                // Apply transaction options using helper
+                apply_tempo_tx_opts(&mut tx, &tx_opts, is_legacy);
+
+                send_erc20_tx(
                     provider,
                     tx,
-                    send_tx.cast_async,
-                    send_tx.sync,
-                    send_tx.confirmations,
+                    &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
                 )
                 .await?

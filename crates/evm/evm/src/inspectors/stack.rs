@@ -339,6 +339,8 @@ pub struct InspectorStackInner {
     pub tracer: Option<Box<TracingInspector>>,
 
     // InspectorExt and other internal data.
+    pub tempo_precompile_edges: bool,
+    pub tempo_precompile_trace_cmp: bool,
     pub enable_isolation: bool,
     pub networks: NetworkConfigs,
     pub create2_deployer: Address,
@@ -460,6 +462,18 @@ impl InspectorStack {
     pub fn collect_edge_coverage(&mut self, yes: bool) {
         // TODO: configurable edge size?
         self.edge_coverage = yes.then(EdgeCovInspector::new).map(Into::into);
+    }
+
+    /// Set whether to enable Tempo precompile edge coverage collection.
+    #[inline]
+    pub fn collect_tempo_precompile_edges(&mut self, yes: bool) {
+        self.tempo_precompile_edges = yes;
+    }
+
+    /// Set whether to enable Tempo precompile trace-cmp capture.
+    #[inline]
+    pub fn collect_tempo_precompile_trace_cmp(&mut self, yes: bool) {
+        self.tempo_precompile_trace_cmp = yes;
     }
 
     /// Set whether to enable call isolation.
@@ -756,25 +770,25 @@ impl InspectorStackRefMut<'_> {
         }
 
         let (result, address, output) = match res.result {
-            ExecutionResult::Success { reason, gas_used, gas_refunded, logs: _, output } => {
-                gas.set_refund(gas_refunded as i64);
-                let _ = gas.record_cost(gas_used);
+            ExecutionResult::Success { reason, gas: result_gas, logs: _, output } => {
+                gas.set_refund(result_gas.inner_refunded() as i64);
+                let _ = gas.record_cost(result_gas.used());
                 let address = match output {
                     Output::Create(_, address) => address,
                     Output::Call(_) => None,
                 };
                 (reason.into(), address, output.into_data())
             }
-            ExecutionResult::Halt { reason, gas_used } => {
-                let _ = gas.record_cost(gas_used);
+            ExecutionResult::Halt { reason, gas: result_gas } => {
+                let _ = gas.record_cost(result_gas.used());
                 let instruction_result = match reason {
                     TempoHaltReason::Ethereum(halt) => halt.into(),
                     TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
                 };
                 (instruction_result, None, Bytes::new())
             }
-            ExecutionResult::Revert { gas_used, output } => {
-                let _ = gas.record_cost(gas_used);
+            ExecutionResult::Revert { gas: result_gas, output } => {
+                let _ = gas.record_cost(result_gas.used());
                 (InstructionResult::Revert, None, output)
             }
         };
@@ -972,12 +986,14 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for InspectorStackRefMut<'_> 
 
         if let Some(cheatcodes) = self.cheatcodes.as_deref_mut() {
             // Handle mocked functions, replace bytecode address with mock if matched.
-            if let Some(mocks) = cheatcodes.mocked_functions.get(&call.target_address) {
+            if let Some(mocks) = cheatcodes.mocked_functions.get(&call.bytecode_address) {
+                let input_bytes = call.input.bytes(ecx);
                 // Check if any mock function set for call data or if catch-all mock function set
                 // for selector.
-                if let Some(target) = mocks.get(&call.input.bytes(ecx)).or_else(|| {
-                    call.input.bytes(ecx).get(..4).and_then(|selector| mocks.get(selector))
-                }) {
+                if let Some(target) = mocks
+                    .get(&input_bytes)
+                    .or_else(|| input_bytes.get(..4).and_then(|selector| mocks.get(selector)))
+                {
                     call.bytecode_address = *target;
                     call.known_bytecode = None;
                 }

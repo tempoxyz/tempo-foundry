@@ -59,7 +59,7 @@ impl PreSimulationState {
             .map(|tx| {
                 let rpc = tx.rpc.expect("missing broadcastable tx rpc url");
                 let sender = tx.transaction.from().expect("all transactions should have a sender");
-                let nonce = tx.transaction.nonce().expect("all transactions should have a sender");
+                let nonce = tx.transaction.nonce().expect("all transactions should have a nonce");
                 let to = tx.transaction.to();
 
                 let mut builder = ScriptTransactionBuilder::new(tx.transaction, rpc);
@@ -293,7 +293,7 @@ impl FilledTransactionsState {
             if !self.args.skip_simulation {
                 let tx = tx.tx_mut();
 
-                if has_different_gas_calc(provider_info.chain) {
+                if has_different_gas_calc(provider_info.chain) || provider_info.is_tempo {
                     // only estimate gas for unsigned transactions
                     if let Some(tx) = tx.as_unsigned_mut() {
                         trace!("estimating with different gas calculation");

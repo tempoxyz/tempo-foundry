@@ -1,9 +1,18 @@
 use clap::{Parser, Subcommand};
 use foundry_cli::opts::{BuildOpts, EvmArgs, GlobalArgs};
 use foundry_common::version::{LONG_VERSION, SHORT_VERSION};
-use std::path::PathBuf;
+use foundry_config::{
+    Config,
+    figment::{
+        self, Metadata, Profile, Provider,
+        value::{Dict, Map, Value},
+    },
+};
+use foundry_evm::hardforks::FoundryHardfork;
 
-foundry_config::impl_figment_convert!(Chisel, build, evm);
+use std::{path::PathBuf, str::FromStr};
+
+foundry_config::merge_impl_figment_convert!(Chisel, build, evm);
 
 /// Fast, utilitarian, and verbose Solidity REPL.
 #[derive(Debug, Parser)]
@@ -38,11 +47,34 @@ pub struct Chisel {
     #[arg(long, help_heading = "REPL options")]
     pub ir_minimum: bool,
 
+    /// The EVM hardfork to use.
+    ///
+    /// Choose the hardfork by name, e.g. `cancun`, `prague`, `tempo:T0`, `optimism:ecotone`, etc.
+    #[arg(long, value_name = "HARDFORK", help_heading = "EVM options")]
+    pub hardfork: Option<String>,
+
     #[command(flatten)]
     pub build: BuildOpts,
 
     #[command(flatten)]
     pub evm: EvmArgs,
+}
+
+impl Provider for Chisel {
+    fn metadata(&self) -> Metadata {
+        Metadata::named("Chisel Opts Provider")
+    }
+
+    fn data(&self) -> Result<Map<Profile, Dict>, figment::Error> {
+        let mut dict = Dict::new();
+
+        if let Some(ref hardfork_str) = self.hardfork {
+            let hardfork = FoundryHardfork::from_str(hardfork_str).map_err(figment::Error::from)?;
+            dict.insert("hardfork".to_string(), Value::serialize(hardfork)?);
+        }
+
+        Ok(Map::from([(Config::selected_profile(), dict)]))
+    }
 }
 
 /// Chisel binary subcommands

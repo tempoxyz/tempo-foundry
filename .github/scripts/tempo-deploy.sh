@@ -10,7 +10,7 @@ FEE_TOKEN="${TEMPO_FEE_TOKEN:-0x20c0000000000000000000000000000000000000}"
 # Build fee token args if not using native token (array for safe expansion)
 FEE_TOKEN_ARG=()
 if [[ "$FEE_TOKEN" != "0x20c0000000000000000000000000000000000000" ]]; then
-  FEE_TOKEN_ARG=(--fee-token "$FEE_TOKEN")
+  FEE_TOKEN_ARG=(--tempo.fee-token "$FEE_TOKEN")
 fi
 
 # If VERIFIER_URL is set, add the --verify flag to forge commands
@@ -63,8 +63,8 @@ forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --priva
 
 echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  forge create --fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
-  forge create --fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+  forge create --tempo.fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+  forge create --tempo.fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
 else
   forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
 fi

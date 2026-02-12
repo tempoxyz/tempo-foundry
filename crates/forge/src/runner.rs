@@ -29,7 +29,7 @@ use foundry_evm::{
         BasicTxDetails, CallDetails, CounterExample, FuzzFixtures, fixture_name,
         invariant::InvariantContract, strategies::EvmFuzzState,
     },
-    tempo::initialize_tempo_precompiles_and_contracts,
+    tempo::{initialize_tempo_precompiles_and_contracts, warm_tempo_precompile_accounts},
     traces::{TraceKind, TraceMode, load_contracts},
 };
 use itertools::Itertools;
@@ -162,10 +162,17 @@ impl<'a> ContractRunner<'a> {
         // construction
         self.executor.set_balance(address, self.initial_balance())?;
 
-        // Initialize Tempo precompiles and contracts if we're not in fork mode.
+        // Initialize Tempo precompiles and contracts.
         let hardfork = self.executor.hardfork();
         if self.evm_opts.fork_url.is_none() {
+            // Non-fork mode: full genesis initialization (bytecode, tokens, storage).
             initialize_tempo_precompiles_and_contracts(&mut self.executor, hardfork)?;
+        } else {
+            // Fork mode: pre-warm precompile accounts in the local cache to prevent
+            // repeated RPC fetches for Rust-native precompile addresses that have no
+            // EVM bytecode on-chain. Without this, invariant fuzzing hangs due to a
+            // pathological RPC storm from uncached account/storage lookups.
+            warm_tempo_precompile_accounts(&mut self.executor)?;
         }
 
         // Deploy the test contract
@@ -746,6 +753,12 @@ impl<'a> FunctionRunner<'a> {
         executor
             .inspector_mut()
             .collect_edge_coverage(invariant_config.corpus.collect_edge_coverage());
+        executor.inspector_mut().collect_tempo_precompile_edges(
+            invariant_config.corpus.collect_tempo_precompile_edges(),
+        );
+        executor.inspector_mut().collect_tempo_precompile_trace_cmp(
+            invariant_config.corpus.collect_tempo_precompile_trace_cmp(),
+        );
         let mut config = invariant_config.clone();
         let (failure_dir, failure_file) = test_paths(
             &mut config.corpus,
@@ -761,12 +774,8 @@ impl<'a> FunctionRunner<'a> {
             identified_contracts,
             &self.cr.mcr.known_contracts,
         );
-        let invariant_contract = InvariantContract {
-            address: self.address,
-            invariant_function: func,
-            call_after_invariant,
-            abi: &self.cr.contract.abi,
-        };
+        let invariant_contract =
+            InvariantContract::new(self.address, func, call_after_invariant, &self.cr.contract.abi);
         let show_solidity = invariant_config.show_solidity;
 
         let progress = start_fuzz_progress(
@@ -825,6 +834,7 @@ impl<'a> FunctionRunner<'a> {
                     self.clone_executor(),
                     &txes,
                     None,
+                    None, // check mode
                     &invariant_contract,
                     &self.cr.mcr.known_contracts,
                     identified_contracts.clone(),
@@ -896,6 +906,7 @@ impl<'a> FunctionRunner<'a> {
                                 self.clone_executor(),
                                 calls,
                                 Some(case_data.inner_sequence),
+                                None, // check mode
                                 &invariant_contract,
                                 &self.cr.mcr.known_contracts,
                                 identified_contracts.clone(),
@@ -940,22 +951,54 @@ impl<'a> FunctionRunner<'a> {
                 InvariantFuzzError::MaxAssumeRejects(_) => {}
             },
 
-            // If invariants ran successfully, replay the last run to collect logs and
-            // traces.
+            // If invariants ran successfully, replay the last run to collect logs and traces.
             _ => {
-                if let Err(err) = replay_run(
-                    &invariant_contract,
-                    self.clone_executor(),
-                    &self.cr.mcr.known_contracts,
-                    identified_contracts.clone(),
-                    &mut self.result.logs,
-                    &mut self.result.traces,
-                    &mut self.result.line_coverage,
-                    &mut self.result.deprecated_cheatcodes,
-                    &invariant_result.last_run_inputs,
-                    show_solidity,
-                ) {
-                    error!(%err, "Failed to replay last invariant run");
+                if let Some(best_value) = invariant_result.optimization_best_value {
+                    // Optimization mode: replay and shrink to find shortest best sequence.
+                    match replay_error(
+                        evm.config(),
+                        self.clone_executor(),
+                        &invariant_result.optimization_best_sequence,
+                        None,
+                        Some(best_value),
+                        &invariant_contract,
+                        &self.cr.mcr.known_contracts,
+                        identified_contracts.clone(),
+                        &mut self.result.logs,
+                        &mut self.result.traces,
+                        &mut self.result.line_coverage,
+                        &mut self.result.deprecated_cheatcodes,
+                        progress.as_ref(),
+                        &self.tcfg.early_exit,
+                    ) {
+                        Ok(best_sequence) => {
+                            if !best_sequence.is_empty() {
+                                counterexample = Some(CounterExample::Sequence(
+                                    invariant_result.optimization_best_sequence.len(),
+                                    best_sequence,
+                                ));
+                            }
+                        }
+                        Err(err) => {
+                            error!(%err, "Failed to replay optimization best sequence");
+                        }
+                    }
+                } else {
+                    // Standard check mode: replay last run for traces.
+                    if let Err(err) = replay_run(
+                        &invariant_contract,
+                        self.clone_executor(),
+                        &self.cr.mcr.known_contracts,
+                        identified_contracts.clone(),
+                        &mut self.result.logs,
+                        &mut self.result.traces,
+                        &mut self.result.line_coverage,
+                        &mut self.result.deprecated_cheatcodes,
+                        &invariant_result.last_run_inputs,
+                        show_solidity,
+                    ) {
+                        error!(%err, "Failed to replay last invariant run");
+                    }
                 }
             }
         }
@@ -969,6 +1012,7 @@ impl<'a> FunctionRunner<'a> {
             invariant_result.reverts,
             invariant_result.metrics,
             invariant_result.failed_corpus_replays,
+            invariant_result.optimization_best_value,
         );
         self.result
     }
@@ -1010,6 +1054,12 @@ impl<'a> FunctionRunner<'a> {
         // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
         // metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(fuzz_config.corpus.collect_edge_coverage());
+        executor
+            .inspector_mut()
+            .collect_tempo_precompile_edges(fuzz_config.corpus.collect_tempo_precompile_edges());
+        executor.inspector_mut().collect_tempo_precompile_trace_cmp(
+            fuzz_config.corpus.collect_tempo_precompile_trace_cmp(),
+        );
         // Load persisted counterexample, if any.
         let persisted_failure =
             foundry_common::fs::read_json_file::<BaseCounterExample>(failure_file.as_path()).ok();
@@ -1024,6 +1074,7 @@ impl<'a> FunctionRunner<'a> {
             &self.cr.mcr.revert_decoder,
             progress.as_ref(),
             &self.tcfg.early_exit,
+            self.cr.tokio_handle,
         ) {
             Ok(x) => x,
             Err(e) => {

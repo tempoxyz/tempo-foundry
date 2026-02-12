@@ -41,8 +41,6 @@ pub struct CheatsConfig {
     pub root: PathBuf,
     /// Absolute Path to broadcast dir i.e project_root/broadcast
     pub broadcast: PathBuf,
-    /// Paths (directories) where file reading/writing is allowed
-    pub allowed_paths: Vec<PathBuf>,
     /// How the evm was configured by the user
     pub evm_opts: EvmOpts,
     /// Address labels from config
@@ -87,10 +85,6 @@ impl CheatsConfig {
         fee_token: Option<Address>,
         batch: bool,
     ) -> Self {
-        let mut allowed_paths = vec![config.root.clone()];
-        allowed_paths.extend(config.libs.iter().cloned());
-        allowed_paths.extend(config.allow_paths.iter().cloned());
-
         let rpc_endpoints = config.rpc_endpoints.clone().resolved();
         trace!(?rpc_endpoints, "using resolved rpc endpoints");
 
@@ -110,7 +104,6 @@ impl CheatsConfig {
             fs_permissions: config.fs_permissions.clone().joined(config.root.as_ref()),
             root: config.root.clone(),
             broadcast: config.root.clone().join(&config.broadcast),
-            allowed_paths,
             evm_opts,
             labels: config.labels.clone(),
             available_artifacts,
@@ -252,7 +245,6 @@ impl Default for CheatsConfig {
             root: Default::default(),
             bind_json_path: PathBuf::default().join("utils").join("jsonBindings.sol"),
             broadcast: Default::default(),
-            allowed_paths: vec![],
             evm_opts: Default::default(),
             labels: Default::default(),
             available_artifacts: Default::default(),

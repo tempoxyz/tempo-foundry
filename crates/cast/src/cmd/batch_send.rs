@@ -53,6 +53,7 @@ pub struct BatchSendArgs {
 impl BatchSendArgs {
     pub async fn run(self) -> Result<()> {
         let Self { calls, send_tx, tx, unlocked } = self;
+        let fee_token = tx.tempo.fee_token;
 
         if calls.is_empty() {
             return Err(eyre!("No calls specified. Use --call to specify at least one call."));
@@ -134,7 +135,7 @@ impl BatchSendArgs {
         let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
 
         if unlocked && !send_tx.eth.wallet.browser {
-            let (tx, _) = builder.build(config.sender, send_tx.fee_token).await?;
+            let (tx, _) = builder.build(config.sender, fee_token).await?;
             cast_send(
                 provider,
                 tx.inner,
@@ -157,9 +158,9 @@ impl BatchSendArgs {
             }
 
             let (tx_request, _) = if access_key_config.is_some() {
-                builder.build(from, send_tx.fee_token).await?
+                builder.build(from, fee_token).await?
             } else {
-                builder.build(&signer, send_tx.fee_token).await?
+                builder.build(&signer, fee_token).await?
             };
 
             if let Some(ref config) = access_key_config {

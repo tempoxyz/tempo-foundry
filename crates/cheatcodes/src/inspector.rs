@@ -20,8 +20,8 @@ use crate::{
     },
     utils::IgnoredTraces,
 };
-use alloy_consensus::BlobTransactionSidecar;
-use alloy_network::TransactionBuilder4844;
+use alloy_consensus::BlobTransactionSidecarVariant;
+use alloy_network::{TransactionBuilder4844, TransactionBuilder7594};
 use alloy_primitives::{
     Address, B256, Bytes, Log, TxKind, U256, hex,
     map::{AddressHashMap, HashMap, HashSet},
@@ -393,7 +393,7 @@ pub struct Cheatcodes {
     pub active_delegations: Vec<SignedAuthorization>,
 
     /// The active EIP-4844 blob that will be attached to the next call.
-    pub active_blob_sidecar: Option<BlobTransactionSidecar>,
+    pub active_blob_sidecar: Option<BlobTransactionSidecarVariant>,
 
     /// The gas price.
     ///
@@ -943,7 +943,13 @@ impl Cheatcodes {
                                 precompile_call_logs: vec![],
                             });
                         }
-                        tx_req.inner.set_blob_sidecar(blob_sidecar);
+                        if blob_sidecar.is_eip4844() {
+                            tx_req.inner.set_blob_sidecar(blob_sidecar.into_eip4844().unwrap());
+                        } else if blob_sidecar.is_eip7594() {
+                            tx_req
+                                .inner
+                                .set_blob_sidecar_7594(blob_sidecar.into_eip7594().unwrap());
+                        }
                     }
 
                     // Apply active EIP-7702 delegations, if any.

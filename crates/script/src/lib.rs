@@ -151,7 +151,7 @@ pub struct ScriptArgs {
     pub skip_simulation: bool,
 
     /// Fee token to use for transaction.
-    #[arg(long, value_parser = parse_fee_token_address)]
+    #[arg(long = "tempo.fee-token", value_parser = parse_fee_token_address)]
     pub fee_token: Option<Address>,
 
     /// Batch all broadcast transactions into a single Tempo batch transaction.
@@ -169,7 +169,7 @@ pub struct ScriptArgs {
     /// Send via `eth_sendTransaction` using the `--sender` argument as sender.
     #[arg(
         long,
-        conflicts_with_all = &["private_key", "private_keys", "ledger", "trezor", "aws"],
+        conflicts_with_all = &["private_key", "private_keys", "ledger", "trezor", "aws", "browser"],
     )]
     pub unlocked: bool,
 
@@ -375,9 +375,13 @@ impl ScriptArgs {
         Ok(())
     }
 
-    /// In case the user has loaded *only* one private-key, we can assume that he's using it as the
-    /// `--sender`
+    /// In case the user has loaded *only* one private-key or a single remote signer (e.g.,
+    /// Turnkey), we can assume that they're using it as the `--sender`.
     fn maybe_load_private_key(&self) -> Result<Option<Address>> {
+        if let Some(turnkey_address) = self.wallets.turnkey_address() {
+            return Ok(Some(turnkey_address));
+        }
+
         let maybe_sender = self
             .wallets
             .private_keys()?

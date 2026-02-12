@@ -10,10 +10,10 @@ env:
   IS_NIGHTLY: true
 
   # Keep in sync with `docker-publish.yml`.
-  RUST_PROFILE: maxperf
-  RUST_FEATURES: aws-kms,gcp-kms,turnkey,asm-keccak
+  RUST_PROFILE: dist
+  RUST_FEATURES: aws-kms,gcp-kms,turnkey,cli,asm-keccak
 
-  LAST_STABLE_VERSION: "v1.5.0"
+  LAST_STABLE_VERSION: "v1.5.1"
 
 jobs:
   prepare:
@@ -60,7 +60,7 @@ jobs:
 
       - name: Build changelog
         id: build_changelog
-        uses: mikepenz/release-changelog-builder-action@439f79b5b5428107c7688c1d2b0e8bacc9b8792c # v6
+        uses: mikepenz/release-changelog-builder-action@6faf020194b7c8853f9e55c4fd92e40b02122a04 # v6
         with:
           configuration: "./.github/changelog.json"
           fromTag: ${{ env.IS_NIGHTLY == 'true' && 'nightly' || env.STABLE_VERSION }}
@@ -152,7 +152,7 @@ jobs:
 
       - name: cross setup
         if: contains(matrix.target, 'musl')
-        uses: taiki-e/cache-cargo-install-action@7447f04c51f2ba27ca35e7f1e28fab848c5b3ba7 # v2
+        uses: taiki-e/cache-cargo-install-action@34ce5120836e5f9f1508d8713d7fdea0e8facd6f # v2
         with:
           git: https://github.com/cross-rs/cross
           rev: baf457efc2555225af47963475bd70e8d2f5993f
@@ -168,7 +168,7 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          flags=(--target $TARGET --profile $RUST_PROFILE --bin forge --bin cast
+          flags=(--target $TARGET --profile $RUST_PROFILE --bins
             --no-default-features --features "$RUST_FEATURES")
 
           # `jemalloc` is not fully supported on MSVC or aarch64 Linux.
@@ -184,7 +184,7 @@ jobs:
             cargo build "${flags[@]}"
           fi
 
-          bins=(cast forge)
+          bins=(anvil cast chisel forge)
           for name in "${bins[@]}"; do
             bin="$OUT_DIR/$name$ext"
             printf '\n'
@@ -205,19 +205,20 @@ jobs:
         shell: bash
         run: |
           if [[ "$PLATFORM_NAME" == "linux" || "$PLATFORM_NAME" == "alpine" ]]; then
-            tar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast
+            tar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast anvil chisel
             printf "file_name=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> "$GITHUB_OUTPUT"
           elif [ "$PLATFORM_NAME" == "darwin" ]; then
             # We need to use gtar here otherwise the archive is corrupt.
             # See: https://github.com/actions/virtual-environments/issues/2619
-            gtar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast
+            gtar -czvf "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" forge cast anvil chisel
             printf "file_name=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> "$GITHUB_OUTPUT"
           else
             cd "$OUT_DIR"
-            7z a -tzip "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe
+            7z a -tzip "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" forge.exe cast.exe anvil.exe chisel.exe
             mv "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
             printf "file_name=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" >> "$GITHUB_OUTPUT"
           fi
+          printf "foundry_attestation=%s\n" "foundry_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.attestation.txt" >> "$GITHUB_OUTPUT"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
@@ -237,10 +238,33 @@ jobs:
           sudo apt-get -y install help2man
           help2man -N $OUT_DIR/forge > forge.1
           help2man -N $OUT_DIR/cast > cast.1
+          help2man -N $OUT_DIR/anvil > anvil.1
+          help2man -N $OUT_DIR/chisel > chisel.1
           gzip forge.1
           gzip cast.1
-          tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz
+          gzip anvil.1
+          gzip chisel.1
+          tar -czvf "foundry_man_${VERSION_NAME}.tar.gz" forge.1.gz cast.1.gz anvil.1.gz chisel.1.gz
           printf 'foundry_man=%s\n' "foundry_man_${VERSION_NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Binaries attestation
+        id: attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            ${{ env.anvil_bin_path }}
+            ${{ env.cast_bin_path }}
+            ${{ env.chisel_bin_path }}
+            ${{ env.forge_bin_path }}
+
+      - name: Record attestation URL
+        env:
+          ATTESTATION_URL: ${{ steps.attestation.outputs.attestation-url }}
+          FOUNDRY_ATTESTATION: ${{ steps.artifacts.outputs.foundry_attestation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$ATTESTATION_URL" > "$FOUNDRY_ATTESTATION"
 
       # Creates the release for this specific version
       - name: Create release

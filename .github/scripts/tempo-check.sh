@@ -15,11 +15,38 @@ FEE_TOKEN="${TEMPO_FEE_TOKEN:-0x20c0000000000000000000000000000000000000}"
 # Build fee token args if not using native token (array for safe expansion)
 FEE_TOKEN_ARG=()
 if [[ "$FEE_TOKEN" != "0x20c0000000000000000000000000000000000000" ]]; then
-  FEE_TOKEN_ARG=(--fee-token "$FEE_TOKEN")
+  FEE_TOKEN_ARG=(--tempo.fee-token "$FEE_TOKEN")
 fi
 
 echo -e "\n=== USING HARDFORK: $HARDFORK ==="
 echo -e "=== USING FEE TOKEN: $FEE_TOKEN ==="
+
+# Fund an address and wait for the fee token balance to be non-zero
+fund_and_wait() {
+  local addr="$1"
+  for i in {1..100}; do
+    OUT=$(cast rpc tempo_fundAddress "$addr" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+      echo "$OUT" | jq
+      break
+    fi
+    echo "[$i] $OUT"
+    sleep 0.2
+  done
+  echo "Waiting for $addr to be funded..."
+  for i in {1..30}; do
+    BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$addr" 2>/dev/null || echo "0")
+    if [[ "$BAL" != "0" && -n "$BAL" ]]; then
+      echo "Funded with $BAL fee tokens"
+      return 0
+    fi
+    if [[ $i -eq 30 ]]; then
+      echo "ERROR: Funding timed out for $addr"
+      exit 1
+    fi
+    sleep 1
+  done
+}
 
 echo -e "\n=== INIT TEMPO PROJECT ==="
 tmp_dir=$(mktemp -d)
@@ -33,7 +60,7 @@ TEMPO_FEE_TOKEN='' forge test
 echo -e "\n=== FORGE SCRIPT (LOCAL) ==="
 TEMPO_FEE_TOKEN='' forge script script/Mail.s.sol --sig "run(string)" "$(date +%s%N)"
 
-echo -e "\n=== START TEMPO FORK TESTS ==="
+echo -e "\n=== START TEMPO DEVNET TESTS ==="
 
 # Export fee token for fork tests (templates use vm.envOr to read it)
 export TEMPO_FEE_TOKEN="$FEE_TOKEN"
@@ -41,33 +68,18 @@ export TEMPO_FEE_TOKEN="$FEE_TOKEN"
 echo -e "\n=== TEMPO VERSION ==="
 cast client --rpc-url "$ETH_RPC_URL"
 
-echo -e "\n=== FORGE TEST (FORK) ==="
+echo -e "\n=== FORGE TEST (DEVNET) ==="
 forge test --rpc-url "$ETH_RPC_URL"
 
-echo -e "\n=== FORGE SCRIPT (FORK) ==="
+echo -e "\n=== FORGE SCRIPT (DEVNET) ==="
 forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url "$ETH_RPC_URL"
 
 echo -e "\n=== CREATE AND FUND ADDRESS ==="
 wallet_json="$(cast wallet new --json)"
 ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
 PK="$(jq -r '.[0].private_key' <<<"$wallet_json")"
-
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    echo "$OUT" | jq
-    break
-  fi
-
-  echo "[$i] $OUT"
-  sleep 0.2
-done
-
-printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
-
-echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
-sleep 5
+printf "address: %s\nprivate_key: %s\n" "$ADDR" "$PK"
+fund_and_wait "$ADDR"
 
 echo -e "\n=== ADD AlphaUSD FEE TOKEN LIQUIDITY ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
@@ -92,24 +104,24 @@ fi
 
 echo -e "\n=== CAST ERC20 TRANSFER WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
-  cast erc20 transfer --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 transfer --tempo.fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 transfer --tempo.fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 else
   cast erc20 transfer ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} "${FEE_TOKEN}" 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 fi
 
 echo -e "\n=== CAST ERC20 APPROVE WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
-  cast erc20 approve --fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 approve --tempo.fee-token 0x20C0000000000000000000000000000000000002 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
+  cast erc20 approve --tempo.fee-token 0x20C0000000000000000000000000000000000003 0x20c0000000000000000000000000000000000002 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url "$ETH_RPC_URL" --private-key "$PK"
 else
   echo "skipped (custom fee token set)"
 fi
 
 echo -e "\n=== CAST SEND WITH FEE TOKEN ==="
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  cast send --fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
-  cast send --fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+  cast send --tempo.fee-token 0x20C0000000000000000000000000000000000002 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
+  cast send --tempo.fee-token 0x20C0000000000000000000000000000000000003 --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 else
   cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 fi
@@ -121,30 +133,24 @@ cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x8
 if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== CAST MKTX WITH NONCE-KEY (2D Nonce) ==="
   # Each nonce-key has its own nonce sequence starting at 0
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 1
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --tempo.nonce-key 1
 
   echo -e "\n=== CAST SEND WITH NONCE-KEY (2D Nonce) ==="
   # Use a different nonce-key (2) with nonce 0 since each key starts fresh
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --nonce-key 2
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --tempo.nonce-key 2
 
   echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
-  # Use 25s expiry to stay safely within the 30s max (avoids timing issues with gas estimation)
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))"
 
   echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
-  VALID_AFTER=$(($(date +%s) + 5))
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$VALID_AFTER"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))" --tempo.valid-after "$(($(date +%s) + 5))"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
   sleep 6  # Wait for valid_after to pass
-  VALID_BEFORE=$(($(date +%s) + 25))
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --expiring-nonce --valid-before "$VALID_BEFORE" --valid-after "$(($(date +%s) - 1))"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))" --tempo.valid-after "$(($(date +%s) - 1))"
 
   echo -e "\n=== SETUP ACCESS KEY ==="
   # Create an access key for testing
@@ -162,22 +168,15 @@ if [[ "$HARDFORK" == "T1" ]]; then
     --private-key "$PK"
 
   # Fund the access key address (needed for gas)
-  for i in {1..100}; do
-    OUT=$(cast rpc tempo_fundAddress "$ACCESS_KEY_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-      break
-    fi
-    sleep 0.2
-  done
-  sleep 3
+  fund_and_wait "$ACCESS_KEY_ADDR"
 
   echo -e "\n=== CAST MKTX WITH ACCESS-KEY ==="
   # Use original address as root account (access key signs on behalf of root)
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --tempo.access-key "$ACCESS_KEY" --tempo.root-account "$ADDR"
 
   echo -e "\n=== CAST SEND WITH ACCESS-KEY ==="
   # Send transaction using the access key (Keychain signature wrapped in AA transaction)
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --access-key "$ACCESS_KEY" --root-account "$ADDR"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --tempo.access-key "$ACCESS_KEY" --tempo.root-account "$ADDR"
 else
   echo -e "\n=== T1-ONLY FEATURES ==="
   echo "The following tests require T1 hardfork and are skipped on $HARDFORK:"
@@ -200,25 +199,18 @@ SPONSOR_ADDR="$(jq -r '.[0].address' <<<"$sponsor_wallet_json")"
 printf "Sponsor address: %s\n" "$SPONSOR_ADDR"
 
 # Fund the sponsor address (sponsor pays gas)
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$SPONSOR_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.2
-done
-sleep 3
+fund_and_wait "$SPONSOR_ADDR"
 
-echo -e "\n=== CAST SEND WITH SPONSOR (--sponsor-signature) ==="
+echo -e "\n=== CAST SEND WITH SPONSOR (--tempo.sponsor-signature) ==="
 # Test sponsored transactions using pre-signed signature.
-# Step 1: Get the fee_payer_signature_hash using --print-sponsor-hash
+# Step 1: Get the fee_payer_signature_hash using --tempo.print-sponsor-hash
 # Step 2: Sign it with the sponsor's private key
-# Step 3: Send with --sponsor-signature
+# Step 3: Send with --tempo.sponsor-signature
 
 # Step 1: Get the hash that the sponsor needs to sign
 FEE_PAYER_HASH=$(cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
-  --print-sponsor-hash)
+  --tempo.print-sponsor-hash)
 printf "Fee payer signature hash: %s\n" "$FEE_PAYER_HASH"
 
 # Step 2: Sponsor signs the hash
@@ -228,7 +220,7 @@ printf "Sponsor signature: %s\n" "$SPONSOR_SIG"
 # Step 3: Send the sponsored transaction with the signature
 RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" \
-  --sponsor-signature "$SPONSOR_SIG" --json)
+  --tempo.sponsor-signature "$SPONSOR_SIG" --json)
 
 # Verify the fee_payer in the receipt matches the sponsor address
 RECEIPT_FEE_PAYER=$(echo "$RECEIPT" | jq -r '.feePayer // .fee_payer // empty')
@@ -275,9 +267,10 @@ echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
 # Use CounterWithRequire.sol (has require(newNumber > 100)) for batch revert testing
 cp "$SCRIPT_DIR/contracts/CounterWithRequire.sol" src/Counter.sol
 forge build
-REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast --json)
+REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
 echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
-REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | jq -r '.deployedTo')
+# Extract address from human-readable output (avoids jq parse errors from stderr log pollution)
+REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
 if [[ "$REQUIRE_COUNTER" == "null" || -z "$REQUIRE_COUNTER" ]]; then
   echo "ERROR: Failed to deploy Counter with require"
   exit 1
@@ -420,3 +413,174 @@ else
   echo -e "\n=== ADD LIQUIDITY: SWAP EXACT AMOUNT OUT ==="
   echo "skipped (custom fee token set)"
 fi
+
+echo -e "\n=== ANVIL LOCAL TESTS ==="
+
+ANVIL_PORT=8546
+echo "Starting local anvil..."
+# Pass hardfork to anvil (lowercase for CLI compatibility)
+ANVIL_HARDFORK=$(echo "$HARDFORK" | tr '[:upper:]' '[:lower:]')
+anvil --tempo --hardfork "$ANVIL_HARDFORK" --port $ANVIL_PORT &
+ANVIL_PID=$!
+
+# Ensure anvil is stopped on script exit
+trap 'kill "$ANVIL_PID" 2>/dev/null || true' EXIT
+
+# Wait for anvil to be ready (max 10 seconds)
+for i in {1..10}; do
+  if cast client --rpc-url "http://127.0.0.1:$ANVIL_PORT" 2>/dev/null; then
+    echo "Anvil fork started successfully"
+    break
+  fi
+  if [[ $i -eq 10 ]]; then
+    echo "ERROR: Anvil fork failed to start"
+    exit 1
+  fi
+  sleep 1
+done
+
+ALICE_PK="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+echo -e "\n=== ANVIL LOCAL: CHECK CLIENT VERSION ==="
+cast client --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL LOCAL: CHECK CHAIN ID ==="
+cast chain-id --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL LOCAL: FORGE TEST ==="
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge test --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL LOCAL: FORGE SCRIPT SIMULATE ==="
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$ALICE_PK"
+
+echo -e "\n=== ANVIL LOCAL: FORGE SCRIPT BROADCAST ==="
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$ALICE_PK" --broadcast
+
+echo -e "\n=== ANVIL LOCAL: CAST SEND ==="
+cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$ALICE_PK"
+
+echo -e "\n=== ANVIL LOCAL: ERC20 TRANSFER ==="
+cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$ALICE_PK"
+
+if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== ANVIL LOCAL: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$ALICE_PK" --nonce 0 --tempo.nonce-key 100
+
+  echo -e "\n=== ANVIL LOCAL: CAST SEND WITH EXPIRING NONCE ==="
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$ALICE_PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))"
+fi
+
+echo -e "\n=== ANVIL LOCAL: BATCH SEND ==="
+cast batch-send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --private-key "$ALICE_PK"
+
+# Stop anvil
+kill "$ANVIL_PID" 2>/dev/null || true
+trap - EXIT
+
+echo -e "\n=== ANVIL LOCAL TESTS COMPLETE ==="
+
+echo -e "\n=== ANVIL FORK TESTS ==="
+# Use a fresh wallet for fork tests to avoid fee token exhaustion from prior devnet tests
+echo -e "\n=== ANVIL FORK: CREATE AND FUND FRESH WALLET ==="
+fork_wallet_json="$(cast wallet new --json)"
+FORK_ADDR="$(jq -r '.[0].address' <<<"$fork_wallet_json")"
+FORK_PK="$(jq -r '.[0].private_key' <<<"$fork_wallet_json")"
+printf "Fork test address: %s\n" "$FORK_ADDR"
+fund_and_wait "$FORK_ADDR"
+
+# Set the fee token on devnet before forking so the fork snapshot includes it
+cast send --rpc-url "$ETH_RPC_URL" 0xfeec000000000000000000000000000000000000 \
+  'setUserToken(address)' "$FEE_TOKEN" --private-key "$FORK_PK"
+
+ANVIL_PORT=8547
+echo "Starting forked anvil..."
+# Pass hardfork to anvil (lowercase for CLI compatibility)
+ANVIL_HARDFORK=$(echo "$HARDFORK" | tr '[:upper:]' '[:lower:]')
+anvil --tempo --hardfork "$ANVIL_HARDFORK" --fork-url "$ETH_RPC_URL" --port $ANVIL_PORT --retries 10 --timeout 60000 &
+ANVIL_PID=$!
+
+# Ensure anvil is stopped on script exit
+trap 'kill "$ANVIL_PID" 2>/dev/null || true' EXIT
+
+# Wait for anvil to be ready (max 10 seconds)
+for i in {1..10}; do
+  if cast client --rpc-url "http://127.0.0.1:$ANVIL_PORT" 2>/dev/null; then
+    echo "Anvil fork started successfully"
+    break
+  fi
+  if [[ $i -eq 10 ]]; then
+    echo "ERROR: Anvil fork failed to start"
+    exit 1
+  fi
+  sleep 1
+done
+
+echo -e "\n=== ANVIL FORK: CHECK CLIENT VERSION ==="
+cast client --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL FORK: CHECK CHAIN ID ==="
+cast chain-id --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL FORK: CHECK BLOCK NUMBER ==="
+cast block-number --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL FORK: FORGE TEST ==="
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge test --rpc-url http://127.0.0.1:$ANVIL_PORT
+
+echo -e "\n=== ANVIL FORK: FORGE SCRIPT SIMULATE ==="
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script --tempo.fee-token "$FEE_TOKEN" script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK"
+
+echo -e "\n=== ANVIL FORK: FORGE SCRIPT BROADCAST ==="
+TEMPO_FEE_TOKEN="$FEE_TOKEN" forge script --tempo.fee-token "$FEE_TOKEN" script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK" --broadcast
+
+echo -e "\n=== ANVIL FORK: CAST SEND ==="
+cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK"
+
+echo -e "\n=== ANVIL FORK: ERC20 TRANSFER ==="
+cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK"
+
+# T1-only features on anvil fork
+if [[ "$HARDFORK" == "T1" ]]; then
+  echo -e "\n=== ANVIL FORK: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --nonce 0 --tempo.nonce-key 100
+
+  echo -e "\n=== ANVIL FORK: CAST SEND WITH EXPIRING NONCE ==="
+  cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --tempo.expiring-nonce --tempo.valid-before "$(($(date +%s) + 25))"
+fi
+
+echo -e "\n=== ANVIL FORK: BATCH SEND ==="
+cast batch-send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --call "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D::increment()" \
+  --private-key "$FORK_PK"
+
+# Stop anvil
+kill "$ANVIL_PID" 2>/dev/null || true
+trap - EXIT
+
+echo -e "\n=== ANVIL FORK TESTS COMPLETE ==="
+
+echo -e "\n=== CHISEL FORK TESTS ==="
+# Test chisel forking the Tempo network - precompiles should be accessible from fork
+
+# Helper to check address has code via chisel fork
+check_has_code() {
+  local name="$1" addr="$2"
+  local result
+  result=$(chisel --fork-url "$ETH_RPC_URL" eval "address($addr).code.length > 0" 2>&1 | grep -oP '(?<=Value: )(true|false)' || echo "")
+  if [[ "$result" != "true" ]]; then
+    echo "ERROR: $name ($addr) should have code when forking Tempo"
+    exit 1
+  fi
+  echo "OK: $name has code"
+}
+
+check_has_code "PathUSD" "0x20C0000000000000000000000000000000000000"
+check_has_code "AlphaUSD" "0x20C0000000000000000000000000000000000001"
+check_has_code "Nonce" "0x4e4F4E4345000000000000000000000000000000"
+check_has_code "AccountKeychain" "0xaAAAaaAA00000000000000000000000000000000"
+
+echo -e "\n=== CHISEL FORK TESTS COMPLETE ==="

@@ -1,12 +1,12 @@
 //! Support for forking off another client
 
 use crate::eth::{backend::db::Db, error::BlockchainError, pool::transactions::PoolTransaction};
-use alloy_consensus::Account;
+use alloy_consensus::TrieAccount;
 use alloy_eips::eip2930::AccessListResult;
 use alloy_network::{AnyRpcBlock, AnyRpcTransaction, BlockResponse, TransactionResponse};
 use alloy_primitives::{
     Address, B256, Bytes, StorageValue, U256,
-    map::{FbHashMap, HashMap},
+    map::{FbHashMap, HashMap, HashSet},
 };
 use alloy_provider::{
     Provider,
@@ -19,7 +19,7 @@ use alloy_rpc_types::{
     simulate::{SimulatePayload, SimulatedBlock},
     trace::{
         geth::{GethDebugTracingOptions, GethTrace},
-        parity::LocalizedTransactionTrace as Trace,
+        parity::{LocalizedTransactionTrace as Trace, TraceResultsWithTransactionHash, TraceType},
     },
 };
 use alloy_serde::WithOtherFields;
@@ -297,7 +297,7 @@ impl ClientFork {
         &self,
         address: Address,
         blocknumber: u64,
-    ) -> Result<Account, TransportError> {
+    ) -> Result<TrieAccount, TransportError> {
         trace!(target: "backend::fork", "get_account={:?}", address);
         self.provider().get_account(address).block_id(blocknumber.into()).await
     }
@@ -417,6 +417,16 @@ impl ClientFork {
         storage.block_traces.insert(number, traces.clone());
 
         Ok(traces)
+    }
+
+    pub async fn trace_replay_block_transactions(
+        &self,
+        number: u64,
+        trace_types: HashSet<TraceType>,
+    ) -> Result<Vec<TraceResultsWithTransactionHash>, TransportError> {
+        // Forward to upstream provider for historical blocks
+        let params = (number, trace_types.iter().map(|t| format!("{t:?}")).collect::<Vec<_>>());
+        self.provider().raw_request("trace_replayBlockTransactions".into(), params).await
     }
 
     pub async fn transaction_receipt(

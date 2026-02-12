@@ -8,7 +8,7 @@ use alloy_provider::Provider;
 use alloy_rpc_types::TransactionRequest;
 use alloy_sol_types::SolCall;
 use anvil::{NodeConfig, spawn};
-use foundry_evm::hardfork::EthereumHardfork;
+use foundry_evm::hardforks::EthereumHardfork;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_can_change_mining_mode() {
@@ -95,6 +95,7 @@ async fn test_can_handle_large_timestamp() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Tempo hardforks are always post-Cancun so blob gas fields are always present"]
 async fn test_shanghai_fields() {
     let (api, _handle) =
         spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Shanghai.into()))).await;
