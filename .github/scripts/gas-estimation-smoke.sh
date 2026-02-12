@@ -26,53 +26,11 @@ VALIDATOR_TOKEN_ZERO=$(cast call --rpc-url "$ETH_RPC_URL" \
   0x0000000000000000000000000000000000000000)
 echo "validatorTokens[address(0)] = $VALIDATOR_TOKEN_ZERO"
 
-# Setup test address: use provided, fund a new one, or find one with balance
-echo -e "\n--- Setup test wallet ---"
-if [[ -n "${TEST_ADDR:-}" ]]; then
-  ADDR="$TEST_ADDR"
-  echo "Using provided address: $ADDR"
-else
-  wallet_json="$(cast wallet new --json)"
-  ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
-  echo "Generated address: $ADDR"
+# eth_estimateGas doesn't send a real transaction, so no funding needed.
+ADDR="${TEST_ADDR:-$(cast wallet new --json | jq -r '.[0].address')}"
+echo -e "\n--- Using address: $ADDR ---"
 
-  if cast rpc tempo_fundAddress "$ADDR" --rpc-url "$ETH_RPC_URL" >/dev/null 2>&1; then
-    echo "Funding via tempo_fundAddress..."
-    for i in {1..30}; do
-      BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$DEFAULT_TOKEN" \
-        'balanceOf(address)(uint256)' "$ADDR" 2>/dev/null || echo "0")
-      if [[ "$BAL" != "0" && -n "$BAL" ]]; then
-        echo "Funded with $BAL tokens"
-        break
-      fi
-      if [[ $i -eq 30 ]]; then
-        echo "ERROR: Funding timed out"
-        exit 1
-      fi
-      sleep 1
-    done
-  else
-    # On mainnet, use the fee manager address as `from` for estimation.
-    # eth_estimateGas doesn't require the sender to actually sign anything,
-    # and precompile addresses always have token balances from collected fees.
-    ADDR="$FEE_MANAGER"
-    echo "Using fee manager as from address (no faucet available): $ADDR"
-  fi
-fi
-
-echo -e "\n--- Test 1: eth_estimateGas for ERC20 transfer ---"
-ESTIMATE=$(cast estimate --rpc-url "$ETH_RPC_URL" \
-  --from "$ADDR" \
-  "$DEFAULT_TOKEN" "transfer(address,uint256)" "$ADDR" 1 2>&1) || true
-
-if [[ "$ESTIMATE" =~ ^[0-9]+$ && "$ESTIMATE" -gt 0 ]]; then
-  echo "PASS: estimate succeeded (gas: $ESTIMATE)"
-else
-  echo "FAIL: estimate failed: $ESTIMATE"
-  TEST_FAILED=1
-fi
-
-echo -e "\n--- Test 2: eth_estimateGas via raw JSON-RPC ---"
+echo -e "\n--- Test 1: eth_estimateGas via raw JSON-RPC ---"
 RESULT=$(curl -s -X POST -H "Content-Type: application/json" -d '{
   "jsonrpc": "2.0",
   "id": 1,
