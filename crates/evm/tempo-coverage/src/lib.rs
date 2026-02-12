@@ -14,8 +14,6 @@
 
 use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering};
 
-pub const COVERAGE_MAP_SIZE: usize = 65536;
-
 static COVERAGE_MAP_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 static COVERAGE_MAP_LEN: AtomicUsize = AtomicUsize::new(0);
 
@@ -33,20 +31,13 @@ pub fn is_active() -> bool {
     !COVERAGE_MAP_PTR.load(Ordering::Relaxed).is_null()
 }
 
-pub struct CoverageMapGuard;
+static NEXT_SANCOV_IDX: AtomicUsize = AtomicUsize::new(0);
 
-impl CoverageMapGuard {
-    pub fn new(ptr: *mut u8, len: usize) -> Self {
-        set_coverage_map(ptr, len);
-        Self
-    }
+thread_local! {
+    static GUARD_LOOKUP: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-impl Drop for CoverageMapGuard {
-    fn drop(&mut self) {
-        clear_coverage_map();
-    }
-}
+const UNASSIGNED: usize = usize::MAX;
 
 #[inline(always)]
 pub fn record_hit(guard_id: u32) {
@@ -58,11 +49,31 @@ pub fn record_hit(guard_id: u32) {
     if len == 0 {
         return;
     }
-    let idx = guard_id as usize % len;
+
+    let gid = guard_id as usize;
+    let idx = GUARD_LOOKUP.with(|lookup| {
+        let mut lookup = lookup.borrow_mut();
+        if gid >= lookup.len() {
+            lookup.resize(gid + 1, UNASSIGNED);
+        }
+        let slot = &mut lookup[gid];
+        if *slot == UNASSIGNED {
+            *slot = NEXT_SANCOV_IDX.fetch_add(1, Ordering::Relaxed);
+        }
+        *slot
+    });
+
+    if idx >= len {
+        return;
+    }
     unsafe {
         let slot = ptr.add(idx);
         *slot = (*slot).wrapping_add(1);
     }
+}
+
+pub fn sancov_edge_count() -> usize {
+    NEXT_SANCOV_IDX.load(Ordering::Relaxed)
 }
 
 static GUARD_COUNTER: AtomicU32 = AtomicU32::new(1);

@@ -577,7 +577,7 @@ impl Executor {
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
         if tempo_edges {
-            TempoCoverageGuard::merge_edges_into(&mut result);
+            TempoCoverageGuard::append_edges_into(&mut result);
         }
         if tempo_trace_cmp {
             TempoCoverageGuard::drain_cmp_into(&mut result);
@@ -601,7 +601,7 @@ impl Executor {
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
         if tempo_edges {
-            TempoCoverageGuard::merge_edges_into(&mut result);
+            TempoCoverageGuard::append_edges_into(&mut result);
         }
         if tempo_trace_cmp {
             TempoCoverageGuard::drain_cmp_into(&mut result);
@@ -1050,13 +1050,16 @@ impl RawCallResult {
 
     /// Update provided history map with edge coverage info collected during this call.
     /// Uses AFL binning algo <https://github.com/h0mbre/Lucid/blob/3026e7323c52b30b3cf12563954ac1eaa9c6981e/src/coverage.rs#L57-L85>
-    pub fn merge_edge_coverage(&mut self, history_map: &mut [u8]) -> (bool, bool) {
+    pub fn merge_edge_coverage(&mut self, history_map: &mut Vec<u8>) -> (bool, bool) {
         let mut new_coverage = false;
         let mut is_edge = false;
         if let Some(x) = &mut self.edge_coverage {
+            if history_map.len() < x.len() {
+                history_map.resize(x.len(), 0);
+            }
             // Iterate over the current map and the history map together and update
             // the history map, if we discover some new coverage, report true
-            for (curr, hist) in std::iter::zip(x, history_map) {
+            for (curr, hist) in std::iter::zip(x.iter_mut(), history_map.iter_mut()) {
                 // If we got a hitcount of at least 1
                 if *curr > 0 {
                     // Convert hitcount into bucket count

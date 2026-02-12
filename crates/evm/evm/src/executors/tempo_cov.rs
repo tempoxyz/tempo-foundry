@@ -1,19 +1,18 @@
-use foundry_tempo_coverage::COVERAGE_MAP_SIZE;
-
 use super::RawCallResult;
+
+const SANCOV_BUFFER_CAPACITY: usize = 65536;
 
 /// RAII guard that activates Tempo precompile coverage collection for the duration of an EVM call.
 ///
-/// Allocates a thread-local scratch buffer, sets it as the active coverage map via
-/// `foundry_tempo_coverage`, and on drop clears it. Edge hits and trace-cmp operands
-/// can be independently merged into `RawCallResult`.
+/// Allocates a thread-local scratch buffer for sancov hits and sets it as the active coverage map.
+/// After execution, sancov hits are appended to the EVM edge coverage in `RawCallResult`.
 pub(super) struct TempoCoverageGuard {
     collect_edges: bool,
 }
 
 thread_local! {
     static TEMPO_COV_BUFFER: std::cell::RefCell<Vec<u8>> =
-        std::cell::RefCell::new(vec![0u8; COVERAGE_MAP_SIZE]);
+        std::cell::RefCell::new(vec![0u8; SANCOV_BUFFER_CAPACITY]);
 }
 
 impl TempoCoverageGuard {
@@ -33,27 +32,31 @@ impl TempoCoverageGuard {
         Self { collect_edges }
     }
 
-    /// Merge Tempo precompile edge coverage hits into the `RawCallResult`'s edge coverage.
+    /// Append sancov edge hits to the result's edge coverage buffer.
     ///
-    /// If the result already has an `edge_coverage` map (from `EdgeCovInspector`), Tempo precompile
-    /// hits are added into it. If not, the Tempo precompile coverage buffer becomes the edge
-    /// coverage.
-    pub(super) fn merge_edges_into(result: &mut RawCallResult) {
+    /// The EVM inspector's hitcount occupies `[0..evm_used)`. Sancov edges
+    /// are appended at `[evm_used..evm_used+sancov_used)` so the two
+    /// ID spaces never overlap.
+    pub(super) fn append_edges_into(result: &mut RawCallResult) {
+        let sancov_used = foundry_tempo_coverage::sancov_edge_count();
+        if sancov_used == 0 {
+            return;
+        }
+
         TEMPO_COV_BUFFER.with(|buf| {
             let buf = buf.borrow();
-            let has_any_hit = buf.iter().any(|&b| b > 0);
-            if !has_any_hit {
+            let sancov_slice = &buf[..sancov_used.min(buf.len())];
+
+            if !sancov_slice.iter().any(|&b| b > 0) {
                 return;
             }
 
             match &mut result.edge_coverage {
                 Some(existing) => {
-                    for (existing_slot, &native_hit) in existing.iter_mut().zip(buf.iter()) {
-                        *existing_slot = existing_slot.saturating_add(native_hit);
-                    }
+                    existing.extend_from_slice(sancov_slice);
                 }
                 None => {
-                    result.edge_coverage = Some(buf.clone());
+                    result.edge_coverage = Some(sancov_slice.to_vec());
                 }
             }
         });
