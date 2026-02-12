@@ -26,7 +26,7 @@ VALIDATOR_TOKEN_ZERO=$(cast call --rpc-url "$ETH_RPC_URL" \
   0x0000000000000000000000000000000000000000)
 echo "validatorTokens[address(0)] = $VALIDATOR_TOKEN_ZERO"
 
-# Use provided address or generate and fund a fresh one
+# Setup test address: use provided, fund a new one, or find one with balance
 echo -e "\n--- Setup test wallet ---"
 if [[ -n "${TEST_ADDR:-}" ]]; then
   ADDR="$TEST_ADDR"
@@ -52,8 +52,11 @@ else
       sleep 1
     done
   else
-    echo "ERROR: Cannot fund address. Set TEST_ADDR to a pre-funded address."
-    exit 1
+    # On mainnet, use the fee manager address as `from` for estimation.
+    # eth_estimateGas doesn't require the sender to actually sign anything,
+    # and precompile addresses always have token balances from collected fees.
+    ADDR="$FEE_MANAGER"
+    echo "Using fee manager as from address (no faucet available): $ADDR"
   fi
 fi
 
