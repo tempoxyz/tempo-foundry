@@ -752,7 +752,7 @@ impl<'a> FunctionRunner<'a> {
         // metrics (useful for benchmarking the fuzzer).
         executor
             .inspector_mut()
-            .collect_edge_coverage(invariant_config.corpus.collect_edge_coverage());
+            .collect_edge_coverage(invariant_config.corpus.collect_evm_edge_coverage());
         executor.inspector_mut().collect_tempo_precompile_edges(
             invariant_config.corpus.collect_tempo_precompile_edges(),
         );
@@ -1053,7 +1053,9 @@ impl<'a> FunctionRunner<'a> {
         let mut executor = self.executor.into_owned();
         // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
         // metrics (useful for benchmarking the fuzzer).
-        executor.inspector_mut().collect_edge_coverage(fuzz_config.corpus.collect_edge_coverage());
+        executor
+            .inspector_mut()
+            .collect_edge_coverage(fuzz_config.corpus.collect_evm_edge_coverage());
         executor
             .inspector_mut()
             .collect_tempo_precompile_edges(fuzz_config.corpus.collect_tempo_precompile_edges());

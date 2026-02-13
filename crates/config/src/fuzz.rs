@@ -133,9 +133,17 @@ impl FuzzCorpusConfig {
         }
     }
 
-    /// Whether edge coverage should be collected and displayed.
+    /// Whether any edge coverage (EVM or sancov) should be collected and displayed.
     pub fn collect_edge_coverage(&self) -> bool {
         self.corpus_dir.is_some() || self.show_edge_coverage || self.tempo_precompile_edges
+    }
+
+    /// Whether the EVM `EdgeCovInspector` should be enabled.
+    ///
+    /// Disabled when Tempo precompile coverage is active — sancov provides the
+    /// coverage signal and the EVM inspector is unnecessary overhead.
+    pub fn collect_evm_edge_coverage(&self) -> bool {
+        !self.tempo_precompile_active() && (self.corpus_dir.is_some() || self.show_edge_coverage)
     }
 
     /// Whether Tempo precompile edge coverage collection is enabled.
