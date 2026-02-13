@@ -29,14 +29,20 @@ pub fn initialize_tempo_precompiles_and_contracts(
 
     let chain_id = executor.env().evm_env.cfg_env.chain_id;
     let timestamp = U256::from(executor.env().evm_env.block_env.timestamp);
+    let block_number = executor.env().evm_env.block_env.number.to::<u64>();
     let tempo_hardfork = hardfork
         .and_then(|hf| match hf {
             FoundryHardfork::Tempo(t) => Some(t),
             _ => None,
         })
         .unwrap_or_default();
-    let mut storage =
-        FoundryStorageProvider::new(executor.backend_mut(), chain_id, timestamp, tempo_hardfork);
+    let mut storage = FoundryStorageProvider::new(
+        executor.backend_mut(),
+        chain_id,
+        timestamp,
+        block_number,
+        tempo_hardfork,
+    );
 
     initialize_tempo_genesis(&mut storage, admin, sender)
 }

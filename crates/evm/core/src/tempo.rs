@@ -45,6 +45,7 @@ pub struct FoundryStorageProvider<'a> {
     backend: &'a mut Backend,
     chain_id: u64,
     timestamp: U256,
+    block_number: u64,
     gas_used: u64,
     gas_refunded: i64,
     transient: HashMap<(Address, U256), U256>,
@@ -57,12 +58,14 @@ impl<'a> FoundryStorageProvider<'a> {
         backend: &'a mut Backend,
         chain_id: u64,
         timestamp: U256,
+        block_number: u64,
         hardfork: TempoHardfork,
     ) -> Self {
         Self {
             backend,
             chain_id,
             timestamp,
+            block_number,
             gas_used: 0,
             gas_refunded: 0,
             transient: HashMap::new(),
@@ -83,6 +86,10 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
 
     fn timestamp(&self) -> U256 {
         self.timestamp
+    }
+
+    fn block_number(&self) -> u64 {
+        self.block_number
     }
 
     fn set_code(&mut self, address: Address, code: Bytecode) -> Result<(), TempoPrecompileError> {
