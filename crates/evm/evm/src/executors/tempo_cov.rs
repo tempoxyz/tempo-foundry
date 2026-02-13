@@ -32,11 +32,10 @@ impl TempoCoverageGuard {
         Self { collect_edges }
     }
 
-    /// Append sancov edge hits to the result's edge coverage buffer.
+    /// Populate the result's sancov coverage buffer with precompile edge hits.
     ///
-    /// The EVM inspector's hitcount occupies `[0..evm_used)`. Sancov edges
-    /// are appended at `[evm_used..evm_used+sancov_used)` so the two
-    /// ID spaces never overlap.
+    /// Sancov coverage is tracked independently from EVM edge coverage so that
+    /// changes in the EVM edge map size cannot shift sancov IDs.
     pub(super) fn append_edges_into(result: &mut RawCallResult) {
         let sancov_used = foundry_tempo_coverage::sancov_edge_count();
         if sancov_used == 0 {
@@ -51,14 +50,7 @@ impl TempoCoverageGuard {
                 return;
             }
 
-            match &mut result.edge_coverage {
-                Some(existing) => {
-                    existing.extend_from_slice(sancov_slice);
-                }
-                None => {
-                    result.edge_coverage = Some(sancov_slice.to_vec());
-                }
-            }
+            result.sancov_coverage = Some(sancov_slice.to_vec());
         });
     }
 

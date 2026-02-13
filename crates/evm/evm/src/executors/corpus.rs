@@ -262,8 +262,10 @@ pub struct WorkerCorpus {
     /// In-memory corpus entries populated from the persisted files and
     /// runs administered by this worker.
     in_memory_corpus: Vec<CorpusEntry>,
-    /// History of binned hitcount of edges seen during fuzzing
+    /// History of binned hitcount of EVM edges seen during fuzzing
     history_map: Vec<u8>,
+    /// History of binned hitcount of sancov (precompile) edges seen during fuzzing
+    sancov_history_map: Vec<u8>,
     /// Number of failed replays from initial corpus
     pub(crate) failed_replays: usize,
     /// Worker Metrics
@@ -323,6 +325,7 @@ impl WorkerCorpus {
 
         let mut in_memory_corpus = vec![];
         let mut history_map = vec![0u8; COVERAGE_MAP_SIZE];
+        let mut sancov_history_map = vec![0u8; COVERAGE_MAP_SIZE];
         let mut metrics = CorpusMetrics::default();
         let mut failed_replays = 0;
 
@@ -342,8 +345,8 @@ impl WorkerCorpus {
                 for tx in &tx_seq {
                     if Self::can_replay_tx(tx, fuzzed_function, fuzzed_contracts) {
                         let mut call_result = execute_tx(&mut executor, tx)?;
-                        let (new_coverage, is_edge) =
-                            call_result.merge_edge_coverage(&mut history_map);
+                        let (new_coverage, is_edge) = call_result
+                            .merge_all_coverage(&mut history_map, &mut sancov_history_map);
                         if new_coverage {
                             metrics.update_seen(is_edge);
                         }
@@ -381,6 +384,7 @@ impl WorkerCorpus {
             id,
             in_memory_corpus,
             history_map,
+            sancov_history_map,
             failed_replays,
             metrics,
             tx_generator,
@@ -477,13 +481,14 @@ impl WorkerCorpus {
         self.in_memory_corpus.push(corpus);
     }
 
-    /// Collects coverage from call result and updates metrics.
+    /// Collects EVM and sancov coverage from call result and updates metrics.
     pub fn merge_edge_coverage(&mut self, call_result: &mut RawCallResult) -> bool {
         if !self.config.collect_edge_coverage() {
             return false;
         }
 
-        let (new_coverage, is_edge) = call_result.merge_edge_coverage(&mut self.history_map);
+        let (new_coverage, is_edge) =
+            call_result.merge_all_coverage(&mut self.history_map, &mut self.sancov_history_map);
         if new_coverage {
             self.metrics.update_seen(is_edge);
         }
@@ -893,8 +898,8 @@ impl WorkerCorpus {
                 let mut call_result = execute_tx(&mut executor, tx)?;
 
                 // Check if this provides new coverage.
-                let (new_coverage, is_edge) =
-                    call_result.merge_edge_coverage(&mut self.history_map);
+                let (new_coverage, is_edge) = call_result
+                    .merge_all_coverage(&mut self.history_map, &mut self.sancov_history_map);
 
                 if new_coverage {
                     self.metrics.update_seen(is_edge);
@@ -1254,6 +1259,7 @@ mod tests {
             current_mutated: Some(seed_uuid),
             failed_replays: 0,
             history_map: vec![0u8; COVERAGE_MAP_SIZE],
+            sancov_history_map: vec![0u8; COVERAGE_MAP_SIZE],
             metrics: CorpusMetrics::default(),
             allow_eviction: true,
             new_entry_indices: Default::default(),
@@ -1362,6 +1368,7 @@ mod tests {
             current_mutated: None,
             failed_replays: 0,
             history_map: vec![0u8; COVERAGE_MAP_SIZE],
+            sancov_history_map: vec![0u8; COVERAGE_MAP_SIZE],
             metrics: CorpusMetrics::default(),
             allow_eviction: true,
             new_entry_indices: Default::default(),

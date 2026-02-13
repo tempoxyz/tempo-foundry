@@ -946,6 +946,8 @@ pub struct RawCallResult {
     pub line_coverage: Option<HitMaps>,
     /// The edge coverage info collected during the call
     pub edge_coverage: Option<Vec<u8>>,
+    /// Sancov edge coverage from Tempo precompiles, tracked independently from EVM edges.
+    pub sancov_coverage: Option<Vec<u8>>,
     /// Comparison operands captured from Tempo precompile trace-cmp callbacks.
     /// Each entry contains a width hint and a 32-byte big-endian value.
     pub tempo_cmp_values: Option<Vec<foundry_tempo_coverage::CmpSample>>,
@@ -979,6 +981,7 @@ impl Default for RawCallResult {
             traces: None,
             line_coverage: None,
             edge_coverage: None,
+            sancov_coverage: None,
             tempo_cmp_values: None,
             transactions: None,
             state_changeset: HashMap::default(),
@@ -1092,6 +1095,54 @@ impl RawCallResult {
         }
         (new_coverage, is_edge)
     }
+
+    /// Update provided history map with sancov coverage info collected during this call.
+    /// Same AFL binning algo as [`Self::merge_edge_coverage`].
+    pub fn merge_sancov_coverage(&mut self, history_map: &mut Vec<u8>) -> (bool, bool) {
+        let mut new_coverage = false;
+        let mut is_edge = false;
+        if let Some(x) = &mut self.sancov_coverage {
+            if history_map.len() < x.len() {
+                history_map.resize(x.len(), 0);
+            }
+            for (curr, hist) in std::iter::zip(x.iter_mut(), history_map.iter_mut()) {
+                if *curr > 0 {
+                    let bucket = match *curr {
+                        0 => 0,
+                        1 => 1,
+                        2 => 2,
+                        3 => 4,
+                        4..=7 => 8,
+                        8..=15 => 16,
+                        16..=31 => 32,
+                        32..=127 => 64,
+                        128..=255 => 128,
+                    };
+                    if *hist < bucket {
+                        if *hist == 0 {
+                            is_edge = true;
+                        }
+                        *hist = bucket;
+                        new_coverage = true;
+                    }
+                    *curr = 0;
+                }
+            }
+        }
+        (new_coverage, is_edge)
+    }
+
+    /// Merge both EVM and sancov coverage into their respective history maps.
+    /// Returns `(new_coverage, is_edge)` — true if either domain produced new coverage.
+    pub fn merge_all_coverage(
+        &mut self,
+        evm_history: &mut Vec<u8>,
+        sancov_history: &mut Vec<u8>,
+    ) -> (bool, bool) {
+        let (new_evm, edge_evm) = self.merge_edge_coverage(evm_history);
+        let (new_san, edge_san) = self.merge_sancov_coverage(sancov_history);
+        (new_evm || new_san, edge_evm || edge_san)
+    }
 }
 
 /// The result of a call.
@@ -1188,6 +1239,7 @@ fn convert_executed_result(
         traces,
         line_coverage,
         edge_coverage,
+        sancov_coverage: None,
         tempo_cmp_values: None,
         transactions,
         state_changeset,
