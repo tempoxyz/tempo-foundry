@@ -229,6 +229,9 @@ impl EthApi {
             EthRequest::EthGetStorageAt(addr, slot, block) => {
                 self.storage_at(addr, slot, block).await.to_rpc_result()
             }
+            EthRequest::EthGetStorageValues(requests, block) => {
+                self.storage_values(requests, block).await.to_rpc_result()
+            }
             EthRequest::EthGetBlockByHash(hash, full) => {
                 if full {
                     self.block_by_hash_full(hash).await.to_rpc_result()
@@ -854,6 +857,45 @@ impl EthApi {
         }
 
         self.backend.storage_at(address, index, Some(block_request)).await
+    }
+
+    /// Handler for ETH RPC call: `eth_getStorageValues`
+    pub async fn storage_values(
+        &self,
+        requests: HashMap<Address, Vec<B256>>,
+        block_number: Option<BlockId>,
+    ) -> Result<HashMap<Address, Vec<B256>>> {
+        node_info!("eth_getStorageValues");
+
+        let total_slots: usize = requests.values().map(|s| s.len()).sum();
+        if total_slots > 1024 {
+            return Err(BlockchainError::RpcError(RpcError::invalid_params(format!(
+                "total slot count {total_slots} exceeds limit 1024"
+            ))));
+        }
+
+        let block_request = self.block_request(block_number).await?;
+
+        // check if the number predates the fork, if in fork mode
+        if let BlockRequest::Number(number) = block_request
+            && let Some(fork) = self.get_fork()
+            && fork.predates_fork(number)
+        {
+            let mut result: HashMap<Address, Vec<B256>> = HashMap::default();
+            for (address, slots) in requests {
+                let mut values = Vec::with_capacity(slots.len());
+                for slot in &slots {
+                    let val = fork
+                        .storage_at(address, (*slot).into(), Some(BlockNumber::Number(number)))
+                        .await?;
+                    values.push(B256::from(val));
+                }
+                result.insert(address, values);
+            }
+            return Ok(result);
+        }
+
+        self.backend.storage_values(requests, Some(block_request)).await
     }
 
     /// Returns block with given hash.

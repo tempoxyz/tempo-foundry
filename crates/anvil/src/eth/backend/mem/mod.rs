@@ -2595,6 +2595,27 @@ impl Backend {
         .await?
     }
 
+    pub async fn storage_values(
+        &self,
+        requests: HashMap<Address, Vec<B256>>,
+        block_request: Option<BlockRequest>,
+    ) -> Result<HashMap<Address, Vec<B256>>, BlockchainError> {
+        self.with_database_at(block_request, |db, _| {
+            trace!(target: "backend", "get storage values for {} addresses", requests.len());
+            let mut result: HashMap<Address, Vec<B256>> = HashMap::default();
+            for (address, slots) in &requests {
+                let mut values = Vec::with_capacity(slots.len());
+                for slot in slots {
+                    let val = db.storage_ref(*address, (*slot).into())?;
+                    values.push(val.into());
+                }
+                result.insert(*address, values);
+            }
+            Ok(result)
+        })
+        .await?
+    }
+
     /// Returns the code of the address
     ///
     /// If the code is not present and fork mode is enabled then this will try to fetch it from the
