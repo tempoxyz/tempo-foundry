@@ -140,10 +140,12 @@ impl FuzzCorpusConfig {
 
     /// Whether the EVM `EdgeCovInspector` should be enabled.
     ///
-    /// Disabled when Tempo precompile coverage is active — sancov provides the
-    /// coverage signal and the EVM inspector is unnecessary overhead.
+    /// Disabled when Tempo precompile edge coverage is active — sancov provides
+    /// the coverage signal and EVM hits from the invariant handler would pollute
+    /// it. Trace-cmp-only mode keeps EVM edges enabled since trace-cmp only
+    /// contributes dictionary entries, not edge coverage.
     pub fn collect_evm_edge_coverage(&self) -> bool {
-        !self.tempo_precompile_active() && (self.corpus_dir.is_some() || self.show_edge_coverage)
+        !self.tempo_precompile_edges && (self.corpus_dir.is_some() || self.show_edge_coverage)
     }
 
     /// Whether Tempo precompile edge coverage collection is enabled.

@@ -12,7 +12,10 @@
 //! (via the `RUSTC_WRAPPER` in `scripts/sancov-rustc-wrapper.sh`), so the
 //! callbacks only fire for precompile code paths — no runtime filtering needed.
 
-use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering};
+use std::sync::{
+    RwLock,
+    atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
+};
 
 static COVERAGE_MAP_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 static COVERAGE_MAP_LEN: AtomicUsize = AtomicUsize::new(0);
@@ -33,9 +36,7 @@ pub fn is_active() -> bool {
 
 static NEXT_SANCOV_IDX: AtomicUsize = AtomicUsize::new(0);
 
-thread_local! {
-    static GUARD_LOOKUP: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };
-}
+static GUARD_LOOKUP: RwLock<Vec<usize>> = RwLock::new(Vec::new());
 
 const UNASSIGNED: usize = usize::MAX;
 
@@ -51,16 +52,23 @@ pub fn record_hit(guard_id: u32) {
     }
 
     let gid = guard_id as usize;
-    let idx = GUARD_LOOKUP.with(|lookup| {
-        let mut lookup = lookup.borrow_mut();
+
+    // Fast path: read lock, check if already assigned
+    let idx = {
+        let lookup = GUARD_LOOKUP.read().unwrap();
+        if gid < lookup.len() && lookup[gid] != UNASSIGNED { Some(lookup[gid]) } else { None }
+    };
+
+    let idx = idx.unwrap_or_else(|| {
+        // Slow path: write lock, assign new index (double-check after acquiring)
+        let mut lookup = GUARD_LOOKUP.write().unwrap();
         if gid >= lookup.len() {
             lookup.resize(gid + 1, UNASSIGNED);
         }
-        let slot = &mut lookup[gid];
-        if *slot == UNASSIGNED {
-            *slot = NEXT_SANCOV_IDX.fetch_add(1, Ordering::Relaxed);
+        if lookup[gid] == UNASSIGNED {
+            lookup[gid] = NEXT_SANCOV_IDX.fetch_add(1, Ordering::Relaxed);
         }
-        *slot
+        lookup[gid]
     });
 
     if idx >= len {
