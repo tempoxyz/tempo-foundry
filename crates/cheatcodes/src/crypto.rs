@@ -21,6 +21,11 @@ use p256::ecdsa::{
     Signature as P256Signature, SigningKey as P256SigningKey, signature::hazmat::PrehashSigner,
 };
 
+use ed25519_consensus::{
+    Signature as Ed25519Signature, SigningKey as Ed25519SigningKey,
+    VerificationKey as Ed25519VerificationKey,
+};
+
 /// The BIP32 default derivation path prefix.
 const DEFAULT_DERIVATION_PATH_PREFIX: &str = "m/44'/60'/0'/0/";
 
@@ -206,6 +211,34 @@ impl Cheatcode for publicKeyP256Call {
         let pub_key_y = U256::from_be_bytes((*pub_key.y().unwrap()).into());
 
         Ok((pub_key_x, pub_key_y).abi_encode())
+    }
+}
+
+impl Cheatcode for createEd25519KeyCall {
+    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+        let Self { salt } = self;
+        create_ed25519_key(salt)
+    }
+}
+
+impl Cheatcode for publicKeyEd25519Call {
+    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+        let Self { privateKey } = self;
+        public_key_ed25519(privateKey)
+    }
+}
+
+impl Cheatcode for signEd25519Call {
+    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+        let Self { namespace, message, privateKey } = self;
+        sign_ed25519(namespace, message, privateKey)
+    }
+}
+
+impl Cheatcode for verifyEd25519Call {
+    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+        let Self { signature, namespace, message, publicKey } = self;
+        verify_ed25519(signature, namespace, message, publicKey)
     }
 }
 
@@ -397,6 +430,47 @@ fn parse_private_key(private_key: &U256) -> Result<SigningKey> {
 fn parse_private_key_p256(private_key: &U256) -> Result<P256SigningKey> {
     validate_private_key::<p256::NistP256>(private_key)?;
     Ok(P256SigningKey::from_bytes((&private_key.to_be_bytes()).into())?)
+}
+
+fn parse_signing_key_ed25519(private_key: &B256) -> Result<Ed25519SigningKey> {
+    Ed25519SigningKey::try_from(private_key.as_slice())
+        .map_err(|e| fmt_err!("invalid Ed25519 private key: {e}"))
+}
+
+fn create_ed25519_key(salt: &B256) -> Result {
+    let signing_key = parse_signing_key_ed25519(salt)?;
+    let public_key = B256::from_slice(signing_key.verification_key().as_ref());
+    Ok((public_key, *salt).abi_encode())
+}
+
+fn public_key_ed25519(private_key: &B256) -> Result {
+    let signing_key = parse_signing_key_ed25519(private_key)?;
+    Ok(B256::from_slice(signing_key.verification_key().as_ref()).abi_encode())
+}
+
+fn sign_ed25519(namespace: &[u8], message: &[u8], private_key: &B256) -> Result {
+    let signing_key = parse_signing_key_ed25519(private_key)?;
+    let combined = [namespace, message].concat();
+    let signature: [u8; 64] = signing_key.sign(&combined).into();
+    Ok(signature.to_vec().abi_encode())
+}
+
+fn verify_ed25519(signature: &[u8], namespace: &[u8], message: &[u8], public_key: &B256) -> Result {
+    if signature.len() != 64 {
+        return Ok(false.abi_encode());
+    }
+
+    let Ok(verification_key) = Ed25519VerificationKey::try_from(public_key.as_slice()) else {
+        return Ok(false.abi_encode());
+    };
+
+    let Ok(sig_bytes): Result<[u8; 64], _> = signature.try_into() else {
+        return Ok(false.abi_encode());
+    };
+
+    let combined = [namespace, message].concat();
+    let valid = verification_key.verify(&Ed25519Signature::from(sig_bytes), &combined).is_ok();
+    Ok(valid.abi_encode())
 }
 
 pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
@@ -595,5 +669,181 @@ mod tests {
         let err = sign_with_nonce(&pk_u256, &digest, &n_u256).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("invalid nonce scalar"), "unexpected error: {msg}");
+    }
+
+    #[test]
+    fn test_create_ed25519_key_determinism() {
+        // Same salt should produce the same keys
+        let salt = B256::from([1u8; 32]);
+        let result1 = create_ed25519_key(&salt).unwrap();
+        let result2 = create_ed25519_key(&salt).unwrap();
+        assert_eq!(result1, result2, "same salt should produce same keys");
+    }
+
+    #[test]
+    fn test_create_ed25519_key_different_salts() {
+        // Different salts should produce different keys
+        let salt1 = B256::from([1u8; 32]);
+        let salt2 = B256::from([2u8; 32]);
+        let result1 = create_ed25519_key(&salt1).unwrap();
+        let result2 = create_ed25519_key(&salt2).unwrap();
+        assert_ne!(result1, result2, "different salts should produce different keys");
+    }
+
+    #[test]
+    fn test_create_ed25519_key_zero_seed_valid() {
+        // Ed25519 accepts all 32-byte values as valid seeds, including all zeros
+        let zero_seed = B256::ZERO;
+        let result = create_ed25519_key(&zero_seed);
+        assert!(result.is_ok(), "zero seed should be valid for Ed25519");
+
+        // Verify it produces deterministic keys
+        let result2 = create_ed25519_key(&zero_seed);
+        assert_eq!(result.unwrap(), result2.unwrap(), "same seed should produce same keys");
+    }
+
+    #[test]
+    fn test_public_key_ed25519_consistency() {
+        // Public key derived from private key should match the one from create_ed25519_key
+        let salt = B256::from([42u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+
+        // Decode the result (public_key, private_key) tuple
+        let (expected_public, private): (B256, B256) =
+            <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        let derived_public_result = public_key_ed25519(&private).unwrap();
+        let derived_public = B256::abi_decode(&derived_public_result).unwrap();
+
+        assert_eq!(expected_public, derived_public, "derived public key should match");
+    }
+
+    #[test]
+    fn test_sign_and_verify_ed25519_valid() {
+        // Create a key pair
+        let salt = B256::from([123u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+        let (public_key, private_key): (B256, B256) =
+            <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        // Sign a message with namespace
+        let namespace = b"test.namespace";
+        let message = b"hello world";
+        let sig_result = sign_ed25519(namespace, message, &private_key).unwrap();
+        let sig_bytes: Vec<u8> = Vec::abi_decode(&sig_result).unwrap();
+
+        // Verify the signature
+        let verify_result = verify_ed25519(&sig_bytes, namespace, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(valid, "signature should be valid");
+    }
+
+    #[test]
+    fn test_verify_ed25519_invalid_signature() {
+        // Create a key pair
+        let salt = B256::from([123u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+        let (public_key, _): (B256, B256) = <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        // Use an invalid signature (all zeros)
+        let invalid_sig = [0u8; 64];
+        let namespace = b"test.namespace";
+        let message = b"hello world";
+
+        // Verify should return false
+        let verify_result = verify_ed25519(&invalid_sig, namespace, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(!valid, "invalid signature should not verify");
+    }
+
+    #[test]
+    fn test_verify_ed25519_namespace_separation() {
+        // Create a key pair
+        let salt = B256::from([123u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+        let (public_key, private_key): (B256, B256) =
+            <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        // Sign with namespace A
+        let namespace_a = b"namespace.a";
+        let message = b"message";
+        let sig_result = sign_ed25519(namespace_a, message, &private_key).unwrap();
+        let sig_bytes: Vec<u8> = Vec::abi_decode(&sig_result).unwrap();
+
+        // Try to verify with namespace B (should fail)
+        let namespace_b = b"namespace.b";
+        let verify_result = verify_ed25519(&sig_bytes, namespace_b, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(!valid, "signature with namespace A should not verify with namespace B");
+
+        // Verify with correct namespace A (should succeed)
+        let verify_result = verify_ed25519(&sig_bytes, namespace_a, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(valid, "signature should verify with correct namespace");
+    }
+
+    #[test]
+    fn test_sign_ed25519_empty_namespace() {
+        // Create a key pair
+        let salt = B256::from([123u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+        let (public_key, private_key): (B256, B256) =
+            <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        // Sign with empty namespace
+        let namespace = b"";
+        let message = b"hello";
+        let sig_result = sign_ed25519(namespace, message, &private_key).unwrap();
+        let sig_bytes: Vec<u8> = Vec::abi_decode(&sig_result).unwrap();
+
+        // Verify should succeed
+        let verify_result = verify_ed25519(&sig_bytes, namespace, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(valid, "signature with empty namespace should verify");
+    }
+
+    #[test]
+    fn test_sign_ed25519_empty_message() {
+        // Create a key pair
+        let salt = B256::from([123u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+        let (public_key, private_key): (B256, B256) =
+            <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        // Sign with empty message
+        let namespace = b"test";
+        let message = b"";
+        let sig_result = sign_ed25519(namespace, message, &private_key).unwrap();
+        let sig_bytes: Vec<u8> = Vec::abi_decode(&sig_result).unwrap();
+
+        // Verify should succeed
+        let verify_result = verify_ed25519(&sig_bytes, namespace, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(valid, "signature with empty message should verify");
+    }
+
+    #[test]
+    fn test_verify_ed25519_invalid_signature_length() {
+        // Create a key pair
+        let salt = B256::from([123u8; 32]);
+        let create_result = create_ed25519_key(&salt).unwrap();
+        let (public_key, _): (B256, B256) = <(B256, B256)>::abi_decode(&create_result).unwrap();
+
+        // Use a signature with wrong length
+        let invalid_sig = [0u8; 32]; // Too short
+        let namespace = b"test";
+        let message = b"message";
+
+        // Verify should return false
+        let verify_result = verify_ed25519(&invalid_sig, namespace, message, &public_key).unwrap();
+        let valid = bool::abi_decode(&verify_result).unwrap();
+
+        assert!(!valid, "signature with wrong length should not verify");
     }
 }
