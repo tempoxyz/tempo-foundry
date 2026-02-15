@@ -413,6 +413,23 @@ contract ExpectRevertCountWithReverter is Test {
     }
 }
 
+interface IPrecompile {
+    function run(bytes calldata input) external returns (bytes memory);
+}
+
+contract ExpectRevertPrecompileTest is Test {
+    /// Test that vm.expectRevert works when the next external call targets a
+    /// precompile address directly. Precompile calls don't create an interpreter
+    /// frame (no `initialize_interp`), so depth tracking must account for them.
+    function testExpectRevertDirectPrecompileCall() public {
+        // BLAKE2F precompile (0x09) expects exactly 213 bytes of input.
+        // Calling it with invalid input through a high-level call reverts.
+        IPrecompile blake = IPrecompile(address(0x09));
+        vm.expectRevert();
+        blake.run(hex"00");
+    }
+}
+
 contract ExpectRevertWithErrorTest is Test {
     /// Ref: <https://github.com/foundry-rs/foundry/issues/12511>
     function test_f() external {
