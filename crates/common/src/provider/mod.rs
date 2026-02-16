@@ -2,6 +2,7 @@
 
 pub mod curl_transport;
 pub mod runtime_transport;
+pub mod tempo;
 
 use crate::{
     ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT,

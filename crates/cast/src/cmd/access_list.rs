@@ -3,7 +3,7 @@ use crate::{
     tx::{CastTxBuilder, SenderKind},
 };
 use alloy_ens::NameOrAddress;
-use alloy_rpc_types::BlockId;
+use alloy_rpc_types::{BlockId, TransactionRequest};
 use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
@@ -55,7 +55,7 @@ impl AccessListArgs {
         let provider = utils::get_provider(&config)?;
         let sender = SenderKind::from_wallet_opts(wallet).await?;
 
-        let (tx, _) = CastTxBuilder::new(&provider, tx, &config)
+        let (tx, _) = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?

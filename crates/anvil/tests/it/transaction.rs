@@ -15,7 +15,7 @@ use alloy_serde::WithOtherFields;
 use alloy_sol_types::SolValue;
 use anvil::{NodeConfig, spawn};
 use eyre::Ok;
-use foundry_evm::hardfork::EthereumHardfork;
+use foundry_evm::hardforks::EthereumHardfork;
 use futures::{FutureExt, StreamExt, future::join_all};
 use revm::primitives::eip7825::TX_GAS_LIMIT_CAP;
 use std::{str::FromStr, time::Duration};
@@ -1268,6 +1268,7 @@ async fn can_call_with_high_gas_limit() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Tempo hardforks are always post-London, EIP-1559 is always supported"]
 async fn test_reject_eip1559_pre_london() {
     let (api, handle) =
         spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Berlin.into()))).await;

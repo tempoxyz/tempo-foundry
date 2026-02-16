@@ -6,6 +6,9 @@ use alloy_rpc_types::BlockNumberOrTag;
 use foundry_common::NON_ARCHIVE_NODE_WARNING;
 use foundry_evm_networks::NetworkConfigs;
 use revm::context::{BlockEnv, CfgEnv, TxEnv};
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.
@@ -67,22 +70,28 @@ pub async fn environment<N: Network, P: Provider<N>>(
     let mut env = Env {
         evm_env: EvmEnv {
             cfg_env: cfg,
-            block_env: BlockEnv {
-                number: U256::from(block.header().number()),
-                timestamp: U256::from(block.header().timestamp()),
-                beneficiary: block.header().beneficiary(),
-                difficulty: block.header().difficulty(),
-                prevrandao: block.header().mix_hash(),
-                basefee: block.header().base_fee_per_gas().unwrap_or_default(),
-                gas_limit: block.header().gas_limit(),
+            block_env: TempoBlockEnv {
+                inner: BlockEnv {
+                    number: U256::from(block.header().number()),
+                    timestamp: U256::from(block.header().timestamp()),
+                    beneficiary: block.header().beneficiary(),
+                    difficulty: block.header().difficulty(),
+                    prevrandao: block.header().mix_hash(),
+                    basefee: block.header().base_fee_per_gas().unwrap_or_default(),
+                    gas_limit: block.header().gas_limit(),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         },
-        tx: TxEnv {
-            caller: origin,
-            gas_price,
-            chain_id: Some(chain_id),
-            gas_limit: block.header().gas_limit(),
+        tx: TempoTxEnv {
+            inner: TxEnv {
+                caller: origin,
+                gas_price,
+                chain_id: Some(chain_id),
+                gas_limit: block.header().gas_limit(),
+                ..Default::default()
+            },
             ..Default::default()
         },
     };
@@ -105,8 +114,8 @@ pub fn configure_env(
     memory_limit: u64,
     disable_block_gas_limit: bool,
     enable_tx_gas_limit: bool,
-) -> CfgEnv {
-    let mut cfg = CfgEnv::default();
+) -> CfgEnv<TempoHardfork> {
+    let mut cfg = CfgEnv::<TempoHardfork>::default();
     cfg.chain_id = chain_id;
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
@@ -116,6 +125,7 @@ pub fn configure_env(
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
+    cfg.disable_fee_charge = true;
     // By default do not enforce transaction gas limits imposed by Osaka (EIP-7825).
     // Users can opt-in to enable these limits by setting `enable_tx_gas_limit` to true.
     if !enable_tx_gas_limit {

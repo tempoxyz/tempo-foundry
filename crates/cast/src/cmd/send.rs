@@ -1,21 +1,21 @@
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{str::FromStr, time::Duration};
 
-use alloy_eips::Encodable2718;
+use crate::{
+    tempo::sign_with_access_key,
+    tx::{self, CastTxBuilder, CastTxSender, SendTxOpts},
+};
 use alloy_ens::NameOrAddress;
-use alloy_network::{AnyNetwork, EthereumWallet, TransactionBuilder};
+use alloy_network::EthereumWallet;
 use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_types::TransactionRequest;
-use alloy_serde::WithOtherFields;
 use alloy_signer::Signer;
 use clap::Parser;
 use eyre::{Result, eyre};
 use foundry_cli::{
     opts::TransactionOpts,
-    utils::{LoadConfig, get_provider_with_curl},
+    utils::{LoadConfig, get_tempo_provider_with_curl},
 };
 use foundry_wallets::WalletSigner;
-
-use crate::tx::{self, CastTxBuilder, CastTxSender, SendTxOpts};
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
@@ -52,16 +52,6 @@ pub struct SendTxArgs {
 
     #[command(flatten)]
     tx: TransactionOpts,
-
-    /// The path of blob data to be sent.
-    #[arg(
-        long,
-        value_name = "BLOB_DATA_PATH",
-        conflicts_with = "legacy",
-        requires = "blob",
-        help_heading = "Transaction options"
-    )]
-    path: Option<PathBuf>,
 }
 
 #[derive(Debug, Parser)]
@@ -83,9 +73,8 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
-        let Self { to, mut sig, mut args, data, send_tx, tx, command, unlocked, path } = self;
-
-        let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
+        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, data } = self;
+        let fee_token = tx.tempo.fee_token;
 
         if let Some(data) = data {
             sig = Some(data);
@@ -104,13 +93,6 @@ impl SendTxArgs {
                     "EIP-7702 transactions can't be CREATE transactions and require a destination address"
                 ));
             }
-            // ensure we don't violate settings for transactions that can't be CREATE: 7702 and 4844
-            // which require mandatory target
-            if to.is_none() && blob_data.is_some() {
-                return Err(eyre!(
-                    "EIP-4844 transactions can't be CREATE transactions and require a destination address"
-                ));
-            }
 
             sig = constructor_sig;
             args = constructor_args;
@@ -120,19 +102,34 @@ impl SendTxArgs {
         };
 
         let config = send_tx.eth.load_config()?;
-        let provider = get_provider_with_curl(&config, send_tx.eth.rpc.curl)?;
+        let provider = get_tempo_provider_with_curl(&config, send_tx.eth.rpc.curl)?;
 
         if let Some(interval) = send_tx.poll_interval {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
-        let builder = CastTxBuilder::new(&provider, tx, &config)
-            .await?
-            .with_to(to)
-            .await?
-            .with_code_sig_and_args(code, sig, args)
-            .await?
-            .with_blob_data(blob_data)?;
+        // Clone tx_opts if sponsor is present or print-sponsor-hash mode
+        let sponsor_opts = if tx.tempo.is_sponsor() || tx.tempo.should_print_hash() {
+            Some(tx.clone())
+        } else {
+            None
+        };
+
+        // Get access key config early so we can set key_id before gas estimation
+        let access_key_config = send_tx.eth.wallet.access_key_config();
+
+        let mut builder =
+            CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
+                .await?
+                .with_to(to)
+                .await?
+                .with_code_sig_and_args(code, sig, args)
+                .await?;
+
+        // Set key_id before build() so gas estimation includes Keychain signature overhead
+        if let Some(ref config) = access_key_config {
+            builder = builder.with_key_id(config.key_id);
+        }
 
         let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
 
@@ -168,11 +165,15 @@ impl SendTxArgs {
                 }
             }
 
-            let (tx, _) = builder.build(config.sender).await?;
+            let (tx, _) = if let Some(ref opts) = sponsor_opts {
+                builder.build_sponsored(config.sender, fee_token, opts).await?
+            } else {
+                builder.build(config.sender, fee_token).await?
+            };
 
             cast_send(
                 provider,
-                tx.into_inner().into(),
+                tx.into_inner(),
                 send_tx.cast_async,
                 send_tx.sync,
                 send_tx.confirmations,
@@ -186,17 +187,30 @@ impl SendTxArgs {
         } else {
             // Retrieve the signer, and bail if it can't be constructed.
             let signer = send_tx.eth.wallet.signer().await?;
-            let from = signer.address();
 
-            tx::validate_from_address(send_tx.eth.wallet.from, from)?;
+            // For access keys, `from` is the root account; otherwise it's the signer address
+            let from = if let Some(ref config) = access_key_config {
+                config.root_account
+            } else {
+                Signer::address(&signer)
+            };
+
+            // Only validate from address if not using access key
+            if access_key_config.is_none() {
+                tx::validate_from_address(send_tx.eth.wallet.from, from)?;
+            }
 
             // Browser wallets work differently as they sign and send the transaction in one step.
             if send_tx.eth.wallet.browser
                 && let WalletSigner::Browser(ref browser_signer) = signer
             {
-                let (tx_request, _) = builder.build(from).await?;
+                let (tx_request, _) = if let Some(ref opts) = sponsor_opts {
+                    builder.build_sponsored(from, fee_token, opts).await?
+                } else {
+                    builder.build(from, fee_token).await?
+                };
                 let tx_hash =
-                    browser_signer.send_transaction_via_browser(tx_request.into_inner()).await?;
+                    browser_signer.send_transaction_via_browser(tx_request.inner.inner).await?;
 
                 if send_tx.cast_async {
                     sh_println!("{tx_hash:#x}")?;
@@ -216,77 +230,68 @@ impl SendTxArgs {
                 return Ok(());
             }
 
-            // Tempo transactions need to be signed locally and sent as raw transactions
-            // because EthereumWallet doesn't understand type 0x76
-            // TODO(onbjerg): All of this is a side effect of a few things, most notably that we do
-            // not use `FoundryNetwork` and `FoundryTransactionRequest` everywhere, which is
-            // downstream of the fact that we use `EthereumWallet` everywhere.
-            if is_tempo {
-                let (ftx, _) = builder.build(&signer).await?;
+            // For access keys, pass the root account address so gas estimation and nonce lookup
+            // use the correct address. For regular transactions, pass the signer so EIP-7702
+            // authorization signing can work.
+            let (tx_request, _) = match (&access_key_config, &sponsor_opts) {
+                (Some(_), Some(opts)) => builder.build_sponsored(from, fee_token, opts).await?,
+                (Some(_), None) => builder.build(from, fee_token).await?,
+                (None, Some(opts)) => builder.build_sponsored(&signer, fee_token, opts).await?,
+                (None, None) => builder.build(&signer, fee_token).await?,
+            };
 
-                let signed_tx = ftx.build(&EthereumWallet::new(signer)).await?;
-
-                // Encode and send raw
-                let mut raw_tx = Vec::with_capacity(signed_tx.encode_2718_len());
-                signed_tx.encode_2718(&mut raw_tx);
+            if let Some(ref config) = access_key_config {
+                let raw_tx =
+                    sign_with_access_key(tx_request.inner, &signer, config.root_account).await?;
 
                 let cast = CastTxSender::new(&provider);
-                let pending_tx = cast.send_raw(&raw_tx).await?;
-                let tx_hash = pending_tx.inner().tx_hash();
-
-                if send_tx.cast_async {
-                    sh_println!("{tx_hash:#x}")?;
-                } else if send_tx.sync {
-                    // For sync mode, we already have the hash, just wait for receipt
-                    let receipt = cast
-                        .receipt(
-                            format!("{tx_hash:#x}"),
-                            None,
-                            send_tx.confirmations,
-                            Some(timeout),
-                            false,
-                        )
-                        .await?;
+                if send_tx.sync {
+                    let receipt = cast.send_raw_sync(&raw_tx).await?;
                     sh_println!("{receipt}")?;
                 } else {
-                    let receipt = cast
-                        .receipt(
-                            format!("{tx_hash:#x}"),
-                            None,
-                            send_tx.confirmations,
-                            Some(timeout),
-                            false,
-                        )
-                        .await?;
-                    sh_println!("{receipt}")?;
+                    let pending_tx = provider.send_raw_transaction(&raw_tx).await?;
+                    let tx_hash = pending_tx.tx_hash();
+                    if send_tx.cast_async {
+                        sh_println!("{tx_hash:#x}")?;
+                    } else {
+                        let receipt = cast
+                            .receipt(
+                                format!("{tx_hash:#x}"),
+                                None,
+                                send_tx.confirmations,
+                                Some(timeout),
+                                false,
+                            )
+                            .await?;
+                        sh_println!("{receipt}")?;
+                    }
                 }
+            } else {
+                // Standard flow: use EthereumWallet for signing
+                let wallet = EthereumWallet::from(signer);
+                let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
+                    .wallet(wallet)
+                    .connect_provider(&provider);
 
-                return Ok(());
+                cast_send(
+                    provider,
+                    tx_request.inner,
+                    send_tx.cast_async,
+                    send_tx.sync,
+                    send_tx.confirmations,
+                    timeout,
+                )
+                .await?;
             }
 
-            let (tx_request, _) = builder.build(&signer).await?;
-
-            let wallet = EthereumWallet::from(signer);
-            let provider = ProviderBuilder::<_, _, AnyNetwork>::default()
-                .wallet(wallet)
-                .connect_provider(&provider);
-
-            cast_send(
-                provider,
-                tx_request.into_inner().into(),
-                send_tx.cast_async,
-                send_tx.sync,
-                send_tx.confirmations,
-                timeout,
-            )
-            .await
+            Ok(())
         }
     }
 }
 
-pub(crate) async fn cast_send<P: Provider<AnyNetwork>>(
+pub(crate) async fn cast_send<P: Provider<TempoNetwork>>(
     provider: P,
-    tx: WithOtherFields<TransactionRequest>,
+    tx: TempoTransactionRequest,
     cast_async: bool,
     sync: bool,
     confs: u64,

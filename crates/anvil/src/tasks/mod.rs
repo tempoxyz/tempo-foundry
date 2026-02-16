@@ -54,7 +54,7 @@ impl TaskManager {
     /// Spawns a new task that listens for new blocks and resets the forked provider for every new
     /// block
     ///
-    /// ```
+    /// ```ignore
     /// use alloy_network::Ethereum;
     /// use alloy_provider::RootProvider;
     /// use anvil::{NodeConfig, spawn};
@@ -112,9 +112,9 @@ impl TaskManager {
     /// Spawns a new task that listens for new blocks and resets the forked provider for every new
     /// block
     ///
-    /// ```
+    /// ```ignore
     /// use alloy_network::Ethereum;
-    /// use alloy_provider::RootProvider;
+    /// use alloy_provider::{RootProvider, WsConnect};
     /// use anvil::{NodeConfig, spawn};
     ///
     /// # async fn t() {

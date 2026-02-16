@@ -15,13 +15,9 @@ use crate::{
 };
 use alloy_consensus::{
     Header, Receipt, ReceiptWithBloom, Transaction, constants::EMPTY_WITHDRAWALS,
-    proofs::calculate_receipt_root, transaction::Either,
+    proofs::calculate_receipt_root,
 };
-use alloy_eips::{
-    eip7685::EMPTY_REQUESTS_HASH,
-    eip7702::{RecoveredAuthority, RecoveredAuthorization},
-    eip7840::BlobParams,
-};
+use alloy_eips::{Encodable2718, eip7685::EMPTY_REQUESTS_HASH, eip7840::BlobParams};
 use alloy_evm::{
     EthEvmFactory, Evm, EvmEnv, EvmFactory, FromRecoveredTx,
     eth::EthEvmContext,
@@ -39,16 +35,18 @@ use foundry_evm::{
     traces::{CallTraceDecoder, CallTraceNode},
 };
 use foundry_evm_networks::NetworkConfigs;
-use foundry_primitives::{FoundryReceiptEnvelope, FoundryTxEnvelope};
-use op_revm::{OpContext, OpTransaction};
+use foundry_primitives::{FoundryReceiptEnvelope, FoundryTempoTxEnv, FoundryTxEnvelope};
+use op_revm::OpContext;
 use revm::{
     Database, Inspector,
-    context::{Block as RevmBlock, Cfg, TxEnv},
+    context::{Block as RevmBlock, Cfg},
     context_interface::result::{EVMError, ExecutionResult, Output},
     interpreter::InstructionResult,
     primitives::hardfork::SpecId,
 };
 use std::{fmt::Debug, sync::Arc};
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
 
 /// Represents an executed transaction (transacted on the DB)
 #[derive(Debug)]
@@ -95,8 +93,7 @@ impl ExecutedTransaction {
                     logs_bloom: receipt_with_bloom.logs_bloom,
                 })
             }
-            // TODO(onbjerg): we should impl support for Tempo transactions
-            FoundryTxEnvelope::Tempo(_) => todo!(),
+            FoundryTxEnvelope::Tempo(_) => FoundryReceiptEnvelope::Tempo(receipt_with_bloom),
         }
     }
 }
@@ -111,6 +108,8 @@ pub struct ExecutedTransactions {
     /// All transactions that were invalid at the point of their execution and were not included in
     /// the block
     pub invalid: Vec<Arc<PoolTransaction>>,
+    /// Transactions that were skipped because they're not yet valid (e.g., valid_after in future)
+    pub not_yet_valid: Vec<Arc<PoolTransaction>>,
 }
 
 /// An executor for a series of transactions
@@ -121,7 +120,7 @@ pub struct TransactionExecutor<'a, Db: ?Sized, V: TransactionValidator> {
     pub validator: &'a V,
     /// all pending transactions
     pub pending: std::vec::IntoIter<Arc<PoolTransaction>>,
-    pub evm_env: EvmEnv,
+    pub evm_env: EvmEnv<TempoHardfork, TempoBlockEnv>,
     pub parent_hash: B256,
     /// Cumulative gas used by all executed transactions
     pub gas_used: u64,
@@ -149,6 +148,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         let mut cumulative_gas_used = 0u64;
         let mut invalid = Vec::new();
         let mut included = Vec::new();
+        let mut not_yet_valid = Vec::new();
         let gas_limit = self.evm_env.block_env().gas_limit;
         let parent_hash = self.parent_hash;
         let block_number = self.evm_env.block_env().number;
@@ -156,18 +156,19 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
         let mix_hash = self.evm_env.block_env().prevrandao;
         let beneficiary = self.evm_env.block_env().beneficiary;
         let timestamp = self.evm_env.block_env().timestamp;
-        let base_fee = if self.evm_env.cfg_env().spec.is_enabled_in(SpecId::LONDON) {
-            Some(self.evm_env.block_env().basefee)
-        } else {
-            None
-        };
 
-        let is_shanghai = self.evm_env.cfg_env().spec >= SpecId::SHANGHAI;
-        let is_cancun = self.evm_env.cfg_env().spec >= SpecId::CANCUN;
-        let is_prague = self.evm_env.cfg_env().spec >= SpecId::PRAGUE;
-        let excess_blob_gas =
-            if is_cancun { self.evm_env.block_env().blob_excess_gas() } else { None };
-        let mut cumulative_blob_gas_used = if is_cancun { Some(0u64) } else { None };
+        // Determine hardfork features based on spec_id
+        // Note: Tempo hardforks are all post-OSAKA, so all these features are enabled for Tempo.
+        // For Ethereum mode, we use the actual spec_id from the config.
+        let spec_id: SpecId = self.evm_env.cfg_env.spec.into();
+        let is_london = spec_id >= SpecId::LONDON;
+        let is_shanghai = spec_id >= SpecId::SHANGHAI;
+        let is_cancun = spec_id >= SpecId::CANCUN;
+        let is_prague = spec_id >= SpecId::PRAGUE;
+
+        let base_fee = is_london.then_some(self.evm_env.block_env().basefee);
+        let excess_blob_gas = self.evm_env.block_env().blob_excess_gas();
+        let mut cumulative_blob_gas_used = Some(0u64);
 
         for tx in self.into_iter() {
             let tx = match tx {
@@ -188,7 +189,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
                     continue;
                 }
                 TransactionExecutionOutcome::Invalid(tx, _) => {
-                    trace!(target: "backend", ?tx,  "skipping invalid transaction");
+                    trace!(target: "backend", ?tx, "skipping invalid transaction");
                     invalid.push(tx);
                     continue;
                 }
@@ -196,6 +197,12 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
                     // Note: this is only possible in forking mode, if for example a rpc request
                     // failed
                     trace!(target: "backend", ?err,  "Failed to execute transaction due to database error");
+                    continue;
+                }
+                TransactionExecutionOutcome::NotYetValid(tx) => {
+                    // Transaction has valid_after in the future - skip for now but keep in pool
+                    trace!(target: "backend", ?tx, "transaction not yet valid, will retry later");
+                    not_yet_valid.push(tx);
                     continue;
                 }
             };
@@ -268,47 +275,19 @@ impl<DB: Db + ?Sized, V: TransactionValidator> TransactionExecutor<'_, DB, V> {
 
         let block = create_block(header, transactions);
         let block = BlockInfo { block, transactions: transaction_infos, receipts };
-        ExecutedTransactions { block, included, invalid }
+        ExecutedTransactions { block, included, invalid, not_yet_valid }
     }
 
     fn env_for(&self, tx: &PendingTransaction) -> Env {
-        let mut tx_env: OpTransaction<TxEnv> =
+        let mut tx_env: FoundryTempoTxEnv =
             FromRecoveredTx::from_recovered_tx(tx.transaction.as_ref(), *tx.sender());
 
-        if let FoundryTxEnvelope::Eip7702(tx_7702) = tx.transaction.as_ref()
-            && self.cheats.has_recover_overrides()
-        {
-            // Override invalid recovered authorizations with signature overrides from cheat manager
-            let cheated_auths = tx_7702
-                .tx()
-                .authorization_list
-                .iter()
-                .zip(tx_env.base.authorization_list)
-                .map(|(signed_auth, either_auth)| {
-                    either_auth.right_and_then(|recovered_auth| {
-                        if recovered_auth.authority().is_none()
-                            && let Ok(signature) = signed_auth.signature()
-                            && let Some(override_addr) =
-                                self.cheats.get_recover_override(&signature.as_bytes().into())
-                        {
-                            Either::Right(RecoveredAuthorization::new_unchecked(
-                                recovered_auth.into_parts().0,
-                                RecoveredAuthority::Valid(override_addr),
-                            ))
-                        } else {
-                            Either::Right(recovered_auth)
-                        }
-                    })
-                })
-                .collect();
-            tx_env.base.authorization_list = cheated_auths;
-        }
-
+        // OP-stack L1 fee calculation: set enveloped_tx for Optimism mode
         if self.networks.is_optimism() {
-            tx_env.enveloped_tx = Some(alloy_rlp::encode(tx.transaction.as_ref()).into());
+            tx_env.enveloped_tx = Some(tx.transaction.encoded_2718().into());
         }
 
-        Env::new(self.evm_env.clone(), tx_env, self.networks)
+        Env::with_foundry_tx(self.evm_env.clone(), tx_env, self.networks)
     }
 }
 
@@ -327,6 +306,9 @@ pub enum TransactionExecutionOutcome {
     TransactionGasExhausted(Arc<PoolTransaction>),
     /// When an error occurred during execution
     DatabaseError(Arc<PoolTransaction>, DatabaseError),
+    /// Transaction not yet valid (e.g., valid_after in the future)
+    /// Should remain in the pool for later execution
+    NotYetValid(Arc<PoolTransaction>),
 }
 
 impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExecutor<'_, DB, V> {
@@ -342,9 +324,9 @@ impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExec
         let env = self.env_for(&transaction.pending_transaction);
 
         // check that we comply with the block's gas limit, if not disabled
-        let max_block_gas = self.gas_used.saturating_add(env.tx.base.gas_limit);
+        let max_block_gas = self.gas_used.saturating_add(env.tx.inner.gas_limit);
         if !env.evm_env.cfg_env.disable_block_gas_limit
-            && max_block_gas > env.evm_env.block_env.gas_limit
+            && max_block_gas > env.evm_env.block_env.inner.gas_limit
         {
             return Some(TransactionExecutionOutcome::BlockGasExhausted(transaction));
         }
@@ -426,9 +408,30 @@ impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExec
                                 err.into(),
                             ));
                         }
-                        // This will correspond to prevrandao not set, and it should never happen.
-                        // If it does, it's a bug.
-                        e => panic!("failed to execute transaction: {e}"),
+                        EVMError::Custom(msg) => {
+                            // Check if this is a "not valid yet" error from Tempo
+                            // (transaction has valid_after in the future)
+                            if msg.contains("not valid yet") {
+                                trace!(target: "backend", "[{:?}] transaction not valid yet, will retry later", transaction.hash());
+                                return Some(TransactionExecutionOutcome::NotYetValid(transaction));
+                            }
+                            // Other custom errors from Tempo (e.g., "native value transfer not
+                            // allowed") are treated as invalid
+                            // transactions
+                            return Some(TransactionExecutionOutcome::Invalid(
+                                transaction,
+                                InvalidTransactionError::Revert(Some(msg.into_bytes().into())),
+                            ));
+                        }
+                        EVMError::Header(e) => {
+                            warn!(target: "backend", "[{:?}] header error: {:?}", transaction.hash(), e);
+                            return Some(TransactionExecutionOutcome::Invalid(
+                                transaction,
+                                InvalidTransactionError::Revert(Some(
+                                    e.to_string().into_bytes().into(),
+                                )),
+                            ));
+                        }
                     }
                 }
             }
@@ -500,7 +503,9 @@ pub fn new_evm_with_inspector<DB, I>(
 ) -> EitherEvm<DB, I, PrecompilesMap>
 where
     DB: Database<Error = DatabaseError> + Debug,
-    I: Inspector<EthEvmContext<DB>> + Inspector<OpContext<DB>>,
+    I: Inspector<EthEvmContext<DB>>
+        + Inspector<OpContext<DB>>
+        + Inspector<tempo_revm::evm::TempoContext<DB>>,
 {
     if env.networks.is_optimism() {
         let evm_env = EvmEnv::new(
@@ -508,14 +513,33 @@ where
                 .cfg_env
                 .clone()
                 .with_spec_and_mainnet_gas_params(op_revm::OpSpecId::ISTHMUS),
-            env.evm_env.block_env.clone(),
+            env.evm_env.block_env.inner.clone(),
         );
         EitherEvm::Op(OpEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
+    } else if env.networks.is_tempo() {
+        // Use TempoEvm for Tempo mode - this includes built-in Tempo precompiles
+        use revm::context_interface::JournalTr;
+        let ctx = tempo_revm::evm::TempoContext {
+            journaled_state: {
+                let mut journal = revm::Journal::new(db);
+                journal.set_spec_id(env.evm_env.cfg_env.spec.into());
+                journal
+            },
+            block: env.evm_env.block_env.clone(),
+            cfg: env.evm_env.cfg_env.clone(),
+            tx: Default::default(),
+            chain: (),
+            local: revm::context::LocalContext::default(),
+            error: Ok(()),
+        };
+        EitherEvm::Tempo(tempo_revm::TempoEvm::new(ctx, inspector))
     } else {
-        EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(
-            db,
-            env.evm_env.clone(),
-            inspector,
-        ))
+        // Convert TempoHardfork-based env to SpecId-based env for non-Optimism chains
+        let spec_id: SpecId = env.evm_env.cfg_env.spec.into();
+        let evm_env = EvmEnv::new(
+            env.evm_env.cfg_env.clone().with_spec_and_mainnet_gas_params(spec_id),
+            env.evm_env.block_env.inner.clone(),
+        );
+        EitherEvm::Eth(EthEvmFactory::default().create_evm_with_inspector(db, evm_env, inspector))
     }
 }

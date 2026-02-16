@@ -9,7 +9,7 @@ use alloy_ens::NameOrAddress;
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256, hex, map::HashMap};
 use alloy_provider::Provider;
 use alloy_rpc_types::{
-    BlockId, BlockNumberOrTag, BlockOverrides,
+    BlockId, BlockNumberOrTag, BlockOverrides, TransactionRequest,
     state::{StateOverride, StateOverridesBuilder},
 };
 use clap::Parser;
@@ -33,6 +33,7 @@ use foundry_config::{
 };
 use foundry_evm::{
     executors::TracingExecutor,
+    hardforks::FoundryHardfork,
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode},
 };
@@ -120,6 +121,11 @@ pub struct CallArgs {
     /// Can only be used with `--trace`.
     #[arg(long, requires = "trace")]
     evm_version: Option<EvmVersion>,
+
+    /// The EVM hardfork to use.
+    /// Can only be used with `--trace`.
+    #[arg(long, requires = "trace")]
+    pub hardfork: Option<FoundryHardfork>,
 
     /// The block height to query at.
     ///
@@ -233,6 +239,7 @@ impl CallArgs {
             block,
             trace,
             evm_version,
+            hardfork,
             debug,
             decode_internal,
             labels,
@@ -268,7 +275,7 @@ impl CallArgs {
             None
         };
 
-        let (tx, func) = CastTxBuilder::new(&provider, tx, &config)
+        let (tx, func) = CastTxBuilder::<_, _, TransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?
@@ -310,10 +317,12 @@ impl CallArgs {
                     InternalTraceMode::None
                 })
                 .with_state_changes(shell::verbosity() > 4);
+
             let mut executor = TracingExecutor::new(
                 env,
                 fork,
                 evm_version,
+                hardfork,
                 trace_mode,
                 networks,
                 create2_deployer,

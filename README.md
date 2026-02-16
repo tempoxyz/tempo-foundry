@@ -1,3 +1,107 @@
+<br>
+<br>
+
+<p align="center">
+  <a href="https://tempo.xyz">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tempoxyz/.github/refs/heads/main/assets/combomark-dark.svg">
+      <img alt="tempo combomark" src="https://raw.githubusercontent.com/tempoxyz/.github/refs/heads/main/assets/combomark-bright.svg" width="auto" height="120">
+    </picture>
+  </a>
+</p>
+
+<br>
+<br>
+
+# Tempo Foundry
+
+[Tempo](https://docs.tempo.xyz/) is a blockchain designed specifically for stablecoin payments. Its architecture focuses on high throughput, low cost, and features that financial institutions, payment service providers, and fintech platforms expect from modern payment infrastructure.
+
+`Tempo Foundry` is a custom fork of [Foundry](https://github.com/foundry-rs/foundry) that integrates Tempo's payment-native protocol features directly into the familiar Foundry developer workflow.
+
+This is a temporary required drop-in replacement for upstream Foundry while Tempo-specific features are being integrated into upstream Foundry, after which this fork will be deprecated.
+
+Get started [here](https://docs.tempo.xyz/sdk/foundry) to use Tempo's features in Foundry.
+
+## Installation
+
+Tempo's Foundry fork is installed through the standard upstream `foundryup` using the `-n tempo` flag, no separate installer is required.
+
+Getting started is very easy:
+
+Install regular `foundryup`:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+Or if you already have `foundryup` installed:
+
+```bash
+foundryup --update
+```
+
+Next, run:
+
+```bash
+foundryup -n tempo
+```
+
+It will automatically install the latest `nightly` release of the precompiled binaries: [`forge`](#forge) and [`cast`](#cast).
+
+**Done!**
+
+For additional details see the [installation guide](https://getfoundry.sh/getting-started/installation) in the [Foundry Docs][foundry-docs].
+
+If you're experiencing any issues while installing, check out [Getting Help](#getting-help) and the [FAQ](https://getfoundry.sh/faq).
+
+## Testnet
+
+You can connect to Tempo's public testnet using the following details:
+
+| Property           | Value                                |
+| ------------------ | ------------------------------------ |
+| **Network Name**   | Tempo Testnet (Moderato)             |
+| **Currency**       | `USD`                                |
+| **Chain ID**       | `42431`                              |
+| **HTTP URL**       | `https://rpc.moderato.tempo.xyz`     |
+| **WebSocket URL**  | `wss://rpc.moderato.tempo.xyz`       |
+| **Block Explorer** | `https://explore.moderato.tempo.xyz` |
+
+Next, grab some stablecoins to test with from Tempo's [Faucet](https://docs.tempo.xyz/quickstart/faucet#faucet).
+
+Alternatively, use [`cast`](https://github.com/tempoxyz/tempo-foundry):
+
+```bash
+cast rpc tempo_fundAddress <ADDRESS> --rpc-url https://rpc.moderato.tempo.xyz
+```
+
+## Changeset
+
+Key extensions:
+
+- In `foundryup`:
+  - `foundryup -n tempo`: download the latest `nightly` release of Tempo's fork of Foundry.
+  - `foundryup -n tempo -i <TAG>`: download a specific `nightly` release by tag `nightly-<hash>`.
+
+- In `forge`:
+  - `forge init -n tempo`: adds a Tempo-specific `Mail` template showcasing a `TIP20` transfer with an attached memo.
+  - `forge install tempoxyz/tempo-std`: like `forge-std`, a collection of helpful contracts and libraries for Tempo-specific testing and utilities.
+  - `--tempo.fee-token` support: pay gas fees in any `TIP20` stablecoin.
+
+- In `cast`:
+  - `cast run`: updated to correctly process Tempo's system transactions when replaying a block.
+  - `cast tip20`: alias to `cast erc20`.
+  - `--tempo.fee-token` support: pay gas fees in any `TIP20` stablecoin.
+
+- Additionally:
+  - Support for local and forked simulation of the Tempo execution environment.
+  - Support for Tempo's (stateful) precompiles and default contracts including labels in traces.
+  - A custom `TempoEvm` extends `Revm`'s `Evm` to accommodate differences Tempo introduces to optimize for payments.
+
+<br>
+<br>
+
 <div align="center">
   <img src=".github/assets/banner.png" alt="Foundry banner" />
 
@@ -25,25 +129,91 @@
 
 Blazing fast, portable and modular toolkit for Ethereum application development, written in Rust.
 
-- [**Forge**](https://getfoundry.sh/forge) — Build, test, fuzz, debug and deploy Solidity contracts.
-- [**Cast**](https://getfoundry.sh/cast) — Swiss Army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- [**Anvil**](https://getfoundry.sh/anvil) — Fast local Ethereum development node.
-- [**Chisel**](https://getfoundry.sh/chisel) — Fast, utilitarian and verbose Solidity REPL.
+Tempo's fork of Foundry consists of:
+
+- [**Forge**](#forge): Build, test, fuzz, debug and deploy [Solidity][solidity] contracts, like Hardhat, Brownie, Ape.
+- [**Cast**](#cast): A Swiss Army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+
+**Need help getting started with Foundry? Read the [📖 Foundry Docs][foundry-docs]!**
 
 ![Demo](.github/assets/demo.gif)
 
-## Installation
+## Features
+
+- **High-Performance Compilation**
+  - **Fast and Flexible**: Automatically detects and installs the required Solidity compiler version.
+  - **Solidity and Vyper Support**: Fully supports both Solidity and Vyper out-of-the-box.
+  - **Incremental Compilation**: Re-compiles only changed files, saving time.
+  - **Parallelized Pipeline**: Leverages multi-core systems for ultra-fast builds.
+  - **Broad Compatibility**: Supports non-standard directory structures, including [Hardhat repos](https://twitter.com/gakonst/status/1461289225337421829).
+
+- **Advanced Testing**
+  - **No Context Switching**: Write tests directly in Solidity.
+  - **Fuzz Testing**: Quickly identify edge cases with input shrinking and counter-example generation.
+  - **Invariant Testing**: Ensure complex system properties hold across a wide range of inputs.
+  - **Debugging Made Easy**: Use [forge-std](https://github.com/foundry-rs/forge-std)'s `console.sol` for flexible debug logging.
+  - **Interactive Debugger**: Step through your Solidity code with Foundry's interactive debugger, making it easy to pinpoint issues.
+
+- **Powerful Runtime Features**
+  - **RPC Forking**: Fast and efficient remote RPC forking backed by [Alloy][alloy].
+  - **Lightweight & Portable**: No dependency on Nix or other package managers for installation.
+
+- **Streamlined CI/CD**
+  - **Optimized CI**: Accelerate builds, run tests and execute scripts using [Foundry's GitHub action][foundry-gha].
+
+## How Fast?
+
+Forge is quite fast at both compiling (leveraging `solc` with [foundry-compilers]) and testing.
+
+See the benchmarks below. Older benchmarks against [DappTools][dapptools] can be found in the [v0.2.0 announcement post][benchmark-post] and in the [Convex Shutdown Simulation][convex] repository.
+
+### Testing Benchmarks
+
+| Project                                       | Type                 | [Forge 1.0][foundry-1.0] | [Forge 0.2][foundry-0.2] | DappTools | Speedup        |
+| --------------------------------------------- | -------------------- | ------------------------ | ------------------------ | --------- | -------------- |
+| [vectorized/solady][solady]                   | Unit / Fuzz          | 0.9s                     | 2.3s                     | -         | 2.6x           |
+| [morpho-org/morpho-blue][morpho-blue]         | Invariant            | 0.7s                     | 1m43s                    | -         | 147.1x         |
+| [morpho-org/morpho-blue-oracles][morpho-blue] | Integration (Cold)   | 6.1s                     | 6.3s                     | -         | 1.04x          |
+| [morpho-org/morpho-blue-oracles][morpho-blue] | Integration (Cached) | 0.6s                     | 0.9s                     | -         | 1.50x          |
+| [transmissions11/solmate][solmate]            | Unit / Fuzz          | 2.7s                     | 2.8s                     | 6m34s     | 1.03x / 140.0x |
+| [reflexer-labs/geb][geb]                      | Unit / Fuzz          | 0.2s                     | 0.4s                     | 23s       | 2.0x / 57.5x   |
+
+_In the above benchmarks, compilation was always skipped_
+
+**Takeaway: Forge dramatically outperforms the competition, delivering blazing-fast execution speeds while continuously expanding its robust feature set.**
+
+### Compilation Benchmarks
+
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/build_benchmark_solady_dark.png" width="600px">
+    <img src=".github/assets/build_benchmark_solady_light.png" width="600px">
+  </picture>
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/build_benchmark_openzeppelin_dark.png" width="600px">
+    <img src=".github/assets/build_benchmark_openzeppelin_light.png" width="600px">
+  </picture>
+
+&nbsp;
+
+</div>
+
+**Takeaway: Forge compilation is consistently faster than Hardhat by a factor of `2.1x` to `5.2x`, depending on the amount of caching involved.**
+
+## Forge
+
+Forge helps you build, test, fuzz, debug and deploy Solidity contracts.
+
+The best way to understand Forge is to simply try it (in less than 30 seconds!).
+
+First, let's initialize a new `counter` example repository:
 
 ```sh
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+forge init counter
 ```
 
-See the [installation guide](https://getfoundry.sh/getting-started/installation) for more details.
-
-## Getting Started
-
-Initialize a new project, build and test:
+Next `cd` into `counter` and build:
 
 ```sh
 forge init counter && cd counter
@@ -58,13 +228,38 @@ cast block-number --rpc-url https://eth.merkle.io
 cast balance vitalik.eth --ether --rpc-url https://eth.merkle.io
 ```
 
-Fork mainnet locally:
+**Replay and trace a transaction**
 
 ```sh
-anvil --fork-url https://eth.merkle.io
+cast run 0x9c32042f5e997e27e67f82583839548eb19dc78c4769ad6218657c17f2a5ed31 --rpc-url https://eth.merkle.io
 ```
 
-Read the [Foundry Docs][foundry-docs] to learn more.
+Optionally, pass `--etherscan-api-key <API_KEY>` to decode transaction traces using verified source maps, providing more detailed and human-readable information.
+
+---
+
+Run `cast --help` to explore the full list of available subcommands and their usage.
+
+More documentation can be found in the [cast](https://getfoundry.sh/cast/overview) section of the Foundry Docs.
+
+## Configuration
+
+Foundry is highly configurable, allowing you to tailor it to your needs. Configuration is managed via a file called [`foundry.toml`](./crates/config) located in the root of your project or any parent directory. For a full list of configuration options, refer to the [config package documentation](./crates/config/README.md#all-options).
+
+You can find additional [setup and configurations guides](https://getfoundry.sh/config/overview) in the [Foundry Docs][foundry-docs] and in the [config crate](./crates/config/README.md):
+
+- [Configuring with `foundry.toml`](https://getfoundry.sh/config/overview)
+- [Setting up VSCode][vscode-setup]
+- [Shell autocompletions][shell-setup]
+
+**Profiles and Namespaces**
+
+- Configuration can be organized into **profiles**, which are arbitrarily namespaced for flexibility.
+- The default profile is named `default`. Learn more in the [Default Profile section](./crates/config/README.md#default-profile).
+- To select a different profile, set the `FOUNDRY_PROFILE` environment variable.
+- Override specific settings using environment variables prefixed with `FOUNDRY_` (e.g., `FOUNDRY_SRC`).
+
+---
 
 ## Contributing
 
@@ -72,9 +267,18 @@ Contributions are welcome and highly appreciated. To get started, check out the 
 
 Join our [Telegram][tg-url] to chat about the development of Foundry.
 
-## Support
+## Security
 
-Having trouble? Check the [Foundry Docs][foundry-docs], join the [support Telegram][tg-support-url], or [open an issue](https://github.com/foundry-rs/foundry/issues/new).
+See [`SECURITY.md`](https://github.com/tempoxyz/tempo-foundry?tab=security-ov-file).
+
+## License
+
+Having trouble? See if the answer to your question can be found in the [Foundry Docs][foundry-docs].
+
+If the answer is not there:
+
+- Join the [support Telegram][tg-support-url] to get help, or
+- Open an issue with [the bug](https://github.com/foundry-rs/foundry/issues/new)
 
 #### License
 

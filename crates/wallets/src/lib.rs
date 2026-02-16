@@ -19,7 +19,7 @@ pub mod wallet_browser;
 pub mod wallet_multi;
 pub mod wallet_raw;
 
-pub use opts::WalletOpts;
+pub use opts::{AccessKeyConfig, WalletOpts};
 pub use signer::{PendingSigner, WalletSigner};
 pub use wallet_multi::MultiWalletOpts;
 pub use wallet_raw::RawWalletOpts;

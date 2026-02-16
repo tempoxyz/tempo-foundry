@@ -1,11 +1,11 @@
-use alloy_chains::{Chain, NamedChain};
-use alloy_network::AnyTransactionReceipt;
+use alloy_chains::Chain;
 use alloy_primitives::{TxHash, U256, utils::format_units};
 use alloy_provider::{PendingTransactionBuilder, PendingTransactionError, Provider, WatchTxError};
 use eyre::{Result, eyre};
 use forge_script_sequence::ScriptSequence;
-use foundry_common::{provider::RetryProvider, retry, retry::RetryError, shell};
+use foundry_common::{provider::tempo::TempoRetryProvider, retry, retry::RetryError, shell};
 use std::time::Duration;
+use tempo_alloy::rpc::TempoTransactionReceipt;
 
 /// Marker error type for pending receipts
 #[derive(Debug, thiserror::Error)]
@@ -19,13 +19,13 @@ pub struct PendingReceiptError {
 /// Convenience enum for internal signalling of transaction status
 pub enum TxStatus {
     Dropped,
-    Success(AnyTransactionReceipt),
-    Revert(AnyTransactionReceipt),
+    Success(TempoTransactionReceipt),
+    Revert(TempoTransactionReceipt),
 }
 
-impl From<AnyTransactionReceipt> for TxStatus {
-    fn from(receipt: AnyTransactionReceipt) -> Self {
-        if !receipt.inner.inner.inner.receipt.status.coerce_status() {
+impl From<TempoTransactionReceipt> for TxStatus {
+    fn from(receipt: TempoTransactionReceipt) -> Self {
+        if !receipt.inner.inner.receipt.success {
             Self::Revert(receipt)
         } else {
             Self::Success(receipt)
@@ -36,7 +36,7 @@ impl From<AnyTransactionReceipt> for TxStatus {
 /// Checks the status of a txhash by first polling for a receipt, then for
 /// mempool inclusion. Returns the tx hash, and a status
 pub async fn check_tx_status(
-    provider: &RetryProvider,
+    provider: &TempoRetryProvider,
     hash: TxHash,
     timeout: u64,
 ) -> (TxHash, Result<TxStatus, eyre::Report>) {
@@ -92,13 +92,14 @@ pub async fn check_tx_status(
 /// Prints parts of the receipt to stdout
 pub fn format_receipt(
     chain: Chain,
-    receipt: &AnyTransactionReceipt,
+    receipt: &TempoTransactionReceipt,
+    fee_token_symbol: String,
     sequence: Option<&ScriptSequence>,
 ) -> String {
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
     let block_number = receipt.block_number.unwrap_or_default();
-    let success = receipt.inner.inner.inner.receipt.status.coerce_status();
+    let success = receipt.inner.inner.receipt.success;
 
     let (contract_name, function) = sequence
         .and_then(|seq| {
@@ -165,14 +166,10 @@ pub fn format_receipt(
                     .unwrap_or_else(|_| "N/A".into());
                 let gas_price =
                     format_units(U256::from(gas_price), 9).unwrap_or_else(|_| "N/A".into());
-                let token_symbol = NamedChain::try_from(chain)
-                    .unwrap_or_default()
-                    .native_currency_symbol()
-                    .unwrap_or("ETH");
                 format!(
                     "Paid: {} {} ({gas_used} gas * {} gwei)",
                     paid.trim_end_matches('0'),
-                    token_symbol,
+                    fee_token_symbol,
                     gas_price.trim_end_matches('0').trim_end_matches('.')
                 )
             },
@@ -183,10 +180,11 @@ pub fn format_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use alloy_primitives::B256;
     use std::collections::VecDeque;
 
-    fn mock_receipt(tx_hash: B256, success: bool) -> AnyTransactionReceipt {
+    fn mock_receipt(tx_hash: B256, success: bool) -> TempoTransactionReceipt {
         serde_json::from_value(serde_json::json!({
             "type": "0x02", "status": if success { "0x1" } else { "0x0" },
             "cumulativeGasUsed": "0x5208", "logs": [], "transactionHash": tx_hash,
@@ -194,7 +192,8 @@ mod tests {
             "transactionIndex": "0x0", "blockHash": B256::ZERO, "blockNumber": "0x3039",
             "gasUsed": "0x5208", "effectiveGasPrice": "0x4a817c800",
             "from": "0x0000000000000000000000000000000000000000",
-            "to": "0x0000000000000000000000000000000000000000", "contractAddress": null
+            "to": "0x0000000000000000000000000000000000000000", "contractAddress": null,
+            "feePayer": "0x0000000000000000000000000000000000000000"
         }))
         .unwrap()
     }
@@ -219,7 +218,8 @@ mod tests {
     fn format_receipt_displays_contract_and_function() {
         let hash = B256::repeat_byte(0x42);
         let seq = mock_sequence(hash, Some("MyContract"), Some("init(address)"));
-        let out = format_receipt(Chain::mainnet(), &mock_receipt(hash, true), Some(&seq));
+        let out =
+            format_receipt(Chain::mainnet(), &mock_receipt(hash, true), String::new(), Some(&seq));
 
         assert!(out.contains("Contract: MyContract"));
         assert!(out.contains("Function: init(address)"));
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn format_receipt_without_sequence_omits_metadata() {
         let hash = B256::repeat_byte(0x42);
-        let out = format_receipt(Chain::mainnet(), &mock_receipt(hash, true), None);
+        let out = format_receipt(Chain::mainnet(), &mock_receipt(hash, true), String::new(), None);
 
         assert!(!out.contains("Contract:"));
         assert!(!out.contains("Function:"));
@@ -239,7 +239,8 @@ mod tests {
     fn format_receipt_skips_empty_contract_name() {
         let hash = B256::repeat_byte(0x42);
         let seq = mock_sequence(hash, Some(""), Some("transfer(address)"));
-        let out = format_receipt(Chain::mainnet(), &mock_receipt(hash, true), Some(&seq));
+        let out =
+            format_receipt(Chain::mainnet(), &mock_receipt(hash, true), String::new(), Some(&seq));
 
         assert!(!out.contains("Contract:"));
         assert!(out.contains("Function: transfer(address)"));
@@ -251,6 +252,7 @@ mod tests {
         let out = format_receipt(
             Chain::mainnet(),
             &mock_receipt(B256::repeat_byte(0x42), true),
+            String::new(),
             Some(&seq),
         );
 
@@ -262,7 +264,8 @@ mod tests {
     fn format_receipt_shows_contract_on_failure() {
         let hash = B256::repeat_byte(0x42);
         let seq = mock_sequence(hash, Some("FailContract"), Some("fail()"));
-        let out = format_receipt(Chain::mainnet(), &mock_receipt(hash, false), Some(&seq));
+        let out =
+            format_receipt(Chain::mainnet(), &mock_receipt(hash, false), String::new(), Some(&seq));
 
         assert!(out.contains("❌  [Failed]"));
         assert!(out.contains("Contract: FailContract"));

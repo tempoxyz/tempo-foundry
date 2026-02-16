@@ -507,6 +507,8 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
         CastSubcommand::Call(cmd) => cmd.run().await?,
         CastSubcommand::Estimate(cmd) => cmd.run().await?,
         CastSubcommand::MakeTx(cmd) => cmd.run().await?,
+        CastSubcommand::BatchMakeTx(cmd) => cmd.run().await?,
+        CastSubcommand::BatchSend(cmd) => cmd.run().await?,
         CastSubcommand::PublishTx { raw_tx, cast_async, rpc } => {
             let config = rpc.load_config()?;
             let provider = utils::get_provider(&config)?;
@@ -523,7 +525,7 @@ pub async fn run_command(args: CastArgs) -> Result<()> {
         }
         CastSubcommand::Receipt { tx_hash, field, cast_async, confirmations, rpc } => {
             let config = rpc.load_config()?;
-            let provider = utils::get_provider(&config)?;
+            let provider = utils::get_tempo_provider(&config)?;
             sh_println!(
                 "{}",
                 CastTxSender::new(provider)

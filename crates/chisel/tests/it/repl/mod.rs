@@ -264,3 +264,39 @@ repl_test!(uninitialized_variables, |repl| {
     repl.sendln("y");
     repl.expect("Data: 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF");
 });
+
+// Test Tempo hardfork mode: Tempo precompiles should be initialized.
+// PathUSD token address: 0x20C0000000000000000000000000000000000000
+repl_test!(tempo_hardfork_precompiles, "--hardfork tempo:T0", |repl| {
+    // PathUSD token should have code in Tempo mode
+    repl.sendln("address pathUsd = 0x20C0000000000000000000000000000000000000");
+    repl.sendln("pathUsd.code.length > 0");
+    repl.expect("true");
+});
+
+// Test Ethereum hardfork mode: execution works without Tempo precompiles.
+repl_test!(ethereum_hardfork_execution, "--hardfork cancun", |repl| {
+    // Basic Solidity execution should work
+    repl.sendln("uint256 x = 42");
+    repl.sendln("x");
+    repl.expect("Decimal: 42");
+
+    // Tempo precompiles should NOT have code in Ethereum mode
+    // PathUSD token address: 0x20C0000000000000000000000000000000000000
+    repl.sendln("address pathUsd = 0x20C0000000000000000000000000000000000000");
+    repl.sendln("pathUsd.code.length == 0");
+    repl.expect("true");
+});
+
+// Test Optimism hardfork mode: execution works without Tempo precompiles.
+repl_test!(optimism_hardfork_execution, "--hardfork optimism:ecotone", |repl| {
+    // Basic Solidity execution should work
+    repl.sendln("uint256 x = 123");
+    repl.sendln("x");
+    repl.expect("Decimal: 123");
+
+    // Tempo precompiles should NOT have code in Optimism mode
+    repl.sendln("address pathUsd = 0x20C0000000000000000000000000000000000000");
+    repl.sendln("pathUsd.code.length == 0");
+    repl.expect("true");
+});

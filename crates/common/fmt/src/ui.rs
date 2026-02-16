@@ -1,7 +1,8 @@
 //! Helper trait and functions to format Ethereum types.
 
 use alloy_consensus::{
-    Eip658Value, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxEnvelope, TxType, Typed2718,
+    Eip658Value, Receipt, ReceiptWithBloom, Transaction as TxTrait, TxEnvelope, TxReceipt, TxType,
+    Typed2718, transaction::TxHashRef,
 };
 use alloy_network::{
     AnyHeader, AnyReceiptEnvelope, AnyRpcBlock, AnyRpcTransaction, AnyTransactionReceipt,
@@ -15,9 +16,15 @@ use alloy_serde::{OtherFields, WithOtherFields};
 use foundry_primitives::{FoundryReceiptEnvelope, FoundryTxReceipt};
 use revm::context_interface::transaction::SignedAuthorization;
 use serde::Deserialize;
+use tempo_alloy::{primitives::TempoTxEnvelope, rpc::TempoTransactionReceipt};
 
 /// length of the name column for pretty formatting `{:>20}{value}`
 const NAME_COLUMN_LEN: usize = 20usize;
+
+/// Trim trailing whitespace from each line (handles empty values in formatted output).
+fn trim_trailing_whitespace(s: &str) -> String {
+    s.lines().map(|line| line.trim_end()).collect::<Vec<_>>().join("\n")
+}
 
 /// Helper trait to format Ethereum types.
 ///
@@ -231,7 +238,73 @@ blobGasUsed          {}",
         // additional captured fields
         pretty.push_str(&other.pretty());
 
-        pretty
+        trim_trailing_whitespace(&pretty)
+    }
+}
+
+impl UIfmt for TempoTransactionReceipt {
+    fn pretty(&self) -> String {
+        let Self {
+            inner:
+                TransactionReceipt {
+                    transaction_hash,
+                    transaction_index,
+                    block_hash,
+                    block_number,
+                    from,
+                    to,
+                    gas_used,
+                    contract_address,
+                    effective_gas_price,
+                    inner: ReceiptWithBloom { receipt, logs_bloom },
+                    blob_gas_price: _blob_gas_price,
+                    blob_gas_used: _blob_gas_used,
+                },
+            fee_token,
+            fee_payer,
+        } = self;
+
+        let mut pretty = format!(
+            "
+feeToken             {}
+feePayer             {}
+blockHash            {}
+blockNumber          {}
+contractAddress      {}
+cumulativeGasUsed    {}
+effectiveGasPrice    {}
+from                 {}
+gasUsed              {}
+logs                 {}
+logsBloom            {}
+root                 {}
+status               {}
+transactionHash      {}
+transactionIndex     {}
+type                 {}",
+            fee_token.pretty(),
+            fee_payer.pretty(),
+            block_hash.pretty(),
+            block_number.pretty(),
+            contract_address.pretty(),
+            receipt.cumulative_gas_used.pretty(),
+            effective_gas_price.pretty(),
+            from.pretty(),
+            gas_used.pretty(),
+            serde_json::to_string(&receipt.logs).unwrap(),
+            logs_bloom.pretty(),
+            self.state_root().pretty(),
+            receipt.status().pretty(),
+            transaction_hash.pretty(),
+            transaction_index.pretty(),
+            self.inner.inner.receipt.tx_type,
+        );
+
+        if let Some(to) = to {
+            pretty.push_str(&format!("\nto                   {}", to.pretty()));
+        }
+
+        trim_trailing_whitespace(&pretty)
     }
 }
 
@@ -311,9 +384,28 @@ impl UIfmt for AccessListItem {
     }
 }
 
-impl UIfmt for TxEnvelope {
+impl UIfmt for TempoTxEnvelope {
     fn pretty(&self) -> String {
         match &self {
+            Self::AA(_tx) => format!(
+                "
+gas                  {}
+gasPrice             {}
+hash                 {}
+input                {}
+nonce                {}
+to                   {}
+type                 {}
+value                {}",
+                self.gas_limit().pretty(),
+                self.gas_price().pretty(),
+                self.tx_hash().pretty(),
+                self.input().pretty(),
+                self.nonce().pretty(),
+                self.to().pretty(),
+                self.tx_type().ty(),
+                self.value().pretty(),
+            ),
             Self::Eip2930(tx) => format!(
                 "
 accessList           {}
@@ -342,7 +434,7 @@ yParity              {}",
                 FixedBytes::from(tx.signature().r()).pretty(),
                 FixedBytes::from(tx.signature().s()).pretty(),
                 self.to().pretty(),
-                self.ty(),
+                self.tx_type().ty(),
                 self.value().pretty(),
                 (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
             ),
@@ -376,45 +468,7 @@ yParity              {}",
                 FixedBytes::from(tx.signature().r()).pretty(),
                 FixedBytes::from(tx.signature().s()).pretty(),
                 self.to().pretty(),
-                self.ty(),
-                self.value().pretty(),
-                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
-            ),
-            Self::Eip4844(tx) => format!(
-                "
-accessList           {}
-blobVersionedHashes  {}
-chainId              {}
-gasLimit             {}
-hash                 {}
-input                {}
-maxFeePerBlobGas     {}
-maxFeePerGas         {}
-maxPriorityFeePerGas {}
-nonce                {}
-r                    {}
-s                    {}
-to                   {}
-type                 {}
-value                {}
-yParity              {}",
-                self.access_list()
-                    .map(|a| a.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.blob_versioned_hashes().unwrap_or(&[]).pretty(),
-                self.chain_id().pretty(),
-                self.gas_limit().pretty(),
-                self.tx_hash().pretty(),
-                self.input().pretty(),
-                self.max_fee_per_blob_gas().pretty(),
-                self.max_fee_per_gas().pretty(),
-                self.max_priority_fee_per_gas().pretty(),
-                self.nonce().pretty(),
-                FixedBytes::from(tx.signature().r()).pretty(),
-                FixedBytes::from(tx.signature().s()).pretty(),
-                self.to().pretty(),
-                self.ty(),
+                self.tx_type().ty(),
                 self.value().pretty(),
                 (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
             ),
@@ -454,7 +508,183 @@ yParity              {}",
                 FixedBytes::from(tx.signature().r()).pretty(),
                 FixedBytes::from(tx.signature().s()).pretty(),
                 self.to().pretty(),
-                self.ty(),
+                self.tx_type().ty(),
+                self.value().pretty(),
+                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
+            ),
+            Self::Legacy(tx) => format!(
+                "
+gas                  {}
+gasPrice             {}
+hash                 {}
+input                {}
+nonce                {}
+r                    {}
+s                    {}
+to                   {}
+type                 {}
+v                    {}
+value                {}",
+                self.gas_limit().pretty(),
+                self.gas_price().pretty(),
+                self.tx_hash().pretty(),
+                self.input().pretty(),
+                self.nonce().pretty(),
+                tx.signature().r().pretty(),
+                tx.signature().s().pretty(),
+                self.to().pretty(),
+                self.tx_type().ty(),
+                self.value().pretty(),
+                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
+            ),
+        }
+    }
+}
+
+impl UIfmt for TxEnvelope {
+    fn pretty(&self) -> String {
+        match &self {
+            Self::Eip2930(tx) => format!(
+                "
+accessList           {}
+chainId              {}
+gasLimit             {}
+gasPrice             {}
+hash                 {}
+input                {}
+nonce                {}
+r                    {}
+s                    {}
+to                   {}
+type                 {}
+value                {}
+yParity              {}",
+                self.access_list()
+                    .map(|a| a.iter().collect::<Vec<_>>())
+                    .unwrap_or_default()
+                    .pretty(),
+                self.chain_id().pretty(),
+                self.gas_limit().pretty(),
+                self.gas_price().pretty(),
+                self.tx_hash().pretty(),
+                self.input().pretty(),
+                self.nonce().pretty(),
+                FixedBytes::from(tx.signature().r()).pretty(),
+                FixedBytes::from(tx.signature().s()).pretty(),
+                self.to().pretty(),
+                self.tx_type().ty(),
+                self.value().pretty(),
+                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
+            ),
+            Self::Eip1559(tx) => format!(
+                "
+accessList           {}
+chainId              {}
+gasLimit             {}
+hash                 {}
+input                {}
+maxFeePerGas         {}
+maxPriorityFeePerGas {}
+nonce                {}
+r                    {}
+s                    {}
+to                   {}
+type                 {}
+value                {}
+yParity              {}",
+                self.access_list()
+                    .map(|a| a.iter().collect::<Vec<_>>())
+                    .unwrap_or_default()
+                    .pretty(),
+                self.chain_id().pretty(),
+                self.gas_limit().pretty(),
+                self.tx_hash().pretty(),
+                self.input().pretty(),
+                self.max_fee_per_gas().pretty(),
+                self.max_priority_fee_per_gas().pretty(),
+                self.nonce().pretty(),
+                FixedBytes::from(tx.signature().r()).pretty(),
+                FixedBytes::from(tx.signature().s()).pretty(),
+                self.to().pretty(),
+                self.tx_type().ty(),
+                self.value().pretty(),
+                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
+            ),
+            Self::Eip4844(tx) => format!(
+                "
+accessList           {}
+blobVersionedHashes  {}
+chainId              {}
+gasLimit             {}
+hash                 {}
+input                {}
+maxFeePerBlobGas     {}
+maxFeePerGas         {}
+maxPriorityFeePerGas {}
+nonce                {}
+r                    {}
+s                    {}
+to                   {}
+type                 {}
+value                {}
+yParity              {}",
+                self.access_list()
+                    .map(|a| a.iter().collect::<Vec<_>>())
+                    .unwrap_or_default()
+                    .pretty(),
+                self.blob_versioned_hashes().unwrap_or(&[]).pretty(),
+                self.chain_id().pretty(),
+                self.gas_limit().pretty(),
+                self.tx_hash().pretty(),
+                self.input().pretty(),
+                self.max_fee_per_blob_gas().pretty(),
+                self.max_fee_per_gas().pretty(),
+                self.max_priority_fee_per_gas().pretty(),
+                self.nonce().pretty(),
+                FixedBytes::from(tx.signature().r()).pretty(),
+                FixedBytes::from(tx.signature().s()).pretty(),
+                self.to().pretty(),
+                self.tx_type().ty(),
+                self.value().pretty(),
+                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
+            ),
+            Self::Eip7702(tx) => format!(
+                "
+accessList           {}
+authorizationList    {}
+chainId              {}
+gasLimit             {}
+hash                 {}
+input                {}
+maxFeePerGas         {}
+maxPriorityFeePerGas {}
+nonce                {}
+r                    {}
+s                    {}
+to                   {}
+type                 {}
+value                {}
+yParity              {}",
+                self.access_list()
+                    .map(|a| a.iter().collect::<Vec<_>>())
+                    .unwrap_or_default()
+                    .pretty(),
+                self.authorization_list()
+                    .as_ref()
+                    .map(|l| l.iter().collect::<Vec<_>>())
+                    .unwrap_or_default()
+                    .pretty(),
+                self.chain_id().pretty(),
+                self.gas_limit().pretty(),
+                self.tx_hash().pretty(),
+                self.input().pretty(),
+                self.max_fee_per_gas().pretty(),
+                self.max_priority_fee_per_gas().pretty(),
+                self.nonce().pretty(),
+                FixedBytes::from(tx.signature().r()).pretty(),
+                FixedBytes::from(tx.signature().s()).pretty(),
+                self.to().pretty(),
+                self.tx_type().ty(),
                 self.value().pretty(),
                 (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
             ),
@@ -483,7 +713,7 @@ value                {}",
                     .map(|tx| FixedBytes::from(tx.signature().s()).pretty())
                     .unwrap_or_default(),
                 self.to().pretty(),
-                self.ty(),
+                self.tx_type().ty(),
                 self.as_legacy()
                     .map(|tx| (if tx.signature().v() { 1u64 } else { 0 }).pretty())
                     .unwrap_or_default(),
@@ -514,7 +744,7 @@ type                 {}
 }
 impl UIfmt for Transaction {
     fn pretty(&self) -> String {
-        match &self.inner.inner() {
+        let s = match &self.inner.inner() {
             TxEnvelope::Eip2930(tx) => format!(
                 "
 accessList           {}
@@ -735,7 +965,8 @@ value                {}",
                     .unwrap_or_default(),
                 self.value().pretty(),
             ),
-        }
+        };
+        trim_trailing_whitespace(&s)
     }
 }
 
@@ -909,7 +1140,7 @@ blobGasUsed          {}",
         // additional captured fields
         pretty.push_str(&other.pretty());
 
-        pretty
+        trim_trailing_whitespace(&pretty)
     }
 }
 
@@ -1288,7 +1519,7 @@ maxPriorityFeePerGas 20000000000
 nonce                300
 r                    0x396864e5f9132327defdb1449504252e1fa6bce73feb8cd6f348a342b198af34
 s                    0x44dbba72e6d3304104848277143252ee43627c82f02d1ef8e404e1bf97c70158
-to                   
+to
 transactionIndex     65
 type                 2
 value                0
@@ -1581,20 +1812,20 @@ value                0".to_string();
         let expected = r#"
 blockHash            0x54bafb12e8cea9bb355fbf03a4ac49e42a2a1a80fa6cf4364b342e2de6432b5d
 blockNumber          129084307
-contractAddress      
+contractAddress
 cumulativeGasUsed    7660675
 effectiveGasPrice    100705
 from                 0x2D815240A61731c75Fa01b2793E1D3eD09F289d0
 gasUsed              49698
 logs                 []
 logsBloom            0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-root                 
+root
 status               1 (success)
 transactionHash      0x91181b0dca3b29aa136eeb2f536be5ce7b0aebc949be1c44b5509093c516097d
 transactionIndex     16
 type                 2
-blobGasPrice         
-blobGasUsed          
+blobGasPrice
+blobGasUsed
 to                   0x4200000000000000000000000000000000000000
 l1BaseFeeScalar      5227
 l1BlobBaseFee        111685752

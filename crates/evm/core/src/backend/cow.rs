@@ -12,7 +12,6 @@ use crate::{
 use alloy_evm::Evm;
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
-use alloy_rpc_types::TransactionRequest;
 use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
 use revm::{
@@ -20,10 +19,13 @@ use revm::{
     bytecode::Bytecode,
     context_interface::result::ResultAndState,
     database::DatabaseRef,
-    primitives::{HashMap as Map, hardfork::SpecId},
+    primitives::HashMap as Map,
     state::{Account, AccountInfo},
 };
 use std::{borrow::Cow, collections::BTreeMap};
+use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_revm::TempoHaltReason;
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
 ///
@@ -49,14 +51,18 @@ pub struct CowBackend<'a> {
     pub backend: Cow<'a, Backend>,
     /// Keeps track of whether the backed is already initialized
     is_initialized: bool,
-    /// The [SpecId] of the current backend.
-    spec_id: SpecId,
+    /// The [TempoHardfork] of the current backend.
+    hardfork: TempoHardfork,
 }
 
 impl<'a> CowBackend<'a> {
     /// Creates a new `CowBackend` with the given `Backend`.
     pub fn new_borrowed(backend: &'a Backend) -> Self {
-        Self { backend: Cow::Borrowed(backend), is_initialized: false, spec_id: SpecId::default() }
+        Self {
+            backend: Cow::Borrowed(backend),
+            is_initialized: false,
+            hardfork: TempoHardfork::default(),
+        }
     }
 
     /// Executes the configured transaction of the `env` without committing state changes
@@ -68,11 +74,11 @@ impl<'a> CowBackend<'a> {
         &mut self,
         env: &mut Env,
         inspector: I,
-    ) -> eyre::Result<ResultAndState> {
+    ) -> eyre::Result<ResultAndState<TempoHaltReason>> {
         // this is a new call to inspect with a new env, so even if we've cloned the backend
         // already, we reset the initialized state
         self.is_initialized = false;
-        self.spec_id = env.evm_env.cfg_env.spec;
+        self.hardfork = env.evm_env.cfg_env.spec;
 
         let mut evm = crate::evm::new_evm_with_inspector(self, env.to_owned(), inspector);
 
@@ -97,7 +103,7 @@ impl<'a> CowBackend<'a> {
         if !self.is_initialized {
             let backend = self.backend.to_mut();
             let mut env = env.to_owned();
-            env.evm_env.cfg_env.spec = self.spec_id;
+            env.evm_env.cfg_env.spec = self.hardfork;
             backend.initialize(&env);
             self.is_initialized = true;
             return backend;
@@ -203,7 +209,7 @@ impl DatabaseExt for CowBackend<'_> {
 
     fn transact_from_tx(
         &mut self,
-        transaction: &TransactionRequest,
+        transaction: &TempoTransactionRequest,
         mut env: Env,
         journaled_state: &mut JournaledState,
         inspector: &mut dyn InspectorExt,

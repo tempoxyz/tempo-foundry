@@ -11,6 +11,7 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletOpts;
 use std::str::FromStr;
+use tempo_alloy::rpc::TempoTransactionRequest;
 
 /// CLI arguments for `cast estimate`.
 #[derive(Debug, Parser)]
@@ -79,9 +80,10 @@ pub enum EstimateSubcommands {
 impl EstimateArgs {
     pub async fn run(self) -> Result<()> {
         let Self { to, mut sig, mut args, mut tx, block, cost, wallet, rpc, command } = self;
+        let fee_token = tx.tempo.fee_token;
 
         let config = rpc.load_config()?;
-        let provider = utils::get_provider(&config)?;
+        let provider = utils::get_tempo_provider(&config)?;
         let sender = SenderKind::from_wallet_opts(wallet).await?;
 
         let code = if let Some(EstimateSubcommands::Create {
@@ -101,16 +103,16 @@ impl EstimateArgs {
             None
         };
 
-        let (tx, _) = CastTxBuilder::new(&provider, tx, &config)
+        let (tx, _) = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
             .await?
             .with_to(to)
             .await?
             .with_code_sig_and_args(code, sig, args)
             .await?
-            .build_raw(sender)
+            .build_raw(sender, fee_token)
             .await?;
 
-        let gas = provider.estimate_gas(tx).block(block.unwrap_or_default()).await?;
+        let gas = provider.estimate_gas(tx.inner).block(block.unwrap_or_default()).await?;
         if cost {
             let gas_price_wei = provider.get_gas_price().await?;
             let cost = gas_price_wei * gas as u128;

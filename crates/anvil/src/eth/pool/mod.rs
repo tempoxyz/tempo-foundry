@@ -83,8 +83,8 @@ impl Pool {
     /// Invoked when a set of transactions ([Self::ready_transactions()]) was executed.
     ///
     /// This will remove the transactions from the pool.
-    pub fn on_mined_block(&self, outcome: MinedBlockOutcome) -> PruneResult {
-        let MinedBlockOutcome { block_number, included, invalid } = outcome;
+    pub fn on_mined_block(self: &Arc<Self>, outcome: MinedBlockOutcome) -> PruneResult {
+        let MinedBlockOutcome { block_number, included, invalid, not_yet_valid } = outcome;
 
         // remove invalid transactions from the pool
         self.remove_invalid(invalid.into_iter().map(|tx| tx.hash()).collect());
@@ -93,6 +93,22 @@ impl Pool {
         let res = self
             .prune_markers(block_number, included.into_iter().flat_map(|tx| tx.provides.clone()));
         trace!(target: "txpool", "pruned transaction markers {:?}", res);
+
+        // Re-notify the miner about not_yet_valid transactions so they'll be retried
+        // These transactions are still in the pool and may become valid in future blocks
+        // We delay the notification by 1 second to avoid rapid polling
+        if !not_yet_valid.is_empty() {
+            let tx_hashes: Vec<_> = not_yet_valid.iter().map(|tx| tx.hash()).collect();
+            let pool = Arc::clone(self);
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                for hash in tx_hashes {
+                    trace!(target: "txpool", "re-notifying for not-yet-valid tx after delay: {:?}", hash);
+                    pool.notify_listener(hash);
+                }
+            });
+        }
+
         res
     }
 

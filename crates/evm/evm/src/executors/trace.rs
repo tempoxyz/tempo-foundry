@@ -8,6 +8,7 @@ use eyre::Context;
 use foundry_compilers::artifacts::EvmVersion;
 use foundry_config::{Chain, Config, utils::evm_spec_id};
 use foundry_evm_core::{backend::Backend, fork::CreateFork, opts::EvmOpts};
+use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_networks::NetworkConfigs;
 use foundry_evm_traces::TraceMode;
 use revm::{primitives::hardfork::SpecId, state::Bytecode};
@@ -19,10 +20,12 @@ pub struct TracingExecutor {
 }
 
 impl TracingExecutor {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         env: Env,
         fork: CreateFork,
         version: Option<EvmVersion>,
+        hardfork: Option<FoundryHardfork>,
         trace_mode: TraceMode,
         networks: NetworkConfigs,
         create2_deployer: Address,
@@ -36,6 +39,7 @@ impl TracingExecutor {
                 stack.trace_mode(trace_mode).networks(networks).create2_deployer(create2_deployer)
             })
             .spec_id(evm_spec_id(version.unwrap_or_default()))
+            .hardfork(hardfork)
             .build(env, db);
 
         // Apply the state overrides.

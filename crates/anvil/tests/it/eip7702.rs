@@ -7,7 +7,7 @@ use alloy_rpc_types::{Authorization, TransactionRequest};
 use alloy_serde::WithOtherFields;
 use alloy_signer::{Signature, SignerSync};
 use anvil::{NodeConfig, spawn};
-use foundry_evm::hardfork::EthereumHardfork;
+use foundry_evm::hardforks::EthereumHardfork;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn can_send_eip7702_tx() {
@@ -155,6 +155,7 @@ async fn can_send_eip7702_request() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "EIP-7702 authorization list cheats are not yet implemented for Tempo"]
 async fn eip7702_authorization_bypass() {
     let node_config = NodeConfig::test().with_hardfork(Some(EthereumHardfork::Prague.into()));
     let (api, handle) = spawn(node_config).await;

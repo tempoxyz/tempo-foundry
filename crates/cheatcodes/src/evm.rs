@@ -3,9 +3,10 @@
 use crate::{
     BroadcastableTransaction, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Error, Result,
     Vm::*,
+    env::FORGE_CONTEXT,
     inspector::{Ecx, RecordDebugStepInfo},
 };
-use alloy_consensus::TxEnvelope;
+use alloy_evm::evm::Evm as EvmTrait;
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_network::eip2718::EIP4844_TX_TYPE_ID;
 use alloy_primitives::{
@@ -26,6 +27,7 @@ use foundry_evm_core::{
     ContextExt,
     backend::{DatabaseExt, RevertStateSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
+    evm::new_evm_with_inspector,
     utils::get_blob_base_fee_update_fraction_by_spec_id,
 };
 use foundry_evm_traces::TraceMode;
@@ -33,9 +35,9 @@ use itertools::Itertools;
 use rand::Rng;
 use revm::{
     bytecode::Bytecode,
-    context::{Block, JournalTr},
+    context::{Block, JournalTr, result::ExecutionResult},
     primitives::{KECCAK_EMPTY, hardfork::SpecId},
-    state::Account,
+    state::{Account, AccountStatus},
 };
 use std::{
     collections::{BTreeMap, HashSet, btree_map::Entry},
@@ -45,10 +47,16 @@ use std::{
 };
 
 mod record_debug_step;
+use alloy_evm::FromRecoveredTx;
 use foundry_common::fmt::format_token_raw;
 use foundry_config::evm_spec_id;
 use record_debug_step::{convert_call_trace_ctx_to_debug_step, flatten_call_trace};
 use serde::Serialize;
+use tempo_alloy::primitives::TempoTxEnvelope;
+use tempo_revm::TempoTxEnv;
+
+/// TIP-1000 sets transaction gas limit cap to 30 million gas for T1 hardfork.
+const TIP1000_TX_GAS_LIMIT_CAP: u64 = 30_000_000;
 
 mod fork;
 pub(crate) mod mapping;
@@ -493,7 +501,7 @@ impl Cheatcode for difficultyCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newDifficulty } = self;
         ensure!(
-            ccx.ecx.cfg.spec < SpecId::MERGE,
+            ccx.ecx.cfg.spec < SpecId::MERGE.into(),
             "`difficulty` is not supported after the Paris hard fork, use `prevrandao` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -515,7 +523,7 @@ impl Cheatcode for prevrandao_0Call {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::MERGE,
+            ccx.ecx.cfg.spec >= SpecId::MERGE.into(),
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -528,7 +536,7 @@ impl Cheatcode for prevrandao_1Call {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::MERGE,
+            ccx.ecx.cfg.spec >= SpecId::MERGE.into(),
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
@@ -541,7 +549,7 @@ impl Cheatcode for blobhashesCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { hashes } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`blobhashes` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
@@ -556,7 +564,7 @@ impl Cheatcode for getBlobhashesCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self {} = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`getBlobhashes` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
@@ -607,14 +615,14 @@ impl Cheatcode for blobBaseFeeCall {
     fn apply_stateful(&self, ccx: &mut CheatsCtxt) -> Result {
         let Self { newBlobBaseFee } = self;
         ensure!(
-            ccx.ecx.cfg.spec >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec >= SpecId::CANCUN.into(),
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
 
         ccx.ecx.block.set_blob_excess_gas_and_price(
             (*newBlobBaseFee).to(),
-            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec),
+            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec.into()),
         );
         Ok(Default::default())
     }
@@ -1044,7 +1052,7 @@ impl Cheatcode for getStorageAccessesCall {
 
 impl Cheatcode for broadcastRawTransactionCall {
     fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
-        let tx = TxEnvelope::decode(&mut self.data.as_ref())
+        let tx = TempoTxEnvelope::decode(&mut self.data.as_ref())
             .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
 
         let (db, journal, env) = ccx.ecx.as_db_env_and_journal();
@@ -1078,6 +1086,145 @@ impl Cheatcode for setBlockhashCall {
         ccx.ecx.journaled_state.database.set_blockhash(blockNumber, blockHash);
 
         Ok(Default::default())
+    }
+}
+
+impl Cheatcode for executeTransactionCall {
+    fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
+        // Check if we're in a forge script context
+        if let Some(ctx) = FORGE_CONTEXT.get()
+            && *ctx == ForgeContext::ScriptGroup
+        {
+            return Err(fmt_err!("executeTransaction is not allowed in forge script"));
+        }
+
+        // Decode the RLP-encoded transaction
+        let tx = TempoTxEnvelope::decode(&mut self.rawTx.as_ref())
+            .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
+
+        // Recover the sender from the transaction signature
+        use alloy_consensus::transaction::SignerRecoverable;
+        let sender =
+            tx.recover_signer().map_err(|err| fmt_err!("failed to recover signer: {err}"))?;
+
+        // Get inspector
+        let mut inspector = executor.get_inspector(ccx.state);
+
+        let res = {
+            let (db, journal, env) = ccx.ecx.as_db_env_and_journal();
+
+            // Cache the original environment for restoration
+            let cached_env = env.to_owned();
+
+            // Convert the TempoTxEnvelope to TempoTxEnv, preserving all AA-specific fields
+            // including nonce_key for 2D nonce support
+            let mut tempo_tx_env = TempoTxEnv::from_recovered_tx(&tx, sender);
+
+            // Set basefee and gas fees to 0 for isolated execution.
+            // NOTE: `gas_priority_fee` must also be cleared to avoid validation errors for
+            // EIP-1559/EIP-7702 txs.
+            env.block.basefee = 0;
+            tempo_tx_env.gas_price = 0;
+            tempo_tx_env.gas_priority_fee = None;
+
+            // Update the environment's tx with the properly converted TempoTxEnv
+            *env.tx = tempo_tx_env;
+
+            // Enable nonce checks for executeTransaction to properly simulate real transactions
+            // This is different from regular test calls where nonce checks are disabled for
+            // convenience
+            env.cfg.disable_nonce_check = false;
+
+            // EIP-3860: Enforce initcode size limit for executeTransaction to match production
+            // behavior. The global config sets limit_contract_code_size = usize::MAX
+            // for test flexibility, which causes max_initcode_size() to return
+            // usize::MAX. We override this here to enforce the EIP-3860 limit (49152
+            // bytes) for realistic transaction simulation.
+            env.cfg.limit_contract_initcode_size =
+                Some(revm::primitives::eip3860::MAX_INITCODE_SIZE);
+
+            // TIP-1000: Enforce transaction gas limit cap (30M) for T1 hardfork.
+            // This ensures executeTransaction validates gas limits the same way as
+            // the production Tempo chain.
+            if env.cfg.spec.is_t1() {
+                env.cfg.tx_gas_limit_cap = Some(TIP1000_TX_GAS_LIMIT_CAP);
+            }
+
+            let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);
+
+            // Clone the journaled state and mark all accounts/slots cold
+            evm.journaled_state.state = {
+                let mut state = journal.state.clone();
+
+                for (addr, acc_mut) in &mut state {
+                    // Mark all accounts cold, besides preloaded addresses
+                    if journal.warm_addresses.is_cold(addr) {
+                        acc_mut.mark_cold();
+                    }
+
+                    // Mark all slots cold and reset original values
+                    for slot_mut in acc_mut.storage.values_mut() {
+                        slot_mut.is_cold = true;
+                        slot_mut.original_value = slot_mut.present_value;
+                    }
+                }
+
+                state
+            };
+
+            // Set depth to 1 for proper trace collection
+            evm.journaled_state.depth = 1;
+
+            let res = evm.transact(env.tx.clone());
+
+            // Restore original environment
+            *env.tx = cached_env.tx;
+            env.block.basefee = cached_env.evm_env.block_env.basefee;
+
+            res
+        };
+
+        // Handle execution error
+        let res = res.map_err(|e| fmt_err!("transaction execution failed: {e}"))?;
+
+        // Merge state diff back into parent journaled state
+        for (addr, mut acc) in res.state {
+            let Some(acc_mut) = ccx.ecx.journaled_state.state.get_mut(&addr) else {
+                ccx.ecx.journaled_state.state.insert(addr, acc);
+                continue;
+            };
+
+            // Make sure accounts that were warmed earlier do not become cold
+            if acc.status.contains(AccountStatus::Cold)
+                && !acc_mut.status.contains(AccountStatus::Cold)
+            {
+                acc.status -= AccountStatus::Cold;
+            }
+            acc_mut.info = acc.info;
+            acc_mut.status |= acc.status;
+
+            for (key, val) in acc.storage {
+                let Some(slot_mut) = acc_mut.storage.get_mut(&key) else {
+                    acc_mut.storage.insert(key, val);
+                    continue;
+                };
+                slot_mut.present_value = val.present_value;
+                slot_mut.is_cold &= val.is_cold;
+            }
+        }
+
+        // Extract output from execution result
+        let output = match res.result {
+            ExecutionResult::Success { output, .. } => output.into_data(),
+            ExecutionResult::Halt { reason, .. } => {
+                return Err(fmt_err!("transaction halted: {reason:?}"));
+            }
+            ExecutionResult::Revert { output, .. } => {
+                return Err(fmt_err!("transaction reverted: {}", hex::encode_prefixed(&output)));
+            }
+        };
+
+        Ok(output.abi_encode())
     }
 }
 

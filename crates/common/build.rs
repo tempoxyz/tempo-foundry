@@ -2,21 +2,31 @@
 
 use chrono::DateTime;
 use std::{error::Error, path::PathBuf};
+use vergen::{BuildBuilder, Emitter};
+use vergen_git2::Git2Builder;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=build.rs");
 
-    let build = vergen::Build::builder().build_date(true).build_timestamp(true).build();
-    let git = vergen::Gitcl::builder().describe(false, true, None).sha(false).build();
+    let build = BuildBuilder::default().build_date(true).build_timestamp(true).build()?;
+    let git2 = Git2Builder::default().describe(false, true, None).sha(false).build()?;
 
-    vergen::Emitter::new().add_instructions(&build)?.add_instructions(&git)?.emit_and_set()?;
+    Emitter::default().add_instructions(&build)?.add_instructions(&git2)?.emit_and_set()?;
 
     let sha = env_var("VERGEN_GIT_SHA");
     let sha_short = &sha[..10];
 
     let tag_name = try_env_var("TAG_NAME").unwrap_or_else(|| String::from("dev"));
     let is_nightly = tag_name.contains("nightly");
-    let version_suffix = if is_nightly { "nightly" } else { &tag_name };
+    let base_suffix = if is_nightly {
+        "nightly".to_string()
+    } else if let Some((_, rc_number)) = tag_name.split_once("rc") {
+        format!("rc{rc_number}")
+    } else {
+        tag_name
+    };
+
+    let version_suffix = format!("{base_suffix}-tempo");
 
     if is_nightly {
         println!("cargo:rustc-env=FOUNDRY_IS_NIGHTLY_VERSION=true");

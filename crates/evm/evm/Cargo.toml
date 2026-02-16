@@ -20,7 +20,9 @@ foundry-compilers.workspace = true
 foundry-config.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-coverage.workspace = true
+foundry-tempo-coverage = { path = "../tempo-coverage" }
 foundry-evm-fuzz.workspace = true
+foundry-evm-hardforks.workspace = true
 foundry-evm-networks.workspace = true
 foundry-evm-traces.workspace = true
 
@@ -42,10 +44,14 @@ revm = { workspace = true, default-features = false, features = [
     "optional_eip3607",
     "optional_block_gas_limit",
     "optional_no_base_fee",
+    "optional_fee_charge",
     "arbitrary",
     "c-kzg",
 ] }
 revm-inspectors.workspace = true
+
+tempo-precompiles.workspace = true
+tempo-revm.workspace = true
 
 eyre.workspace = true
 parking_lot.workspace = true

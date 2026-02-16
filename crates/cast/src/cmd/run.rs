@@ -1,6 +1,7 @@
 use crate::{debug::handle_traces, utils::apply_chain_and_block_specific_env_changes};
-use alloy_consensus::Transaction;
-use alloy_network::{AnyNetwork, TransactionResponse};
+use alloy_consensus::{BlockHeader, Transaction};
+use alloy_evm::tx::ToTxEnv;
+use alloy_network::TransactionResponse;
 use alloy_primitives::{
     Address, Bytes, U256,
     map::{AddressSet, HashMap},
@@ -11,7 +12,7 @@ use clap::Parser;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
     opts::{EtherscanOpts, RpcOpts},
-    utils::{TraceResult, init_progress},
+    utils::{TraceResult, get_tempo_provider_builder, init_progress},
 };
 use foundry_common::{SYSTEM_TRANSACTION_TYPE, is_impersonated_tx, is_known_system_sender, shell};
 use foundry_compilers::artifacts::EvmVersion;
@@ -26,12 +27,14 @@ use foundry_evm::{
     Env,
     core::env::AsEnvMut,
     executors::{EvmError, Executor, TracingExecutor},
+    hardforks::FoundryHardfork,
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode, Traces},
-    utils::configure_tx_env,
 };
 use futures::TryFutureExt;
 use revm::DatabaseRef;
+use tempo_alloy::TempoNetwork;
+use tempo_primitives::TempoTxEnvelope;
 
 /// CLI arguments for `cast run`.
 #[derive(Clone, Debug, Parser)]
@@ -87,6 +90,12 @@ pub struct RunArgs {
     #[arg(long)]
     evm_version: Option<EvmVersion>,
 
+    /// The EVM hardfork to use.
+    ///
+    /// Overrides the hardfork specified in the config.
+    #[arg(long)]
+    hardfork: Option<FoundryHardfork>,
+
     /// Sets the number of assumed available compute units per second for this provider
     ///
     /// default value: 330
@@ -135,7 +144,7 @@ impl RunArgs {
         let compute_units_per_second =
             if self.no_rate_limit { Some(u64::MAX) } else { self.compute_units_per_second };
 
-        let provider = foundry_cli::utils::get_provider_builder(&config, false)?
+        let provider = get_tempo_provider_builder(&config, false)?
             .compute_units_per_second_opt(compute_units_per_second)
             .build()?;
 
@@ -184,22 +193,22 @@ impl RunArgs {
         env.evm_env.block_env.number = U256::from(tx_block_number);
 
         if let Some(block) = &block {
-            env.evm_env.block_env.timestamp = U256::from(block.header.timestamp);
-            env.evm_env.block_env.beneficiary = block.header.beneficiary;
-            env.evm_env.block_env.difficulty = block.header.difficulty;
-            env.evm_env.block_env.prevrandao = Some(block.header.mix_hash.unwrap_or_default());
-            env.evm_env.block_env.basefee = block.header.base_fee_per_gas.unwrap_or_default();
-            env.evm_env.block_env.gas_limit = block.header.gas_limit;
+            env.evm_env.block_env.timestamp = U256::from(block.header.timestamp());
+            env.evm_env.block_env.beneficiary = block.header.beneficiary();
+            env.evm_env.block_env.difficulty = block.header.difficulty();
+            env.evm_env.block_env.prevrandao = Some(block.header.mix_hash().unwrap_or_default());
+            env.evm_env.block_env.basefee = block.header.base_fee_per_gas().unwrap_or_default();
+            env.evm_env.block_env.gas_limit = block.header.gas_limit();
 
             // TODO: we need a smarter way to map the block to the corresponding evm_version for
             // commonly used chains
             if evm_version.is_none() {
                 // if the block has the excess_blob_gas field, we assume it's a Cancun block
-                if block.header.excess_blob_gas.is_some() {
+                if block.header.excess_blob_gas().is_some() {
                     evm_version = Some(EvmVersion::Prague);
                 }
             }
-            apply_chain_and_block_specific_env_changes::<AnyNetwork>(
+            apply_chain_and_block_specific_env_changes::<TempoNetwork>(
                 env.as_env_mut(),
                 block,
                 config.networks,
@@ -218,17 +227,25 @@ impl RunArgs {
             env.clone(),
             fork,
             evm_version,
+            self.hardfork,
             trace_mode,
             networks,
             create2_deployer,
             None,
         )?;
-        let mut env = Env::new_with_spec_id(
-            env.evm_env.cfg_env.clone(),
-            env.evm_env.block_env.clone(),
-            env.tx.clone(),
-            executor.spec_id(),
-        );
+        // Preserve the original cfg.spec (TempoHardfork) when no hardfork override is specified.
+        // This is important because the SpecId round-trip loses the distinction between T0/T1
+        // (all Tempo hardforks map to OSAKA).
+        let mut env = if self.hardfork.is_none() {
+            Env::from(env.evm_env.cfg_env.clone(), env.evm_env.block_env.clone(), env.tx.clone())
+        } else {
+            Env::new_with_spec_id(
+                env.evm_env.cfg_env.clone(),
+                env.evm_env.block_env.clone(),
+                env.tx.clone(),
+                executor.spec_id(),
+            )
+        };
 
         // Set the state to the moment right before the transaction
         if !self.quick {
@@ -259,7 +276,7 @@ impl RunArgs {
                         break;
                     }
 
-                    configure_tx_env(&mut env.as_env_mut(), &tx.inner);
+                    configure_tempo_tx_req_env(&mut env, tx)?;
 
                     env.evm_env.cfg_env.disable_balance_check = true;
 
@@ -300,8 +317,8 @@ impl RunArgs {
         let result = {
             executor.set_trace_printer(self.trace_printer);
 
-            configure_tx_env(&mut env.as_env_mut(), &tx.inner);
-            if is_impersonated_tx(tx.inner.inner.inner()) {
+            configure_tempo_tx_req_env(&mut env, &tx)?;
+            if is_impersonated_tx(tx.inner.inner()) {
                 env.evm_env.cfg_env.disable_balance_check = true;
             }
 
@@ -390,4 +407,13 @@ impl figment::Provider for RunArgs {
 
         Ok(Map::from([(Config::selected_profile(), map)]))
     }
+}
+
+pub fn configure_tempo_tx_req_env(
+    env: &mut Env,
+    tx: &alloy_rpc_types::Transaction<TempoTxEnvelope>,
+) -> eyre::Result<()> {
+    env.tx = tx.inner.to_tx_env();
+
+    Ok(())
 }

@@ -1042,7 +1042,7 @@ async fn can_impersonate_in_fork() {
 
 // <https://etherscan.io/block/14608400>
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
+#[ignore = "tempo skip - uses Ethereum mainnet fork which lacks Tempo block fields"]
 async fn test_total_difficulty_fork() {
     let (api, handle) = spawn(fork_config()).await;
 
@@ -1335,7 +1335,7 @@ async fn test_fork_execution_reverted() {
 
 // <https://github.com/foundry-rs/foundry/issues/8227>
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
+#[ignore = "tempo skip - uses Immutable network fork which lacks Tempo block fields"]
 async fn test_immutable_fork_transaction_hash() {
     use std::str::FromStr;
 
@@ -1698,6 +1698,7 @@ fn assert_hardfork_config(
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Tempo uses OSAKA blob params, Cancun-specific params do not apply"]
 async fn test_config_with_cancun_hardfork() {
     let (api, _handle) =
         spawn(NodeConfig::test().with_hardfork(Some(EthereumHardfork::Cancun.into()))).await;
@@ -1741,6 +1742,7 @@ async fn test_config_with_cancun_hardfork() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Celo network is not supported in Tempo"]
 async fn test_config_with_prague_hardfork_with_celo() {
     let (api, _handle) = spawn(
         NodeConfig::test()

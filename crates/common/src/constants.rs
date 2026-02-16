@@ -1,9 +1,9 @@
 //! Commonly used constants.
 
 use alloy_eips::Typed2718;
-use alloy_network::AnyTxEnvelope;
 use alloy_primitives::{Address, B256, Signature, address};
 use std::time::Duration;
+use tempo_primitives::TempoTxEnvelope;
 
 /// The dev chain-id, inherited from hardhat
 pub const DEV_CHAIN_ID: u64 = 31337;
@@ -61,11 +61,21 @@ pub fn is_known_system_sender(sender: Address) -> bool {
         .contains(&sender)
 }
 
-pub fn is_impersonated_tx(tx: &AnyTxEnvelope) -> bool {
-    if let AnyTxEnvelope::Ethereum(tx) = tx {
-        return is_impersonated_sig(tx.signature(), tx.ty());
+pub fn is_impersonated_tx(tx: &TempoTxEnvelope) -> bool {
+    use tempo_primitives::{TempoSignature, transaction::PrimitiveSignature};
+
+    match tx {
+        TempoTxEnvelope::AA(tx) => match tx.signature() {
+            TempoSignature::Primitive(PrimitiveSignature::Secp256k1(sig)) => {
+                is_impersonated_sig(sig, tx.ty())
+            }
+            _ => false,
+        },
+        TempoTxEnvelope::Eip1559(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
+        TempoTxEnvelope::Eip2930(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
+        TempoTxEnvelope::Eip7702(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
+        TempoTxEnvelope::Legacy(tx) => is_impersonated_sig(tx.signature(), tx.ty()),
     }
-    false
 }
 
 pub fn is_impersonated_sig(sig: &Signature, ty: u8) -> bool {

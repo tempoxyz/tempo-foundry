@@ -514,6 +514,9 @@ pub struct MinedBlockOutcome {
     /// All transactions that were attempted to be included but were invalid at the time of
     /// execution
     pub invalid: Vec<Arc<PoolTransaction>>,
+    /// Transactions that were skipped because they're not yet valid (e.g., valid_after in future)
+    /// These remain in the pool and should be retried later
+    pub not_yet_valid: Vec<Arc<PoolTransaction>>,
 }
 
 /// Container type for a mined transaction

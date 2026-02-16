@@ -1,5 +1,4 @@
 use crate::transaction::TransactionWithMetadata;
-use alloy_network::AnyTransactionReceipt;
 use alloy_primitives::{TxHash, hex, map::HashMap};
 use eyre::{ContextCompat, Result, WrapErr};
 use foundry_common::{SELECTOR_LEN, TransactionMaybeSigned, fs, shell};
@@ -12,6 +11,7 @@ use std::{
     path::PathBuf,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use tempo_alloy::rpc::TempoTransactionReceipt;
 
 pub const DRY_RUN_DIR: &str = "dry-run";
 
@@ -26,7 +26,7 @@ pub struct NestedValue {
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct ScriptSequence {
     pub transactions: VecDeque<TransactionWithMetadata>,
-    pub receipts: Vec<AnyTransactionReceipt>,
+    pub receipts: Vec<TempoTransactionReceipt>,
     pub libraries: Vec<String>,
     pub pending: Vec<TxHash>,
     #[serde(skip)]
@@ -145,7 +145,7 @@ impl ScriptSequence {
         Ok(())
     }
 
-    pub fn add_receipt(&mut self, receipt: AnyTransactionReceipt) {
+    pub fn add_receipt(&mut self, receipt: TempoTransactionReceipt) {
         self.receipts.push(receipt);
     }
 

@@ -18,6 +18,7 @@ use alloy_primitives::{
     map::{AddressHashMap, HashMap},
 };
 use alloy_signer::Signer;
+use alloy_sol_types::sol;
 use broadcast::next_nonce;
 use build::PreprocessedState;
 use clap::{Parser, ValueHint};
@@ -27,11 +28,12 @@ use forge_script_sequence::{AdditionalContract, NestedValue};
 use forge_verify::{RetryArgs, VerifierArgs};
 use foundry_cli::{
     opts::{BuildOpts, EvmArgs, GlobalArgs},
-    utils::LoadConfig,
+    utils::{LoadConfig, parse_fee_token_address},
 };
 use foundry_common::{
     CONTRACT_MAX_SIZE, ContractsByArtifact, SELECTOR_LEN,
     abi::{encode_function_args, get_func},
+    provider::tempo::TempoRetryProvider,
     shell,
 };
 use foundry_compilers::ArtifactId;
@@ -72,6 +74,27 @@ mod verify;
 
 // Loads project's figment and merges the build cli arguments into it
 foundry_config::merge_impl_figment_convert!(ScriptArgs, build, evm);
+
+const DEFAULT_FEE_TOKEN_SYMBOL: &str = "PathUSD";
+
+sol! {
+    #[sol(rpc)]
+    interface IERC20 {
+        function symbol() external view returns (string);
+    }
+}
+
+/// Get Tempo fee token symbol.
+async fn get_fee_token_symbol(provider: &TempoRetryProvider, fee_token: Option<Address>) -> String {
+    match fee_token {
+        Some(addr) => IERC20::new(addr, &provider)
+            .symbol()
+            .call()
+            .await
+            .unwrap_or_else(|_| DEFAULT_FEE_TOKEN_SYMBOL.to_string()),
+        None => DEFAULT_FEE_TOKEN_SYMBOL.to_string(),
+    }
+}
 
 /// CLI arguments for `forge script`.
 #[derive(Clone, Debug, Default, Parser)]
@@ -126,6 +149,18 @@ pub struct ScriptArgs {
     /// Skips on-chain simulation.
     #[arg(long)]
     pub skip_simulation: bool,
+
+    /// Fee token to use for transaction.
+    #[arg(long = "tempo.fee-token", value_parser = parse_fee_token_address)]
+    pub fee_token: Option<Address>,
+
+    /// Batch all broadcast transactions into a single Tempo batch transaction.
+    ///
+    /// When enabled, all vm.broadcast() calls are collected and sent as a single
+    /// atomic type 0x76 transaction instead of individual transactions.
+    /// This provides atomicity (all-or-nothing execution) and gas savings.
+    #[arg(long)]
+    pub batch: bool,
 
     /// Relative percentage to multiply gas estimates by.
     #[arg(long, short, default_value = "130")]
@@ -235,7 +270,7 @@ impl ScriptArgs {
             evm_opts.sender = sender;
         }
 
-        let script_config = ScriptConfig::new(config, evm_opts).await?;
+        let script_config = ScriptConfig::new(config, evm_opts, self.fee_token, self.batch).await?;
 
         Ok(PreprocessedState { args: self, script_config, script_wallets })
     }
@@ -582,10 +617,19 @@ pub struct ScriptConfig {
     pub sender_nonce: u64,
     /// Maps a rpc url to a backend
     pub backends: HashMap<String, Backend>,
+    /// Optional fee token for transactions
+    pub fee_token: Option<Address>,
+    /// Whether to batch all broadcast transactions into a single Tempo batch transaction
+    pub batch: bool,
 }
 
 impl ScriptConfig {
-    pub async fn new(config: Config, evm_opts: EvmOpts) -> Result<Self> {
+    pub async fn new(
+        config: Config,
+        evm_opts: EvmOpts,
+        fee_token: Option<Address>,
+        batch: bool,
+    ) -> Result<Self> {
         let sender_nonce = if let Some(fork_url) = evm_opts.fork_url.as_ref() {
             next_nonce(evm_opts.sender, fork_url, evm_opts.fork_block_number).await?
         } else {
@@ -593,7 +637,7 @@ impl ScriptConfig {
             1
         };
 
-        Ok(Self { config, evm_opts, sender_nonce, backends: HashMap::default() })
+        Ok(Self { config, evm_opts, sender_nonce, backends: HashMap::default(), fee_token, batch })
     }
 
     pub async fn update_sender(&mut self, sender: Address) -> Result<()> {
@@ -656,6 +700,7 @@ impl ScriptConfig {
             })
             .spec_id(self.config.evm_spec_id())
             .gas_limit(self.evm_opts.gas_limit())
+            .hardfork(self.config.hardfork)
             .legacy_assertions(self.config.legacy_assertions);
 
         if let Some((known_contracts, script_wallets, target)) = cheats_data {
@@ -667,6 +712,8 @@ impl ScriptConfig {
                             self.evm_opts.clone(),
                             Some(known_contracts),
                             Some(target),
+                            self.fee_token,
+                            self.batch,
                         )
                         .into(),
                     )

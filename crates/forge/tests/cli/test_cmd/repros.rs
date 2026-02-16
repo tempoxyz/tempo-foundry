@@ -785,10 +785,13 @@ ParserError: Source "Missing.sol" not found: File not found. Searched the follow
 
 // https://github.com/foundry-rs/foundry/issues/12803
 // Test gas underflow prevention on Cancun (no EIP-7702 gas floor)
-forgetest_init!(issue_12803_cancun, |prj, cmd| {
-    prj.add_test(
-        "Issue12803.t.sol",
-        r#"
+forgetest_init!(
+    #[ignore = "tempo skip - cannot reproduce EVM versions older than Osaka"]
+    issue_12803_cancun,
+    |prj, cmd| {
+        prj.add_test(
+            "Issue12803.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 
 contract Issue12803Test is Test {
@@ -801,24 +804,28 @@ contract Issue12803Test is Test {
     }
 }
 "#,
-    );
+        );
 
-    cmd.args(["test", "--evm-version=cancun"]).with_no_redact().assert_success().stdout_eq(str![[
-        r#"
+        cmd.args(["test", "--evm-version=cancun"]).with_no_redact().assert_success().stdout_eq(
+            str![[r#"
 ...
 Ran 1 test for test/Issue12803.t.sol:Issue12803Test
 [PASS] test_negativeGas() (gas: 0)
 ...
-"#
-    ]]);
-});
+"#]],
+        );
+    }
+);
 
 // https://github.com/foundry-rs/foundry/issues/12803
 // Test gas underflow prevention on Shanghai (also no EIP-7702 gas floor)
-forgetest_init!(issue_12803_shanghai, |prj, cmd| {
-    prj.add_test(
-        "Issue12803.t.sol",
-        r#"
+forgetest_init!(
+    #[ignore = "tempo skip - cannot reproduce EVM versions older than Osaka"]
+    issue_12803_shanghai,
+    |prj, cmd| {
+        prj.add_test(
+            "Issue12803.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 
 contract Issue12803Test is Test {
@@ -831,24 +838,28 @@ contract Issue12803Test is Test {
     }
 }
 "#,
-    );
+        );
 
-    cmd.args(["test", "--evm-version=shanghai"]).with_no_redact().assert_success().stdout_eq(str![
-        [r#"
+        cmd.args(["test", "--evm-version=shanghai"]).with_no_redact().assert_success().stdout_eq(
+            str![[r#"
 ...
 Ran 1 test for test/Issue12803.t.sol:Issue12803Test
 [PASS] test_negativeGas() (gas: 0)
 ...
-"#]
-    ]);
-});
+"#]],
+        );
+    }
+);
 
 // https://github.com/foundry-rs/foundry/issues/12803
 // Test multiple storage deletions (higher refund) don't cause underflow
-forgetest_init!(issue_12803_multiple_deletes, |prj, cmd| {
-    prj.add_test(
-        "Issue12803Multi.t.sol",
-        r#"
+forgetest_init!(
+    #[ignore = "tempo skip - cannot reproduce EVM versions older than Osaka"]
+    issue_12803_multiple_deletes,
+    |prj, cmd| {
+        prj.add_test(
+            "Issue12803Multi.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 
 contract Issue12803MultiTest is Test {
@@ -867,14 +878,15 @@ contract Issue12803MultiTest is Test {
     }
 }
 "#,
-    );
+        );
 
-    cmd.args(["test", "--evm-version=cancun"]).with_no_redact().assert_success().stdout_eq(str![[
-        r#"
+        cmd.args(["test", "--evm-version=cancun"]).with_no_redact().assert_success().stdout_eq(
+            str![[r#"
 ...
 Ran 1 test for test/Issue12803Multi.t.sol:Issue12803MultiTest
 [PASS] test_multipleDeletes() (gas: 0)
 ...
-"#
-    ]]);
-});
+"#]],
+        );
+    }
+);

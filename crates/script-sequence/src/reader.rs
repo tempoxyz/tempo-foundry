@@ -1,9 +1,12 @@
 use crate::{ScriptSequence, TransactionWithMetadata};
-use alloy_network::AnyTransactionReceipt;
 use eyre::{Result, bail};
 use foundry_common::fs;
 use revm_inspectors::tracing::types::CallKind;
-use std::path::{Component, Path, PathBuf};
+use std::{
+    cmp::Reverse,
+    path::{Component, Path, PathBuf},
+};
+use tempo_alloy::rpc::TempoTransactionReceipt;
 
 /// This type reads broadcast files in the
 /// `project_root/broadcast/{contract_name}.s.sol/{chain_id}/` directory.
@@ -125,7 +128,7 @@ impl BroadcastReader {
             .collect::<Vec<_>>();
 
         // Sort by descending timestamp
-        seqs.sort_by_key(|s| std::cmp::Reverse(s.timestamp));
+        seqs.sort_by_key(|s| Reverse(s.timestamp));
 
         seqs
     }
@@ -142,7 +145,7 @@ impl BroadcastReader {
     pub fn into_tx_receipts(
         &self,
         broadcast: ScriptSequence,
-    ) -> Vec<(TransactionWithMetadata, AnyTransactionReceipt)> {
+    ) -> Vec<(TransactionWithMetadata, TempoTransactionReceipt)> {
         let ScriptSequence { transactions, receipts, .. } = broadcast;
 
         let mut targets = Vec::new();
@@ -163,7 +166,7 @@ impl BroadcastReader {
         }
 
         // Sort by descending block number
-        targets.sort_by_key(|t| std::cmp::Reverse(t.1.block_number));
+        targets.sort_by_key(|t| Reverse(t.1.block_number));
 
         targets
     }

@@ -16,11 +16,11 @@ use clap::Args;
 use eyre::{Result, WrapErr};
 use foundry_cli::{
     opts::{CliAuthorizationList, EthereumOpts, TransactionOpts},
-    utils::{self, LoadConfig, get_provider_builder, parse_function_args},
+    utils::{self, LoadConfig, get_tempo_provider_builder, parse_function_args},
 };
 use foundry_common::{
     TransactionReceiptWithRevertReason, fmt::*, get_pretty_tx_receipt_attr,
-    provider::RetryProviderWithSigner, shell,
+    provider::tempo::TempoRetryProviderWithSigner, shell,
 };
 use foundry_config::{Chain, Config};
 use foundry_primitives::{FoundryTransactionRequest, FoundryTypedTx};
@@ -28,6 +28,7 @@ use foundry_wallets::{WalletOpts, WalletSigner};
 use itertools::Itertools;
 use serde_json::value::RawValue;
 use std::{fmt::Write, str::FromStr, time::Duration};
+use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 
 #[derive(Debug, Clone, Args)]
 pub struct SendTxOpts {
@@ -149,29 +150,29 @@ pub struct InitState;
 /// State with known [TxKind].
 #[derive(Debug)]
 pub struct ToState {
-    to: Option<Address>,
+    pub(crate) to: Option<Address>,
 }
 
 /// State with known input for the transaction.
 #[derive(Debug)]
 pub struct InputState {
-    kind: TxKind,
-    input: Vec<u8>,
-    func: Option<Function>,
+    pub(crate) kind: TxKind,
+    pub(crate) input: Vec<u8>,
+    pub(crate) func: Option<Function>,
 }
 
 pub struct CastTxSender<P> {
     provider: P,
 }
 
-impl<P: Provider<AnyNetwork>> CastTxSender<P> {
+impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     /// Creates a new Cast instance responsible for sending transactions.
     pub fn new(provider: P) -> Self {
         Self { provider }
     }
 
     /// Sends a transaction and waits for receipt synchronously
-    pub async fn send_sync(&self, tx: WithOtherFields<TransactionRequest>) -> Result<String> {
+    pub async fn send_sync(&self, tx: TempoTransactionRequest) -> Result<String> {
         let mut receipt: TransactionReceiptWithRevertReason =
             self.provider.send_transaction_sync(tx).await?.into();
 
@@ -181,44 +182,20 @@ impl<P: Provider<AnyNetwork>> CastTxSender<P> {
         self.format_receipt(receipt, None)
     }
 
+    /// Sends a raw signed transaction and waits for receipt synchronously
+    pub async fn send_raw_sync(&self, raw_tx: &[u8]) -> Result<String> {
+        let pending = self.provider.send_raw_transaction(raw_tx).await?;
+        let receipt = pending.get_receipt().await?;
+        let mut receipt: TransactionReceiptWithRevertReason = receipt.into();
+        let _ = receipt.update_revert_reason(&self.provider).await;
+        self.format_receipt(receipt, None)
+    }
+
     /// Sends a transaction to the specified address
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use cast::tx::CastTxSender;
-    /// use alloy_primitives::{Address, U256, Bytes};
-    /// use alloy_serde::WithOtherFields;
-    /// use alloy_rpc_types::{TransactionRequest};
-    /// use alloy_provider::{RootProvider, ProviderBuilder, network::AnyNetwork};
-    /// use std::str::FromStr;
-    /// use alloy_sol_types::{sol, SolCall};    ///
-    ///
-    /// sol!(
-    ///     function greet(string greeting) public;
-    /// );
-    ///
-    /// # async fn foo() -> eyre::Result<()> {
-    /// let provider = ProviderBuilder::<_,_, AnyNetwork>::default().connect("http://localhost:8545").await?;;
-    /// let from = Address::from_str("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")?;
-    /// let to = Address::from_str("0xB3C95ff08316fb2F2e3E52Ee82F8e7b605Aa1304")?;
-    /// let greeting = greetCall { greeting: "hello".to_string() }.abi_encode();
-    /// let bytes = Bytes::from_iter(greeting.iter());
-    /// let gas = U256::from_str("200000").unwrap();
-    /// let value = U256::from_str("1").unwrap();
-    /// let nonce = U256::from_str("1").unwrap();
-    /// let tx = TransactionRequest::default().to(to).input(bytes.into()).from(from);
-    /// let tx = WithOtherFields::new(tx);
-    /// let cast = CastTxSender::new(provider);
-    /// let data = cast.send(tx).await?;
-    /// println!("{:#?}", data);
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn send(
         &self,
-        tx: WithOtherFields<TransactionRequest>,
-    ) -> Result<PendingTransactionBuilder<AnyNetwork>> {
+        tx: TempoTransactionRequest,
+    ) -> Result<PendingTransactionBuilder<TempoNetwork>> {
         let res = self.provider.send_transaction(tx).await?;
 
         Ok(res)
@@ -228,26 +205,29 @@ impl<P: Provider<AnyNetwork>> CastTxSender<P> {
     ///
     /// Used for transaction types that the standard Alloy network stack doesn't understand
     /// (e.g., Tempo transactions).
-    pub async fn send_raw(&self, raw_tx: &[u8]) -> Result<PendingTransactionBuilder<AnyNetwork>> {
+    pub async fn send_raw(&self, raw_tx: &[u8]) -> Result<PendingTransactionBuilder<TempoNetwork>> {
         let res = self.provider.send_raw_transaction(raw_tx).await?;
         Ok(res)
     }
 
+    /// Fetches transaction receipt by hash, waiting for confirmations if necessary.
     /// # Example
     ///
-    /// ```
-    /// use alloy_provider::{ProviderBuilder, RootProvider, network::AnyNetwork};
+    /// ```no_run
+    /// use alloy_provider::ProviderBuilder;
     /// use cast::tx::CastTxSender;
+    /// use tempo_alloy::TempoNetwork;
     ///
     /// async fn foo() -> eyre::Result<()> {
-    /// let provider =
-    ///     ProviderBuilder::<_, _, AnyNetwork>::default().connect("http://localhost:8545").await?;
-    /// let cast = CastTxSender::new(provider);
-    /// let tx_hash = "0xf8d1713ea15a81482958fb7ddf884baee8d3bcc478c5f2f604e008dc788ee4fc";
-    /// let receipt = cast.receipt(tx_hash.to_string(), None, 1, None, false).await?;
-    /// println!("{}", receipt);
-    /// # Ok(())
-    /// # }
+    ///     let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
+    ///         .connect("http://localhost:8545")
+    ///         .await?;
+    ///     let cast = CastTxSender::new(provider);
+    ///     let tx_hash = "0xf8d1713ea15a81482958fb7ddf884baee8d3bcc478c5f2f604e008dc788ee4fc";
+    ///     let receipt = cast.receipt(tx_hash.to_string(), None, 1, None, false).await?;
+    ///     println!("{}", receipt);
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn receipt(
         &self,
@@ -307,22 +287,22 @@ impl<P: Provider<AnyNetwork>> CastTxSender<P> {
 /// It is implemented as a stateful builder with expected state transition of [InitState] ->
 /// [ToState] -> [InputState].
 #[derive(Debug)]
-pub struct CastTxBuilder<P, S> {
-    provider: P,
-    tx: WithOtherFields<TransactionRequest>,
+pub struct CastTxBuilder<P, S, T> {
+    pub(crate) provider: P,
+    pub(crate) tx: WithOtherFields<T>,
     /// Whether the transaction should be sent as a legacy transaction.
-    legacy: bool,
-    blob: bool,
+    pub(crate) legacy: bool,
+    pub(crate) blob: bool,
     /// Whether the blob transaction should use EIP-4844 (legacy) format instead of EIP-7594.
-    eip4844: bool,
-    auth: Vec<CliAuthorizationList>,
-    chain: Chain,
-    etherscan_api_key: Option<String>,
-    access_list: Option<Option<AccessList>>,
-    state: S,
+    pub(crate) eip4844: bool,
+    pub(crate) auth: Vec<CliAuthorizationList>,
+    pub(crate) chain: Chain,
+    pub(crate) etherscan_api_key: Option<String>,
+    pub(crate) access_list: Option<Option<AccessList>>,
+    pub(crate) state: S,
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState, TransactionRequest> {
     /// Creates a new instance of [CastTxBuilder] filling transaction with fields present in
     /// provided [TransactionOpts].
     pub async fn new(provider: P, tx_opts: TransactionOpts, config: &Config) -> Result<Self> {
@@ -385,7 +365,10 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState> {
     }
 
     /// Sets [TxKind] for this builder and changes state to [ToState].
-    pub async fn with_to(self, to: Option<NameOrAddress>) -> Result<CastTxBuilder<P, ToState>> {
+    pub async fn with_to(
+        self,
+        to: Option<NameOrAddress>,
+    ) -> Result<CastTxBuilder<P, ToState, TransactionRequest>> {
         let to = if let Some(to) = to { Some(to.resolve(&self.provider).await?) } else { None };
         Ok(CastTxBuilder {
             provider: self.provider,
@@ -402,7 +385,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InitState> {
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState> {
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState, TransactionRequest> {
     /// Accepts user-provided code, sig and args params and constructs calldata for the transaction.
     /// If code is present, input will be set to code + encoded constructor arguments. If no code is
     /// present, input is set to just provided arguments.
@@ -411,7 +394,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState> {
         code: Option<String>,
         sig: Option<String>,
         args: Vec<String>,
-    ) -> Result<CastTxBuilder<P, InputState>> {
+    ) -> Result<CastTxBuilder<P, InputState, TransactionRequest>> {
         let (mut args, func) = if let Some(sig) = sig {
             parse_function_args(
                 &sig,
@@ -459,9 +442,9 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, ToState> {
     }
 }
 
-impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState> {
-    /// Builds a [FoundryTransactionRequest] and fills missing fields. Returns a transaction which
-    /// is ready to be broadcasted.
+impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState, TransactionRequest> {
+    /// Builds [TransactionRequest] and fills missing fields. Returns a transaction which is ready
+    /// to be broadcasted.
     pub async fn build(
         self,
         sender: impl Into<SenderKind<'_>>,
@@ -663,7 +646,7 @@ impl<P: Provider<AnyNetwork>> CastTxBuilder<P, InputState> {
     }
 }
 
-impl<P, S> CastTxBuilder<P, S>
+impl<P, S> CastTxBuilder<P, S, TransactionRequest>
 where
     P: Provider<AnyNetwork>,
 {
@@ -687,7 +670,7 @@ where
 }
 
 /// Helper function that tries to decode custom error name and inputs from error payload data.
-async fn decode_execution_revert(data: &RawValue) -> Result<Option<String>> {
+pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<String>> {
     let err_data = serde_json::from_str::<Bytes>(data.get())?;
     let Some(selector) = err_data.get(..4) else { return Ok(None) };
     if let Some(known_error) =
@@ -711,11 +694,11 @@ async fn decode_execution_revert(data: &RawValue) -> Result<Option<String>> {
 pub(crate) async fn signing_provider_with_curl(
     tx_opts: &SendTxOpts,
     curl_mode: bool,
-) -> eyre::Result<RetryProviderWithSigner> {
+) -> eyre::Result<TempoRetryProviderWithSigner> {
     let config = tx_opts.eth.load_config()?;
     let signer = tx_opts.eth.wallet.signer().await?;
     let wallet = alloy_network::EthereumWallet::from(signer);
-    let provider = get_provider_builder(&config, curl_mode)?.build_with_wallet(wallet)?;
+    let provider = get_tempo_provider_builder(&config, curl_mode)?.build_with_wallet(wallet)?;
     if let Some(interval) = tx_opts.poll_interval {
         provider.client().set_poll_interval(Duration::from_secs(interval))
     }

@@ -867,6 +867,8 @@ Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag:
 
     assert!(prj.root().join(".github").join("workflows").exists());
     assert!(prj.root().join(".github").join("workflows").join("test.yml").exists());
+
+    assert!(prj.root().join("README.md").exists());
 });
 
 // checks that `forge init --vyper` works.
@@ -896,6 +898,8 @@ Installing forge-std in [..] (url: https://github.com/foundry-rs/forge-std, tag:
 
     assert!(prj.root().join(".github").join("workflows").exists());
     assert!(prj.root().join(".github").join("workflows").join("test.yml").exists());
+
+    assert!(prj.root().join("README.md").exists());
 });
 
 // checks that `forge init --network tempo` works.
@@ -2807,7 +2811,7 @@ Suite result: ok. 1 passed; 0 failed; 0 skipped; [ELAPSED]
 +=====================================================================================================================+
 | Deployment Cost                                                | Deployment Size |       |        |       |         |
 |----------------------------------------------------------------+-----------------+-------+--------+-------+---------|
-|                                                         132471 |             396 |       |        |       |         |
+|                                                         132459 |             396 |       |        |       |         |
 |----------------------------------------------------------------+-----------------+-------+--------+-------+---------|
 |                                                                |                 |       |        |       |         |
 |----------------------------------------------------------------+-----------------+-------+--------+-------+---------|
@@ -2830,7 +2834,7 @@ Ran 1 test suite [ELAPSED]: 1 tests passed, 0 failed, 0 skipped (1 total tests)
   {
     "contract": "test/FallbackWithCalldataTest.sol:CounterWithFallback",
     "deployment": {
-      "gas": 132471,
+      "gas": 132459,
       "size": 396
     },
     "functions": {

@@ -1,32 +1,33 @@
 [workspace]
 members = [
-    "benches/",
-    "crates/anvil/",
-    "crates/anvil/core/",
-    "crates/anvil/rpc/",
-    "crates/anvil/server/",
-    "crates/cast/",
-    "crates/cheatcodes/",
-    "crates/cheatcodes/spec/",
-    "crates/chisel/",
-    "crates/cli/",
-    "crates/common/",
-    "crates/config/",
-    "crates/debugger/",
-    "crates/doc/",
-    "crates/evm/core/",
-    "crates/evm/coverage/",
-    "crates/evm/evm/",
-    "crates/evm/fuzz/",
-    "crates/evm/traces/",
-    "crates/fmt/",
-    "crates/forge/",
-    "crates/lint/",
-    "crates/macros/",
-    "crates/primitives/",
-    "crates/script-sequence/",
-    "crates/test-utils/",
-    "crates/cli-markdown/",
+  "benches/",
+  "crates/anvil/",
+  "crates/anvil/core/",
+  "crates/anvil/rpc/",
+  "crates/anvil/server/",
+  "crates/cast/",
+  "crates/cheatcodes/",
+  "crates/cheatcodes/spec/",
+  "crates/chisel/",
+  "crates/cli/",
+  "crates/common/",
+  "crates/config/",
+  "crates/debugger/",
+  "crates/doc/",
+  "crates/evm/core/",
+  "crates/evm/coverage/",
+  "crates/evm/evm/",
+  "crates/evm/fuzz/",
+  "crates/evm/tempo-coverage/",
+  "crates/evm/traces/",
+  "crates/fmt/",
+  "crates/forge/",
+  "crates/lint/",
+  "crates/macros/",
+  "crates/primitives/",
+  "crates/script-sequence/",
+  "crates/test-utils/",
+  "crates/cli-markdown/",
 ]
 resolver = "2"
 
@@ -97,6 +98,16 @@ inherits = "profiling"
 inherits = "release"
 lto = "fat"
 codegen-units = 1
+
+# Coverage-guided fuzzing of Tempo precompiles.
+# Only tempo-precompiles is compiled with sancov (via RUSTC_WRAPPER), so thin
+# LTO is safe — it won't inline away the sancov callbacks from that crate.
+# Build with: ./scripts/build-fuzz.sh
+[profile.fuzz]
+inherits = "release"
+lto = "thin"
+strip = "none"
+debug = "line-tables-only"
 
 # Speed up tests and dev build.
 [profile.dev.package]
@@ -241,8 +252,10 @@ alloy-json-abi.opt-level = "s"
 
 [workspace.dependencies]
 anvil = { path = "crates/anvil" }
+anvil-core = { path = "crates/anvil/core" }
+anvil-rpc = { path = "crates/anvil/rpc" }
+anvil-server = { path = "crates/anvil/server" }
 cast = { path = "crates/cast" }
-chisel = { path = "crates/chisel" }
 forge = { path = "crates/forge" }
 
 forge-doc = { path = "crates/doc" }
@@ -264,6 +277,7 @@ foundry-evm = { path = "crates/evm/evm" }
 foundry-evm-abi = { path = "crates/evm/abi" }
 foundry-evm-core = { path = "crates/evm/core" }
 foundry-evm-coverage = { path = "crates/evm/coverage" }
+foundry-evm-hardforks = { path = "crates/evm/hardforks" }
 foundry-evm-networks = { path = "crates/evm/networks" }
 foundry-evm-fuzz = { path = "crates/evm/fuzz" }
 foundry-evm-traces = { path = "crates/evm/traces" }
@@ -272,18 +286,16 @@ foundry-test-utils = { path = "crates/test-utils" }
 foundry-wallets = { path = "crates/wallets" }
 foundry-linking = { path = "crates/linking" }
 foundry-primitives = { path = "crates/primitives" }
-
-# solc & compilation utilities
 foundry-block-explorers = { version = "0.22.0", default-features = false }
 foundry-compilers = { version = "0.19.14", default-features = false, features = [
-    "rustls",
-    "svm-solc",
+  "rustls",
+  "svm-solc",
 ] }
 foundry-fork-db = "0.22"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
 svm = { package = "svm-rs", version = "0.5", default-features = false, features = [
-    "rustls",
+  "rustls",
 ] }
 
 ## alloy
@@ -320,10 +332,10 @@ alloy-op-hardforks = { version = "0.4.7", default-features = false }
 alloy-dyn-abi = "1.5.2"
 alloy-json-abi = "1.5.2"
 alloy-primitives = { version = "1.5.2", features = [
-    "getrandom",
-    "rand",
-    "map-fxhash",
-    "map-foldhash",
+  "getrandom",
+  "rand",
+  "map-fxhash",
+  "map-foldhash",
 ] }
 alloy-sol-macro-expander = "1.5.2"
 alloy-sol-macro-input = "1.5.2"
@@ -339,8 +351,8 @@ op-alloy-rpc-types = "0.23.1"
 op-alloy-flz = "0.13.1"
 
 ## alloy-evm
-alloy-evm = "0.26.3"
-alloy-op-evm = "0.26.3"
+alloy-evm = "0.27.0"
+alloy-op-evm = "0.27.0"
 
 # revm
 revm = { version = "34.0.0", default-features = false }
@@ -351,7 +363,7 @@ op-revm = { version = "15.0.0", default-features = false }
 anstream = "0.6"
 anstyle = "1.0"
 dialoguer = { version = "0.12", default-features = false, features = [
-    "password",
+  "password",
 ] }
 clap_complete = "4"
 clap_complete_nushell = "4"
@@ -375,8 +387,8 @@ walkdir = "2"
 prettyplease = "0.2"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = [
-    "clock",
-    "std",
+  "clock",
+  "std",
 ] }
 axum = "0.8"
 ciborium = "0.2"
@@ -404,8 +416,8 @@ rand_08 = { package = "rand", version = "0.8" }
 rayon = "1"
 regex = { version = "1", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = [
-    "rustls-tls",
-    "rustls-tls-native-roots",
+  "rustls-tls",
+  "rustls-tls-native-roots",
 ] }
 rustls = "0.23"
 semver = "1"
@@ -424,15 +436,16 @@ tower-http = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"
-vergen = { package = "vergen-gitcl", version = "10.0.0-beta.5", default-features = false, features = [
-    "build",
-    "cargo",
+vergen = { version = "=9.1.0", default-features = false, features = [
+  "build",
+  "cargo",
 ] }
+vergen-git2 = "=9.1.0"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 path-slash = "0.2"
 jiff = { version = "0.2", default-features = false, features = [
-    "std",
-    "perf-inline",
+  "std",
+  "perf-inline",
 ] }
 heck = "0.5"
 uuid = "1.19.0"
@@ -440,8 +453,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", tag = "v1.0.0", default-features = false, features = ["serde"] }
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", tag = "v1.0.0", default-features = false }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "0b733465c4b24b0e80ca30036ac0708a1827f56c" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
@@ -454,7 +472,7 @@ snapbox = { version = "0.6", features = ["json", "regex", "term-svg"] }
 idna_adapter = "=1.1.0"
 
 [patch.crates-io]
-# https://github.com/rust-cli/rexpect/pull/106
+# https://github.com/rust-cli/rexpect/pull/106# solc & compilation utilities
 rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6a85bedbae71a01cc578958fc" }
 
 ## alloy-core
@@ -507,7 +525,6 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 ## foundry
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
-# foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "b4299fc" }
 
 # solar
 solar = { package = "solar-compiler", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }

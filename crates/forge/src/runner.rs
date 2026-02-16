@@ -29,6 +29,7 @@ use foundry_evm::{
         BasicTxDetails, CallDetails, CounterExample, FuzzFixtures, fixture_name,
         invariant::InvariantContract, strategies::EvmFuzzState,
     },
+    tempo::{initialize_tempo_precompiles_and_contracts, warm_tempo_precompile_accounts},
     traces::{TraceKind, TraceMode, load_contracts},
 };
 use itertools::Itertools;
@@ -160,6 +161,19 @@ impl<'a> ContractRunner<'a> {
         // Set the contracts initial balance before deployment, so it is available during
         // construction
         self.executor.set_balance(address, self.initial_balance())?;
+
+        // Initialize Tempo precompiles and contracts.
+        let hardfork = self.executor.hardfork();
+        if self.evm_opts.fork_url.is_none() {
+            // Non-fork mode: full genesis initialization (bytecode, tokens, storage).
+            initialize_tempo_precompiles_and_contracts(&mut self.executor, hardfork)?;
+        } else {
+            // Fork mode: pre-warm precompile accounts in the local cache to prevent
+            // repeated RPC fetches for Rust-native precompile addresses that have no
+            // EVM bytecode on-chain. Without this, invariant fuzzing hangs due to a
+            // pathological RPC storm from uncached account/storage lookups.
+            warm_tempo_precompile_accounts(&mut self.executor)?;
+        }
 
         // Deploy the test contract
         let deploy_result = self.executor.deploy(
@@ -739,6 +753,12 @@ impl<'a> FunctionRunner<'a> {
         executor
             .inspector_mut()
             .collect_edge_coverage(invariant_config.corpus.collect_edge_coverage());
+        executor.inspector_mut().collect_tempo_precompile_edges(
+            invariant_config.corpus.collect_tempo_precompile_edges(),
+        );
+        executor.inspector_mut().collect_tempo_precompile_trace_cmp(
+            invariant_config.corpus.collect_tempo_precompile_trace_cmp(),
+        );
         let mut config = invariant_config.clone();
         let (failure_dir, failure_file) = test_paths(
             &mut config.corpus,
@@ -1034,6 +1054,12 @@ impl<'a> FunctionRunner<'a> {
         // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
         // metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(fuzz_config.corpus.collect_edge_coverage());
+        executor
+            .inspector_mut()
+            .collect_tempo_precompile_edges(fuzz_config.corpus.collect_tempo_precompile_edges());
+        executor.inspector_mut().collect_tempo_precompile_trace_cmp(
+            fuzz_config.corpus.collect_tempo_precompile_trace_cmp(),
+        );
         // Load persisted counterexample, if any.
         let persisted_failure =
             foundry_common::fs::read_json_file::<BaseCounterExample>(failure_file.as_path()).ok();

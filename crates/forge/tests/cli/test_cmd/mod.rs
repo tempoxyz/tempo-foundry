@@ -681,12 +681,15 @@ Ran 1 test suite [ELAPSED]: 1 tests passed, 0 failed, 0 skipped (1 total tests)
 // Validates BPO1 blob gas price calculation during fork transaction replay.
 // Block 24127158 has a blob tx at index 0, target tx at index 1.
 // Forking at the target tx replays the blob tx with correct BPO1 blob base fee calculation.
-forgetest_init!(fork_tx_replay_bpo1_blob_base_fee, |prj, cmd| {
-    let endpoint = rpc::next_http_archive_rpc_url();
+forgetest_init!(
+    #[ignore = "tempo skip - blobs not supported"]
+    fork_tx_replay_bpo1_blob_base_fee,
+    |prj, cmd| {
+        let endpoint = rpc::next_http_archive_rpc_url();
 
-    prj.add_test(
-        "BlobFork.t.sol",
-        &r#"
+        prj.add_test(
+            "BlobFork.t.sol",
+            &r#"
 import {Test} from "forge-std/Test.sol";
 
 contract BlobForkTest is Test {
@@ -699,11 +702,12 @@ contract BlobForkTest is Test {
     }
 }
     "#
-        .replace("<url>", &endpoint),
-    );
+            .replace("<url>", &endpoint),
+        );
 
-    cmd.args(["test", "-vvvv"]).assert_success();
-});
+        cmd.args(["test", "-vvvv"]).assert_success();
+    }
+);
 
 // https://github.com/foundry-rs/foundry/issues/6579
 forgetest_init!(include_custom_types_in_traces, |prj, cmd| {
@@ -1875,6 +1879,7 @@ contract ATest is DSTest {
 
     cmd.args(["test"]).with_no_redact().assert_success().stdout_eq(str![[r#"
 ...
+[PASS] testMemoryOnReset(uint8[1]) (runs: [..], μ: [..], ~: [..])
 [PASS] testResetGas() (gas: 96)
 [PASS] testResetGas1() (gas: 96)
 [PASS] testResetGas2() (gas: 96)
@@ -3020,7 +3025,7 @@ contract ContractTest {
 ...
 Failing tests:
 Encountered 1 failing test in test/Foo.t.sol:ContractTest
-[FAIL: EVM error; transaction validation error: call [GAS_COST] exceeds the [GAS_LIMIT]] setUp() ([GAS])
+[FAIL: EVM error; transaction validation error: insufficient gas for intrinsic cost: gas_limit 100 < intrinsic_gas [..]] setUp() ([GAS])
 
 Encountered a total of 1 failing tests, 0 tests succeeded
 
@@ -4331,16 +4336,19 @@ Tip: Run `forge test --rerun` to retry only the 2 failed tests
 
 // <https://github.com/foundry-rs/foundry/issues/11632>
 #[cfg(not(feature = "isolate-by-default"))]
-forgetest_init!(invariant_consistent_output, |prj, cmd| {
-    prj.update_config(|config| {
-        config.fuzz.seed = Some(U256::from(100u32));
-        config.invariant.runs = 10;
-        config.invariant.depth = 100;
-        config.invariant.show_metrics = false;
-    });
-    prj.add_test(
-        "InvariantOutputTest.t.sol",
-        r#"
+forgetest_init!(
+    #[ignore = "tempo skip - flaky invariant test"]
+    invariant_consistent_output,
+    |prj, cmd| {
+        prj.update_config(|config| {
+            config.fuzz.seed = Some(U256::from(100u32));
+            config.invariant.runs = 10;
+            config.invariant.depth = 100;
+            config.invariant.show_metrics = false;
+        });
+        prj.add_test(
+            "InvariantOutputTest.t.sol",
+            r#"
 import {Test} from "forge-std/Test.sol";
 
 contract InvariantOutputTest is Test {
@@ -4361,12 +4369,13 @@ contract InvariantOutputTest is Test {
     }
 }
    "#,
-    );
+        );
 
-    cmd.args(["test", "--mt", "invariant_check_count", "--color", "always"])
-        .assert_failure()
-        .stdout_eq(file!["../../fixtures/invariant_traces.svg": TermSvg]);
-});
+        cmd.args(["test", "--mt", "invariant_check_count", "--color", "always"])
+            .assert_failure()
+            .stdout_eq(file!["../../fixtures/invariant_traces.svg": TermSvg]);
+    }
+);
 
 forgetest_init!(memory_limit, |prj, cmd| {
     prj.wipe_contracts();

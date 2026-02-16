@@ -39,14 +39,13 @@ use foundry_evm::{
     backend::{BlockchainDb, BlockchainDbMeta, SharedBackend},
     constants::DEFAULT_CREATE2_DEPLOYER,
     core::AsEnvMut,
-    hardfork::{
+    hardforks::{
         FoundryHardfork, OpHardfork, ethereum_hardfork_from_block_tag,
         spec_id_from_ethereum_hardfork,
     },
     utils::{apply_chain_and_block_specific_env_changes, get_blob_base_fee_update_fraction},
 };
 use itertools::Itertools;
-use op_revm::OpTransaction;
 use parking_lot::RwLock;
 use rand_08::thread_rng;
 use revm::{
@@ -64,6 +63,9 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tempo_chainspec::hardfork::TempoHardfork;
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 use tokio::sync::RwLock as TokioRwLock;
 use yansi::Paint;
 
@@ -421,10 +423,18 @@ Genesis Number
 
 impl NodeConfig {
     /// Returns a new config intended to be used in tests, which does not print and binds to a
-    /// random, free port by setting it to `0`
+    /// random, free port by setting it to `0`.
+    ///
+    /// Returns a test config with standard Ethereum defaults.
     #[doc(hidden)]
     pub fn test() -> Self {
         Self { enable_tracing: true, port: 0, silent: true, ..Default::default() }
+    }
+
+    /// Returns a test config with Tempo network enabled.
+    #[doc(hidden)]
+    pub fn test_tempo() -> Self {
+        Self { networks: NetworkConfigs::with_tempo(), ..Self::test() }
     }
 
     /// Returns a new config which does not initialize any accounts on node startup.
@@ -512,16 +522,35 @@ impl NodeConfig {
         self.memory_limit = mems_value;
         self
     }
-    /// Returns the base fee to use
+    /// Returns the base fee to use.
+    /// In Tempo mode, uses the hardfork-specific base fee (10 gwei pre-T1, 20 gwei T1+).
     pub fn get_base_fee(&self) -> u64 {
+        let default = if self.networks.is_tempo() {
+            // Use the configured Tempo hardfork's base fee, or default to T0
+            self.get_tempo_hardfork().base_fee()
+        } else {
+            INITIAL_BASE_FEE
+        };
         self.base_fee
             .or_else(|| self.genesis.as_ref().and_then(|g| g.base_fee_per_gas.map(|g| g as u64)))
-            .unwrap_or(INITIAL_BASE_FEE)
+            .unwrap_or(default)
     }
 
-    /// Returns the base fee to use
+    /// Returns the gas price to use.
+    /// In Tempo mode, uses the hardfork-specific base fee as gas price.
     pub fn get_gas_price(&self) -> u128 {
-        self.gas_price.unwrap_or(INITIAL_GAS_PRICE)
+        let default = if self.networks.is_tempo() {
+            // Use the configured Tempo hardfork's base fee
+            self.get_tempo_hardfork().base_fee() as u128
+        } else {
+            INITIAL_GAS_PRICE
+        };
+        self.gas_price.unwrap_or(default)
+    }
+
+    /// Returns the configured Tempo hardfork, or the default (T0).
+    pub fn get_tempo_hardfork(&self) -> TempoHardfork {
+        self.hardfork.map(TempoHardfork::from).unwrap_or_default()
     }
 
     pub fn get_blob_excess_gas_and_price(&self) -> BlobExcessGasAndPrice {
@@ -686,6 +715,13 @@ impl NodeConfig {
         self
     }
 
+    /// Sets the hardfork
+    #[must_use]
+    pub fn with_hardfork(mut self, hardfork: Option<FoundryHardfork>) -> Self {
+        self.hardfork = hardfork;
+        self
+    }
+
     /// Sets the init genesis (genesis.json)
     #[must_use]
     pub fn with_genesis(mut self, genesis: Option<Genesis>) -> Self {
@@ -723,13 +759,6 @@ impl NodeConfig {
         self.genesis_block_number
             .or_else(|| self.genesis.as_ref().and_then(|g| g.number))
             .unwrap_or(0)
-    }
-
-    /// Sets the hardfork
-    #[must_use]
-    pub fn with_hardfork(mut self, hardfork: Option<FoundryHardfork>) -> Self {
-        self.hardfork = hardfork;
-        self
     }
 
     /// Sets the genesis accounts
@@ -1029,6 +1058,20 @@ impl NodeConfig {
         self
     }
 
+    /// Enable Tempo network features.
+    #[must_use]
+    pub fn with_tempo(mut self) -> Self {
+        self.networks = NetworkConfigs::with_tempo();
+        self
+    }
+
+    /// Enable Optimism network features.
+    #[must_use]
+    pub fn with_optimism(mut self) -> Self {
+        self.networks = NetworkConfigs::with_optimism();
+        self
+    }
+
     /// Makes the node silent to not emit anything on stdout
     #[must_use]
     pub fn silent(self) -> Self {
@@ -1058,7 +1101,7 @@ impl NodeConfig {
     pub(crate) async fn setup(&mut self) -> Result<mem::Backend> {
         // configure the revm environment
 
-        let mut cfg = CfgEnv::default();
+        let mut cfg: CfgEnv<TempoHardfork> = CfgEnv::default();
         cfg.spec = self.get_hardfork().into();
 
         cfg.chain_id = self.get_chain_id();
@@ -1077,22 +1120,18 @@ impl NodeConfig {
             cfg.memory_limit = value;
         }
 
-        let spec_id = cfg.spec;
-        let mut env = Env::new(
-            EvmEnv::new(
-                cfg,
-                BlockEnv {
-                    gas_limit: self.gas_limit(),
-                    basefee: self.get_base_fee(),
-                    ..Default::default()
-                },
-            ),
-            OpTransaction {
-                base: TxEnv { chain_id: Some(self.get_chain_id()), ..Default::default() },
-                ..Default::default()
-            },
-            self.networks,
-        );
+        let spec_id: SpecId = cfg.spec.into();
+        let block_env = {
+            let mut block = TempoBlockEnv::default();
+            block.inner.gas_limit = self.gas_limit();
+            block.inner.basefee = self.get_base_fee();
+            block
+        };
+        let tx_env = TempoTxEnv {
+            inner: TxEnv { chain_id: Some(self.get_chain_id()), ..Default::default() },
+            ..Default::default()
+        };
+        let mut env = Env::new(EvmEnv::new(cfg, block_env), tx_env, self.networks);
 
         let base_fee_params: BaseFeeParams =
             self.networks.base_fee_params(self.get_genesis_timestamp());
@@ -1242,7 +1281,7 @@ impl NodeConfig {
                     let hardfork: EthereumHardfork =
                         ethereum_hardfork_from_block_tag(fork_block_number);
 
-                    env.evm_env.cfg_env.spec = spec_id_from_ethereum_hardfork(hardfork);
+                    env.evm_env.cfg_env.spec = spec_id_from_ethereum_hardfork(hardfork).into();
                     self.hardfork = Some(FoundryHardfork::Ethereum(hardfork));
                 }
                 Some(U256::from(chain_id))
@@ -1286,7 +1325,7 @@ latest block number: {latest_block}"
         let gas_limit = self.fork_gas_limit(&block);
         self.gas_limit = Some(gas_limit);
 
-        env.evm_env.block_env = BlockEnv {
+        env.evm_env.block_env.inner = BlockEnv {
             number: U256::from(fork_block_number),
             timestamp: U256::from(block.header.timestamp),
             difficulty: block.header.difficulty,
@@ -1294,8 +1333,8 @@ latest block number: {latest_block}"
             prevrandao: Some(block.header.mix_hash.unwrap_or_default()),
             gas_limit,
             // Keep previous `coinbase` and `basefee` value
-            beneficiary: env.evm_env.block_env.beneficiary,
-            basefee: env.evm_env.block_env.basefee,
+            beneficiary: env.evm_env.block_env.inner.beneficiary,
+            basefee: env.evm_env.block_env.inner.basefee,
             ..Default::default()
         };
 
@@ -1312,7 +1351,7 @@ latest block number: {latest_block}"
             // need to update the dev signers and env with the chain id
             self.set_chain_id(Some(chain_id));
             env.evm_env.cfg_env.chain_id = chain_id;
-            env.tx.base.chain_id = chain_id.into();
+            env.tx.inner.chain_id = chain_id.into();
             chain_id
         };
 
@@ -1320,7 +1359,7 @@ latest block number: {latest_block}"
         if self.base_fee.is_none() {
             if let Some(base_fee) = block.header.base_fee_per_gas {
                 self.base_fee = Some(base_fee);
-                env.evm_env.block_env.basefee = base_fee;
+                env.evm_env.block_env.inner.basefee = base_fee;
                 // this is the base fee of the current block, but we need the base fee of
                 // the next block
                 let next_block_base_fee = fees.get_next_block_base_fee_per_gas(
@@ -1364,6 +1403,21 @@ latest block number: {latest_block}"
 
         let block_hash = block.header.hash;
 
+        let chain_id = if let Some(chain_id) = self.chain_id {
+            chain_id
+        } else {
+            let chain_id = if let Some(fork_chain_id) = fork_chain_id {
+                fork_chain_id.to()
+            } else {
+                provider.get_chain_id().await.wrap_err("failed to fetch network chain ID")?
+            };
+
+            // need to update the dev signers and env with the chain id
+            self.set_chain_id(Some(chain_id));
+            env.evm_env.cfg_env.chain_id = chain_id;
+            env.tx.inner.chain_id = chain_id.into();
+            chain_id
+        };
         let override_chain_id = self.chain_id;
         // apply changes such as difficulty -> prevrandao and chain specifics for current chain id
         apply_chain_and_block_specific_env_changes::<AnyNetwork>(
@@ -1372,7 +1426,7 @@ latest block number: {latest_block}"
             self.networks,
         );
 
-        let meta = BlockchainDbMeta::new(env.evm_env.block_env.clone(), eth_rpc_url.clone());
+        let meta = BlockchainDbMeta::new(env.evm_env.block_env.inner.clone(), eth_rpc_url.clone());
         let block_chain_db = if self.fork_chain_id.is_some() {
             BlockchainDb::new_skip_check(meta, self.block_cache_path(fork_block_number))
         } else {

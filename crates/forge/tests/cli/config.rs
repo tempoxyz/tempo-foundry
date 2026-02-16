@@ -1,6 +1,7 @@
 //! Contains various tests for checking forge commands related to config values
 
 use alloy_primitives::{Address, B256, U256};
+use forge::hardforks::{EthereumHardfork, FoundryHardfork};
 use foundry_cli::utils as forge_utils;
 use foundry_compilers::{
     artifacts::{BytecodeHash, OptimizerDetails, RevertStrings, YulDetails},
@@ -50,6 +51,7 @@ include_paths = []
 skip = []
 force = false
 evm_version = "osaka"
+hardfork = "tempo:T0"
 gas_reports = ["*"]
 gas_reports_ignore = []
 gas_reports_include_tests = false
@@ -109,6 +111,7 @@ create2_deployer = "0x4e59b44847b379578588920ca78fbf26c0b4956c"
 assertions_revert = true
 legacy_assertions = false
 celo = false
+tempo = false
 bypass_prevrandao = false
 transaction_timeout = 120
 additional_compiler_profiles = []
@@ -189,6 +192,8 @@ corpus_gzip = true
 corpus_min_mutations = 5
 corpus_min_size = 0
 show_edge_coverage = false
+tempo_precompile_edges = false
+tempo_precompile_trace_cmp = false
 failure_persist_dir = "cache/fuzz"
 show_logs = false
 
@@ -210,10 +215,14 @@ corpus_gzip = true
 corpus_min_mutations = 5
 corpus_min_size = 0
 show_edge_coverage = false
+tempo_precompile_edges = false
+tempo_precompile_trace_cmp = false
 failure_persist_dir = "cache/invariant"
 show_metrics = true
 show_solidity = false
 check_interval = 1
+replay_corpus_first = false
+corpus_replay_only = false
 
 [labels]
 
@@ -249,6 +258,7 @@ forgetest!(can_extract_config_values, |prj, cmd| {
         broadcast: "broadcast".into(),
         force: true,
         evm_version: EvmVersion::Byzantium,
+        hardfork: Some(FoundryHardfork::Ethereum(EthereumHardfork::London)),
         gas_reports: vec!["Contract".to_string()],
         gas_reports_ignore: vec![],
         gas_reports_include_tests: false,
@@ -1210,6 +1220,7 @@ forgetest_init!(test_default_config, |prj, cmd| {
   "skip": [],
   "force": false,
   "evm_version": "osaka",
+  "hardfork": "tempo:T0",
   "gas_reports": [
     "*"
   ],
@@ -1267,6 +1278,8 @@ forgetest_init!(test_default_config, |prj, cmd| {
     "corpus_min_mutations": 5,
     "corpus_min_size": 0,
     "show_edge_coverage": false,
+    "tempo_precompile_edges": false,
+    "tempo_precompile_trace_cmp": false,
     "failure_persist_dir": "cache/fuzz",
     "show_logs": false,
     "timeout": null
@@ -1290,13 +1303,17 @@ forgetest_init!(test_default_config, |prj, cmd| {
     "corpus_min_mutations": 5,
     "corpus_min_size": 0,
     "show_edge_coverage": false,
+    "tempo_precompile_edges": false,
+    "tempo_precompile_trace_cmp": false,
     "failure_persist_dir": "cache/invariant",
     "show_metrics": true,
     "timeout": null,
     "show_solidity": false,
     "max_time_delay": null,
     "max_block_delay": null,
-    "check_interval": 1
+    "check_interval": 1,
+    "replay_corpus_first": false,
+    "corpus_replay_only": false
   },
   "ffi": false,
   "allow_internal_expect_revert": false,
@@ -1412,6 +1429,7 @@ forgetest_init!(test_default_config, |prj, cmd| {
   "assertions_revert": true,
   "legacy_assertions": false,
   "celo": false,
+  "tempo": false,
   "bypass_prevrandao": false,
   "transaction_timeout": 120,
   "additional_compiler_profiles": [],

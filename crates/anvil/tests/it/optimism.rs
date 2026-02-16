@@ -184,6 +184,7 @@ async fn test_deposit_transaction_hash_matches_sepolia() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Optimism deposits are not supported in Tempo"]
 async fn test_deposit_tx_checks_sufficient_funds_after_applying_deposited_value() {
     // enable the Optimism flag
     let (_api, handle) =
@@ -283,6 +284,7 @@ const GAS_TRANSFER: u64 = 21_000;
 /// - Ethereum: base_fee increases by base_fee * 1 / 8 = 12.5%
 /// - Optimism: base_fee increases by base_fee * 5 / 250 = 2%
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Optimism base fee params are not used in Tempo"]
 async fn test_optimism_base_fee_params() {
     // Spawn an Optimism node with a gas limit equal to one transfer (full block scenario)
     let (_api, handle) = spawn(

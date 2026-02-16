@@ -248,6 +248,7 @@ impl InitArgs {
 
             // install forge-std
             if !offline {
+                // install forge-std
                 if root.join("lib/forge-std").exists() {
                     sh_warn!("\"lib/forge-std\" already exists, skipping install...")?;
                     self.install.install(&mut config, vec![]).await?;

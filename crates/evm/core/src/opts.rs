@@ -13,10 +13,13 @@ use foundry_common::{
     provider::{ProviderBuilder, RetryProvider},
 };
 use foundry_config::{Chain, Config, GasLimit};
+use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_networks::NetworkConfigs;
 use revm::context::{BlockEnv, TxEnv};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use tempo_evm::TempoBlockEnv;
+use tempo_revm::TempoTxEnv;
 use url::Url;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,6 +27,9 @@ pub struct EvmOpts {
     /// The EVM environment configuration.
     #[serde(flatten)]
     pub env: Env,
+
+    /// The hardfork to use for EVM execution.
+    pub hardfork: Option<FoundryHardfork>,
 
     /// Fetch state over a remote instead of starting from empty state.
     #[serde(rename = "eth_rpc_url")]
@@ -92,6 +98,7 @@ impl Default for EvmOpts {
     fn default() -> Self {
         Self {
             env: Env::default(),
+            hardfork: None,
             fork_url: None,
             fork_block_number: None,
             fork_retries: None,
@@ -187,21 +194,27 @@ impl EvmOpts {
         crate::Env {
             evm_env: EvmEnv {
                 cfg_env: cfg,
-                block_env: BlockEnv {
-                    number: self.env.block_number,
-                    beneficiary: self.env.block_coinbase,
-                    timestamp: self.env.block_timestamp,
-                    difficulty: U256::from(self.env.block_difficulty),
-                    prevrandao: Some(self.env.block_prevrandao),
-                    basefee: self.env.block_base_fee_per_gas,
-                    gas_limit: self.gas_limit(),
+                block_env: TempoBlockEnv {
+                    inner: BlockEnv {
+                        number: self.env.block_number,
+                        beneficiary: self.env.block_coinbase,
+                        timestamp: self.env.block_timestamp,
+                        difficulty: U256::from(self.env.block_difficulty),
+                        prevrandao: Some(self.env.block_prevrandao),
+                        basefee: self.env.block_base_fee_per_gas,
+                        gas_limit: self.gas_limit(),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
             },
-            tx: TxEnv {
-                gas_price: self.env.gas_price.unwrap_or_default().into(),
-                gas_limit: self.gas_limit(),
-                caller: self.sender,
+            tx: TempoTxEnv {
+                inner: TxEnv {
+                    gas_price: self.env.gas_price.unwrap_or_default().into(),
+                    gas_limit: self.gas_limit(),
+                    caller: self.sender,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         }

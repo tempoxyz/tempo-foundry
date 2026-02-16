@@ -14,8 +14,26 @@ use crate::FoundryReceiptEnvelope;
 pub struct FoundryTxReceipt(pub WithOtherFields<TransactionReceipt<FoundryReceiptEnvelope<Log>>>);
 
 impl FoundryTxReceipt {
+    /// Creates a new `FoundryTxReceipt` from the inner receipt.
+    ///
+    /// The `fee_payer` is set to the `from` address of the transaction by default.
+    /// This is required for compatibility with Tempo's `TempoTransactionReceipt` which
+    /// expects a `feePayer` field in the JSON response.
     pub fn new(inner: TransactionReceipt<FoundryReceiptEnvelope<Log>>) -> Self {
-        Self(WithOtherFields::new(inner))
+        let fee_payer = inner.from;
+        Self::new_with_fee_payer(inner, fee_payer)
+    }
+
+    /// Creates a new `FoundryTxReceipt` with an explicit fee payer.
+    pub fn new_with_fee_payer(
+        inner: TransactionReceipt<FoundryReceiptEnvelope<Log>>,
+        fee_payer: Address,
+    ) -> Self {
+        let mut receipt = WithOtherFields::new(inner);
+        // Insert the feePayer field into `other` so it's serialized in the JSON response.
+        // This is required for Tempo compatibility where TempoTransactionReceipt expects feePayer.
+        receipt.other.insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
+        Self(receipt)
     }
 
     /// Creates a new receipt with a timestamp in the other fields.
@@ -24,10 +42,12 @@ impl FoundryTxReceipt {
         inner: TransactionReceipt<FoundryReceiptEnvelope<Log>>,
         timestamp: u64,
     ) -> Self {
+        let fee_payer = inner.from;
         let mut receipt = WithOtherFields::new(inner);
         receipt
             .other
             .insert("blockTimestamp".to_string(), serde_json::to_value(timestamp).unwrap());
+        receipt.other.insert("feePayer".to_string(), serde_json::to_value(fee_payer).unwrap());
         Self(receipt)
     }
 

@@ -1,16 +1,14 @@
 use std::{cmp::Ordering, sync::Arc, time::Duration};
 
-use alloy_chains::{Chain, NamedChain};
-use alloy_consensus::TxEnvelope;
+use alloy_chains::Chain;
 use alloy_eips::{BlockId, eip2718::Encodable2718};
-use alloy_network::{AnyNetwork, EthereumWallet, TransactionBuilder};
+use alloy_network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
-    Address, TxHash,
+    Address, TxHash, TxKind, U256,
     map::{AddressHashMap, AddressHashSet},
     utils::format_units,
 };
 use alloy_provider::{Provider, utils::Eip1559Estimation};
-use alloy_rpc_types::TransactionRequest;
 use alloy_serde::WithOtherFields;
 use eyre::{Context, Result, bail};
 use forge_verify::provider::VerificationProviderType;
@@ -18,33 +16,48 @@ use foundry_cheatcodes::Wallets;
 use foundry_cli::utils::{has_batch_support, has_different_gas_calc};
 use foundry_common::{
     TransactionMaybeSigned,
-    provider::{RetryProvider, get_http_provider, try_get_http_provider},
+    provider::{
+        tempo::{TempoRetryProvider, get_tempo_http_provider, try_get_tempo_http_provider},
+        try_get_http_provider,
+    },
     shell,
 };
 use foundry_config::Config;
 use foundry_wallets::{WalletSigner, wallet_browser::signer::BrowserSigner};
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
+use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
+use tempo_primitives::transaction::Call;
 
 use crate::{
-    ScriptArgs, ScriptConfig, build::LinkedBuildData, progress::ScriptProgress,
-    sequence::ScriptSequenceKind, verify::BroadcastedState,
+    ScriptArgs, ScriptConfig, build::LinkedBuildData, get_fee_token_symbol,
+    progress::ScriptProgress, sequence::ScriptSequenceKind, verify::BroadcastedState,
 };
 
-pub async fn estimate_gas<P: Provider<AnyNetwork>>(
-    tx: &mut WithOtherFields<TransactionRequest>,
+/// Detect if connected to an Anvil node running in Tempo mode by querying anvil_nodeInfo.
+async fn detect_tempo_mode(provider: &TempoRetryProvider) -> bool {
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct NodeInfo {
+        #[serde(default)]
+        network: Option<String>,
+    }
+
+    let result: Result<NodeInfo, _> = provider.client().request_noparams("anvil_nodeInfo").await;
+    result.map(|info| info.network.as_deref() == Some("tempo")).unwrap_or(false)
+}
+
+pub async fn estimate_gas<P: Provider<TempoNetwork>>(
+    tx: &mut WithOtherFields<TempoTransactionRequest>,
     provider: &P,
     estimate_multiplier: u64,
 ) -> Result<()> {
     // if already set, some RPC endpoints might simply return the gas value that is already
     // set in the request and omit the estimate altogether, so we remove it here
-    tx.gas = None;
-
-    tx.set_gas_limit(
-        provider.estimate_gas(tx.clone()).await.wrap_err("Failed to estimate gas for tx")?
-            * estimate_multiplier
-            / 100,
-    );
+    tx.inner.inner.gas = None;
+    let estimated_gas =
+        provider.estimate_gas(tx.inner.clone()).await.wrap_err("Failed to estimate gas for tx")?;
+    tx.set_gas_limit(estimated_gas * estimate_multiplier / 100);
     Ok(())
 }
 
@@ -63,10 +76,10 @@ pub async fn next_nonce(
 /// Represents how to send a single transaction.
 #[derive(Clone)]
 pub enum SendTransactionKind<'a> {
-    Unlocked(WithOtherFields<TransactionRequest>),
-    Raw(WithOtherFields<TransactionRequest>, &'a EthereumWallet),
-    Browser(WithOtherFields<TransactionRequest>, &'a BrowserSigner),
-    Signed(TxEnvelope),
+    Unlocked(WithOtherFields<TempoTransactionRequest>),
+    Raw(WithOtherFields<TempoTransactionRequest>, &'a EthereumWallet),
+    Browser(WithOtherFields<TempoTransactionRequest>, &'a BrowserSigner),
+    Signed(TempoTxEnvelope),
 }
 
 impl<'a> SendTransactionKind<'a> {
@@ -78,7 +91,7 @@ impl<'a> SendTransactionKind<'a> {
     /// 2. Gas estimation: Re-estimates gas right before broadcasting for chains that require it
     pub async fn prepare(
         &mut self,
-        provider: &RetryProvider,
+        provider: &TempoRetryProvider,
         sequential_broadcast: bool,
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
@@ -132,18 +145,18 @@ impl<'a> SendTransactionKind<'a> {
     /// - Submit via `eth_sendTransaction` for unlocked accounts
     /// - Sign and submit via `eth_sendRawTransaction` for raw transactions
     /// - Submit pre-signed transaction via `eth_sendRawTransaction`
-    pub async fn send(self, provider: Arc<RetryProvider>) -> Result<TxHash> {
+    pub async fn send(self, provider: Arc<TempoRetryProvider>) -> Result<TxHash> {
         match self {
             Self::Unlocked(tx) => {
                 debug!("sending transaction from unlocked account {:?}", tx);
 
                 // Submit the transaction
-                let pending = provider.send_transaction(tx).await?;
+                let pending = provider.send_transaction(tx.into_inner()).await?;
                 Ok(*pending.tx_hash())
             }
             Self::Raw(tx, signer) => {
                 debug!("sending transaction: {:?}", tx);
-                let signed = tx.build(signer).await?;
+                let signed = tx.inner.build(signer).await?;
 
                 // Submit the raw transaction
                 let pending = provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?;
@@ -158,7 +171,8 @@ impl<'a> SendTransactionKind<'a> {
                 debug!("sending transaction: {:?}", tx);
 
                 // Sign and send the transaction via the browser wallet
-                Ok(signer.send_transaction_via_browser(tx.into_inner()).await?)
+                // Convert TempoTransactionRequest to TransactionRequest for browser wallet
+                Ok(signer.send_transaction_via_browser(tx.into_inner().into()).await?)
             }
         }
     }
@@ -169,7 +183,7 @@ impl<'a> SendTransactionKind<'a> {
     /// [`send`](Self::send) into a single call.
     pub async fn prepare_and_send(
         mut self,
-        provider: Arc<RetryProvider>,
+        provider: Arc<TempoRetryProvider>,
         sequential_broadcast: bool,
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
@@ -231,7 +245,7 @@ impl SendTransactionsKind {
     pub fn for_sender(
         &self,
         addr: &Address,
-        tx: WithOtherFields<TransactionRequest>,
+        tx: WithOtherFields<TempoTransactionRequest>,
     ) -> Result<SendTransactionKind<'_>> {
         match self {
             Self::Unlocked(unlocked) => {
@@ -278,13 +292,16 @@ impl BundledState {
             .enumerate()
             .map(|(sequence_idx, sequence)| async move {
                 let rpc_url = sequence.rpc_url();
-                let provider = Arc::new(get_http_provider(rpc_url));
+                let provider = Arc::new(get_tempo_http_provider(rpc_url));
+                let fee_token_symbol =
+                    get_fee_token_symbol(&provider, self.script_config.fee_token).await;
                 progress_ref
                     .wait_for_pending(
                         sequence_idx,
                         sequence,
                         &provider,
                         self.script_config.config.transaction_timeout,
+                        fee_token_symbol,
                     )
                     .await
             })
@@ -302,7 +319,13 @@ impl BundledState {
     }
 
     /// Broadcasts transactions from all sequences.
+    /// If `--batch` mode is enabled, all transactions are combined into a single
+    /// Tempo batch transaction (type 0x76) for atomic execution.
     pub async fn broadcast(mut self) -> Result<BroadcastedState> {
+        // Check if batch mode is enabled
+        if self.script_config.batch {
+            return self.broadcast_batch().await;
+        }
         let required_addresses = self
             .sequence
             .sequences()
@@ -351,7 +374,9 @@ impl BundledState {
         for i in 0..self.sequence.sequences().len() {
             let mut sequence = self.sequence.sequences_mut().get_mut(i).unwrap();
 
-            let provider = Arc::new(try_get_http_provider(sequence.rpc_url())?);
+            let provider = Arc::new(try_get_tempo_http_provider(sequence.rpc_url())?);
+            let fee_token_symbol =
+                get_fee_token_symbol(&provider, self.script_config.fee_token).await;
             let already_broadcasted = sequence.receipts.len();
 
             let seq_progress = progress.get_sequence_progress(i, sequence);
@@ -402,13 +427,13 @@ impl BundledState {
                                 SendTransactionKind::Signed(tx)
                             }
                             TransactionMaybeSigned::Unsigned(mut tx) => {
-                                let from = tx.from.expect("No sender for onchain transaction!");
+                                let from = tx.from().expect("No sender for onchain transaction!");
 
                                 tx.set_chain_id(sequence.chain);
 
                                 // Set TxKind::Create explicitly to satisfy `check_reqd_fields` in
                                 // alloy
-                                if tx.to.is_none() {
+                                if tx.to().is_none() {
                                     tx.set_create();
                                 }
 
@@ -430,8 +455,9 @@ impl BundledState {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
+                let is_tempo = detect_tempo_mode(&provider).await;
                 let estimate_via_rpc =
-                    has_different_gas_calc(sequence.chain) || self.args.skip_simulation;
+                    has_different_gas_calc(sequence.chain) || is_tempo || self.args.skip_simulation;
 
                 // We only wait for a transaction receipt before sending the next transaction, if
                 // there is more than one signer. There would be no way of assuring
@@ -527,6 +553,7 @@ impl BundledState {
                                 sequence,
                                 &provider,
                                 self.script_config.config.transaction_timeout,
+                                fee_token_symbol.clone(),
                             )
                             .await?
                     }
@@ -550,14 +577,10 @@ impl BundledState {
                     .unwrap_or_else(|_| "N/A".to_string())
             };
 
-            let token_symbol = NamedChain::try_from(sequence.chain)
-                .unwrap_or_default()
-                .native_currency_symbol()
-                .unwrap_or("ETH");
             seq_progress.inner.write().set_status(&format!(
                 "Total Paid: {} {} ({} gas * avg {} gwei)\n",
                 paid.trim_end_matches('0'),
-                token_symbol,
+                fee_token_symbol,
                 total_gas,
                 avg_gas_price.trim_end_matches('0').trim_end_matches('.')
             ));
@@ -567,6 +590,237 @@ impl BundledState {
         if !shell::is_json() {
             sh_println!("\n\n==========================")?;
             sh_println!("\nONCHAIN EXECUTION COMPLETE & SUCCESSFUL.")?;
+        }
+
+        Ok(BroadcastedState {
+            args: self.args,
+            script_config: self.script_config,
+            build_data: self.build_data,
+            sequence: self.sequence,
+        })
+    }
+
+    /// Broadcasts all transactions as a single Tempo batch transaction.
+    ///
+    /// This method collects all individual transactions from the script and combines them
+    /// into a single type 0x76 batch transaction for atomic execution on Tempo.
+    async fn broadcast_batch(mut self) -> Result<BroadcastedState> {
+        // Batch mode only supports single chain for now
+        if self.sequence.sequences().len() != 1 {
+            bail!(
+                "--batch mode only supports single-chain scripts. Use --multi without --batch for multi-chain."
+            );
+        }
+
+        let sequence = self.sequence.sequences_mut().get_mut(0).unwrap();
+        let provider = Arc::new(try_get_tempo_http_provider(sequence.rpc_url())?);
+        let fee_token_symbol = get_fee_token_symbol(&provider, self.script_config.fee_token).await;
+
+        // Collect sender addresses - batch mode requires single sender
+        let senders: AddressHashSet = sequence
+            .transactions()
+            .filter(|tx| tx.is_unsigned())
+            .filter_map(|tx| tx.from())
+            .collect();
+
+        if senders.len() != 1 {
+            bail!(
+                "--batch mode requires all transactions to have the same sender. Found {} unique senders: {:?}",
+                senders.len(),
+                senders
+            );
+        }
+
+        let sender = *senders.iter().next().unwrap();
+
+        if sender == Config::DEFAULT_SENDER {
+            bail!(
+                "You seem to be using Foundry's default sender. Be sure to set your own --sender."
+            );
+        }
+
+        // Get wallet for signing
+        let wallet = if self.args.unlocked {
+            None
+        } else {
+            let mut signers = self.script_wallets.into_multi_wallet().into_signers()?;
+            let signer = signers
+                .remove(&sender)
+                .ok_or_else(|| eyre::eyre!("No wallet found for sender {}", sender))?;
+            Some(EthereumWallet::new(signer))
+        };
+
+        // Collect all transactions into Call structs
+        // Tempo batch transactions support CREATE only as the first call
+        let mut calls: Vec<Call> = Vec::new();
+        let mut has_create = false;
+        for (idx, tx) in sequence.transactions().enumerate() {
+            let to = match tx.to() {
+                Some(TxKind::Call(addr)) => TxKind::Call(addr),
+                Some(TxKind::Create) | None => {
+                    // Tempo allows CREATE only as the first call in a batch
+                    if idx > 0 {
+                        bail!(
+                            "Contract creation must be the first transaction in --batch mode. \
+                            Found CREATE at position {}. Reorder your script or deploy separately.",
+                            idx + 1
+                        );
+                    }
+                    if has_create {
+                        bail!("Only one contract creation is allowed per --batch transaction.");
+                    }
+                    has_create = true;
+                    TxKind::Create
+                }
+            };
+            let value = tx.value().unwrap_or(U256::ZERO);
+            let input = tx.input().cloned().unwrap_or_default();
+
+            calls.push(Call { to, value, input });
+        }
+
+        if calls.is_empty() {
+            sh_println!("No transactions to broadcast in batch mode.")?;
+            return Ok(BroadcastedState {
+                args: self.args,
+                script_config: self.script_config,
+                build_data: self.build_data,
+                sequence: self.sequence,
+            });
+        }
+
+        sh_println!(
+            "\n## Broadcasting batch transaction with {} call(s) to chain {}...",
+            calls.len(),
+            sequence.chain
+        )?;
+
+        // Build the batch transaction request
+        let nonce = provider.get_transaction_count(sender).await?;
+        let chain_id = sequence.chain;
+
+        // Get gas prices - batch transactions are Tempo-only, always use EIP-1559 style fees
+        let fees = provider.estimate_eip1559_fees().await?;
+        let max_fee_per_gas =
+            self.args.with_gas_price.map(|p| p.to()).unwrap_or(fees.max_fee_per_gas);
+        let max_priority_fee_per_gas =
+            self.args.priority_gas_price.map(|p| p.to()).unwrap_or(fees.max_priority_fee_per_gas);
+
+        let mut batch_tx = TempoTransactionRequest {
+            inner: alloy_rpc_types::TransactionRequest {
+                from: Some(sender),
+                to: None,    // Must be None for batch transactions
+                value: None, // Value is per-call in batch transactions
+                input: Default::default(),
+                nonce: Some(nonce),
+                chain_id: Some(chain_id),
+                max_fee_per_gas: Some(max_fee_per_gas),
+                max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
+                ..Default::default()
+            },
+            fee_token: self.script_config.fee_token,
+            calls: calls.clone(),
+            ..Default::default()
+        };
+
+        // Estimate gas for the batch transaction
+        let mut tx_for_estimate = WithOtherFields::new(batch_tx.clone());
+        estimate_gas(&mut tx_for_estimate, provider.as_ref(), self.args.gas_estimate_multiplier)
+            .await?;
+        batch_tx.inner.gas = tx_for_estimate.gas_limit();
+
+        sh_println!("Estimated gas: {}", batch_tx.inner.gas.unwrap_or(0))?;
+
+        // Sign and send
+        let tx_hash = if let Some(wallet) = wallet {
+            use alloy_provider::ProviderBuilder;
+
+            let tx_with_fields = WithOtherFields::new(batch_tx);
+            let provider_with_wallet = ProviderBuilder::<_, _, TempoNetwork>::default()
+                .wallet(wallet)
+                .connect_provider(provider.as_ref());
+
+            let pending = provider_with_wallet.send_transaction(tx_with_fields.inner).await?;
+            *pending.tx_hash()
+        } else {
+            // Unlocked mode - send via eth_sendTransaction
+            let tx_with_fields = WithOtherFields::new(batch_tx);
+            let pending = provider.send_transaction(tx_with_fields.inner).await?;
+            *pending.tx_hash()
+        };
+
+        sh_println!("Batch transaction sent: {:#x}", tx_hash)?;
+
+        // Wait for receipt
+        let timeout = self.script_config.config.transaction_timeout;
+        let receipt = tokio::time::timeout(Duration::from_secs(timeout), async {
+            loop {
+                if let Some(receipt) = provider.get_transaction_receipt(tx_hash).await? {
+                    return Ok::<_, eyre::Error>(receipt);
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        })
+        .await
+        .map_err(|_| eyre::eyre!("Timeout waiting for batch transaction receipt"))??;
+
+        let success = receipt.status();
+        if success {
+            sh_println!(
+                "Batch transaction confirmed in block {}",
+                receipt.block_number.unwrap_or(0)
+            )?;
+        } else {
+            bail!("Batch transaction failed (reverted)");
+        }
+
+        // For CREATE transactions, compute the deployed contract address
+        // The address is derived from sender + nonce (the nonce used for this batch tx)
+        let created_address = if has_create {
+            let deployed_addr = sender.create(nonce);
+            sh_println!("Contract deployed at: {:#x}", deployed_addr)?;
+            Some(deployed_addr)
+        } else {
+            None
+        };
+
+        // Add receipt to sequence for each original transaction
+        // In batch mode, all calls share the same receipt
+        for idx in 0..calls.len() {
+            let mut tx_receipt = receipt.clone();
+            // Set contract_address on the CREATE transaction's receipt for verification
+            // CREATE is always at index 0 if present (validated above)
+            if idx == 0 && has_create {
+                tx_receipt.contract_address = created_address;
+            }
+            sequence.receipts.push(tx_receipt);
+        }
+
+        // Mark all transactions as pending with the batch tx hash
+        for i in 0..sequence.transactions.len() {
+            sequence.add_pending(i, tx_hash);
+        }
+
+        self.sequence.save(true, false)?;
+
+        let total_gas = receipt.gas_used;
+        let gas_price = receipt.effective_gas_price as u64;
+        let total_paid = total_gas * gas_price;
+        let paid = format_units(total_paid, 18).unwrap_or_else(|_| "N/A".to_string());
+        let gas_price_gwei = format_units(gas_price, 9).unwrap_or_else(|_| "N/A".to_string());
+
+        sh_println!(
+            "\nTotal Paid: {} {} ({} gas * {} gwei)",
+            paid.trim_end_matches('0'),
+            fee_token_symbol,
+            total_gas,
+            gas_price_gwei.trim_end_matches('0').trim_end_matches('.')
+        )?;
+
+        if !shell::is_json() {
+            sh_println!("\n\n==========================")?;
+            sh_println!("\nBATCH EXECUTION COMPLETE & SUCCESSFUL.")?;
+            sh_println!("All {} calls executed atomically in a single transaction.", calls.len())?;
         }
 
         Ok(BroadcastedState {

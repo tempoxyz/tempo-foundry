@@ -30,10 +30,11 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
+use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_traces::{SparsedTraceArena, TraceMode};
 use revm::{
     bytecode::Bytecode,
-    context::{BlockEnv, TxEnv},
+    context::TxEnv,
     context_interface::{
         result::{ExecutionResult, Output, ResultAndState},
         transaction::SignedAuthorization,
@@ -50,6 +51,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tempo_revm::{TempoHaltReason, TempoTxEnv};
 
 mod builder;
 pub use builder::ExecutorBuilder;
@@ -64,6 +66,9 @@ mod corpus;
 mod trace;
 
 pub use trace::TracingExecutor;
+
+mod tempo_cov;
+use tempo_cov::TempoCoverageGuard;
 
 const DURATION_BETWEEN_METRICS_REPORT: Duration = Duration::from_secs(5);
 
@@ -103,6 +108,8 @@ pub struct Executor {
     env: Env,
     /// The Revm inspector stack.
     inspector: InspectorStack,
+    /// The hardfork to use for execution.
+    hardfork: Option<FoundryHardfork>,
     /// The gas limit for calls and deployments.
     gas_limit: u64,
     /// Whether `failed()` should be called on the test contract to determine if the test failed.
@@ -124,6 +131,7 @@ impl Executor {
         inspector: InspectorStack,
         gas_limit: u64,
         legacy_assertions: bool,
+        hardfork: Option<FoundryHardfork>,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so `extcodesize` checks
         // do not fail.
@@ -138,23 +146,31 @@ impl Executor {
             },
         );
 
-        Self { backend: Arc::new(backend), env, inspector, gas_limit, legacy_assertions }
+        Self { backend: Arc::new(backend), env, inspector, gas_limit, legacy_assertions, hardfork }
     }
 
     fn clone_with_backend(&self, backend: Backend) -> Self {
-        let env = Env::new_with_spec_id(
-            self.env.evm_env.cfg_env.clone(),
-            self.env.evm_env.block_env.clone(),
-            self.env.tx.clone(),
-            self.spec_id(),
-        );
-        Self {
-            backend: Arc::new(backend),
+        // For Tempo hardforks, preserve the hardfork directly since all map to SpecId::OSAKA.
+        let env = {
+            let mut env = Env::new_with_spec_id(
+                self.env.evm_env.cfg_env.clone(),
+                self.env.evm_env.block_env.clone(),
+                self.env.tx.clone(),
+                self.spec_id(),
+            );
+            if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+                env.evm_env.cfg_env.spec = tempo_hf;
+            }
+            env
+        };
+        Self::new(
+            backend,
             env,
-            inspector: self.inspector().clone(),
-            gas_limit: self.gas_limit,
-            legacy_assertions: self.legacy_assertions,
-        }
+            self.inspector().clone(),
+            self.gas_limit,
+            self.legacy_assertions,
+            self.hardfork,
+        )
     }
 
     /// Returns a reference to the EVM backend.
@@ -192,12 +208,35 @@ impl Executor {
 
     /// Returns the EVM spec ID.
     pub fn spec_id(&self) -> SpecId {
-        self.env.evm_env.cfg_env.spec
+        self.env.evm_env.cfg_env.spec.into()
     }
 
     /// Sets the EVM spec ID.
+    ///
+    /// Note: For Tempo hardforks, this also preserves the configured hardfork from `self.hardfork`
+    /// since all Tempo hardforks map to the same SpecId (OSAKA).
     pub fn set_spec_id(&mut self, spec_id: SpecId) {
-        self.env.evm_env.cfg_env.spec = spec_id;
+        // For Tempo hardforks, preserve the specific hardfork (T0, T1, etc.)
+        // since the SpecId round-trip loses this information.
+        if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+            self.env.evm_env.cfg_env.spec = tempo_hf;
+        } else {
+            self.env.evm_env.cfg_env.spec = spec_id.into();
+        }
+    }
+
+    /// Sets the EVM hardfork.
+    pub fn set_hardfork(&mut self, hardfork: Option<FoundryHardfork>) {
+        self.hardfork = hardfork;
+        // Also update cfg_env.spec for Tempo hardforks
+        if let Some(FoundryHardfork::Tempo(tempo_hf)) = hardfork {
+            self.env.evm_env.cfg_env.spec = tempo_hf;
+        }
+    }
+
+    /// Returns the EVM hardfork.
+    pub fn hardfork(&self) -> Option<FoundryHardfork> {
+        self.hardfork
     }
 
     /// Returns the gas limit for calls and deployments.
@@ -526,19 +565,47 @@ impl Executor {
     #[instrument(name = "call", level = "debug", skip_all)]
     pub fn call_with_env(&self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let mut backend = CowBackend::new_borrowed(self.backend());
-        let result = backend.inspect(&mut env, stack.as_inspector())?;
-        convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())
+        let result = {
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
+            backend.inspect(&mut env, stack.as_inspector())?
+        };
+        let mut result =
+            convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
+        }
+        Ok(result)
     }
 
     /// Execute the transaction configured in `env.tx`.
     #[instrument(name = "transact", level = "debug", skip_all)]
     pub fn transact_with_env(&mut self, mut env: Env) -> eyre::Result<RawCallResult> {
         let mut stack = self.inspector().clone();
+        let tempo_edges = stack.inner.tempo_precompile_edges;
+        let tempo_trace_cmp = stack.inner.tempo_precompile_trace_cmp;
+        let tempo_active = tempo_edges || tempo_trace_cmp;
         let backend = self.backend_mut();
-        let result = backend.inspect(&mut env, stack.as_inspector())?;
+        let result = {
+            let _guard =
+                tempo_active.then(|| TempoCoverageGuard::new(tempo_edges, tempo_trace_cmp));
+            backend.inspect(&mut env, stack.as_inspector())?
+        };
         let mut result =
             convert_executed_result(env, stack, result, backend.has_state_snapshot_failure())?;
+        if tempo_edges {
+            TempoCoverageGuard::merge_edges_into(&mut result);
+        }
+        if tempo_trace_cmp {
+            TempoCoverageGuard::drain_cmp_into(&mut result);
+        }
         self.commit(&mut result);
         Ok(result)
     }
@@ -710,32 +777,40 @@ impl Executor {
     /// If using a backend with cheatcodes, `tx.gas_price` and `block.number` will be overwritten by
     /// the cheatcode state in between calls.
     fn build_test_env(&self, caller: Address, kind: TxKind, data: Bytes, value: U256) -> Env {
+        // We always set the gas price to 0 so we can execute the transaction regardless of
+        // network conditions - the actual gas price is kept in `self.block` and is applied
+        // by the cheatcode handler if it is enabled
+        let mut block_env = self.env().evm_env.block_env.clone();
+        block_env.inner.basefee = 0;
+        block_env.inner.gas_limit = self.gas_limit;
         Env {
             evm_env: EvmEnv {
                 cfg_env: {
                     let mut cfg = self.env().evm_env.cfg_env.clone();
-                    cfg.spec = self.spec_id();
+                    // For Tempo hardforks, preserve the specific hardfork (T0, T1, etc.)
+                    // since spec_id().into() loses the distinction (all map to OSAKA).
+                    if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+                        cfg.spec = tempo_hf;
+                    } else {
+                        cfg.spec = self.spec_id().into();
+                    }
                     cfg
                 },
-                // We always set the gas price to 0 so we can execute the transaction regardless of
-                // network conditions - the actual gas price is kept in `self.block` and is applied
-                // by the cheatcode handler if it is enabled
-                block_env: BlockEnv {
-                    basefee: 0,
-                    gas_limit: self.gas_limit,
-                    ..self.env().evm_env.block_env.clone()
-                },
+                block_env,
             },
-            tx: TxEnv {
-                caller,
-                kind,
-                data,
-                value,
-                // As above, we set the gas price to 0.
-                gas_price: 0,
-                gas_priority_fee: None,
-                gas_limit: self.gas_limit,
-                chain_id: Some(self.env().evm_env.cfg_env.chain_id),
+            tx: TempoTxEnv {
+                inner: TxEnv {
+                    caller,
+                    kind,
+                    data,
+                    value,
+                    // As above, we set the gas price to 0.
+                    gas_price: 0,
+                    gas_priority_fee: None,
+                    gas_limit: self.gas_limit,
+                    chain_id: Some(self.env().evm_env.cfg_env.chain_id),
+                    ..Default::default()
+                },
                 ..self.env().tx.clone()
             },
         }
@@ -871,6 +946,9 @@ pub struct RawCallResult {
     pub line_coverage: Option<HitMaps>,
     /// The edge coverage info collected during the call
     pub edge_coverage: Option<Vec<u8>>,
+    /// Comparison operands captured from Tempo precompile trace-cmp callbacks.
+    /// Each entry contains a width hint and a 32-byte big-endian value.
+    pub tempo_cmp_values: Option<Vec<foundry_tempo_coverage::CmpSample>>,
     /// Scripted transactions generated from this call
     pub transactions: Option<BroadcastableTransactions>,
     /// The changeset of the state.
@@ -901,6 +979,7 @@ impl Default for RawCallResult {
             traces: None,
             line_coverage: None,
             edge_coverage: None,
+            tempo_cmp_values: None,
             transactions: None,
             state_changeset: HashMap::default(),
             env: Env::default(),
@@ -1040,7 +1119,7 @@ impl std::ops::DerefMut for CallResult {
 fn convert_executed_result(
     env: Env,
     inspector: InspectorStack,
-    ResultAndState { result, state: state_changeset }: ResultAndState,
+    ResultAndState { result, state: state_changeset }: ResultAndState<TempoHaltReason>,
     has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
@@ -1052,11 +1131,15 @@ fn convert_executed_result(
             (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
         }
         ExecutionResult::Halt { reason, gas_used } => {
-            (reason.into(), 0_u64, gas_used, None, vec![])
+            let instruction_result = match reason {
+                TempoHaltReason::Ethereum(halt) => halt.into(),
+                TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
+            };
+            (instruction_result, 0_u64, gas_used, None, vec![])
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
-        env.evm_env.cfg_env.spec,
+        env.evm_env.cfg_env.spec.into(),
         &env.tx.data,
         env.tx.kind.is_create(),
         env.tx.access_list.len().try_into()?,
@@ -1102,6 +1185,7 @@ fn convert_executed_result(
         traces,
         line_coverage,
         edge_coverage,
+        tempo_cmp_values: None,
         transactions,
         state_changeset,
         env,
