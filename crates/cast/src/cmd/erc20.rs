@@ -14,7 +14,7 @@ use alloy_sol_types::sol;
 use clap::{Args, Parser};
 use foundry_cli::{
     opts::{RpcOpts, TempoOpts},
-    utils::{LoadConfig, get_provider_with_curl},
+    utils::{LoadConfig, get_provider},
 };
 use foundry_common::shell;
 #[doc(hidden)]
@@ -309,8 +309,8 @@ impl Erc20Subcommand {
 
         match self {
             // Read-only
-            Self::Allowance { token, owner, spender, block, rpc, .. } => {
-                let provider = get_provider_with_curl(&config, rpc.curl)?;
+            Self::Allowance { token, owner, spender, block, .. } => {
+                let provider = get_provider(&config)?;
                 let token = token.resolve(&provider).await?;
                 let owner = owner.resolve(&provider).await?;
                 let spender = spender.resolve(&provider).await?;
@@ -327,8 +327,8 @@ impl Erc20Subcommand {
                     sh_println!("{}", format_uint_exp(allowance))?
                 }
             }
-            Self::Balance { token, owner, block, rpc, .. } => {
-                let provider = get_provider_with_curl(&config, rpc.curl)?;
+            Self::Balance { token, owner, block, .. } => {
+                let provider = get_provider(&config)?;
                 let token = token.resolve(&provider).await?;
                 let owner = owner.resolve(&provider).await?;
 
@@ -344,8 +344,8 @@ impl Erc20Subcommand {
                     sh_println!("{}", format_uint_exp(balance))?
                 }
             }
-            Self::Name { token, block, rpc, .. } => {
-                let provider = get_provider_with_curl(&config, rpc.curl)?;
+            Self::Name { token, block, .. } => {
+                let provider = get_provider(&config)?;
                 let token = token.resolve(&provider).await?;
 
                 let name = IERC20::new(token, &provider)
@@ -360,8 +360,8 @@ impl Erc20Subcommand {
                     sh_println!("{}", name)?
                 }
             }
-            Self::Symbol { token, block, rpc, .. } => {
-                let provider = get_provider_with_curl(&config, rpc.curl)?;
+            Self::Symbol { token, block, .. } => {
+                let provider = get_provider(&config)?;
                 let token = token.resolve(&provider).await?;
 
                 let symbol = IERC20::new(token, &provider)
@@ -376,8 +376,8 @@ impl Erc20Subcommand {
                     sh_println!("{}", symbol)?
                 }
             }
-            Self::Decimals { token, block, rpc, .. } => {
-                let provider = get_provider_with_curl(&config, rpc.curl)?;
+            Self::Decimals { token, block, .. } => {
+                let provider = get_provider(&config)?;
                 let token = token.resolve(&provider).await?;
 
                 let decimals = IERC20::new(token, &provider)
@@ -385,10 +385,14 @@ impl Erc20Subcommand {
                     .block(block.unwrap_or_default())
                     .call()
                     .await?;
-                sh_println!("{}", decimals)?
+                if shell::is_json() {
+                    sh_println!("{}", serde_json::to_string(&decimals)?)?
+                } else {
+                    sh_println!("{}", decimals)?
+                }
             }
-            Self::TotalSupply { token, block, rpc, .. } => {
-                let provider = get_provider_with_curl(&config, rpc.curl)?;
+            Self::TotalSupply { token, block, .. } => {
+                let provider = get_provider(&config)?;
                 let token = token.resolve(&provider).await?;
 
                 let total_supply = IERC20::new(token, &provider)

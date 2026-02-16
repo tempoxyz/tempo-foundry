@@ -380,6 +380,7 @@ impl TestRunnerConfig {
         ExecutorBuilder::new()
             .inspectors(|stack| {
                 stack
+                    .logs(self.config.live_logs)
                     .cheatcodes(cheats_config)
                     .trace_mode(self.trace_mode())
                     .line_coverage(self.line_coverage)

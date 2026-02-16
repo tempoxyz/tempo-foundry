@@ -300,3 +300,13 @@ repl_test!(optimism_hardfork_execution, "--hardfork optimism:ecotone", |repl| {
     repl.sendln("pathUsd.code.length == 0");
     repl.expect("true");
 });
+
+repl_test!(chisel_can_run_with_live_logs_flag, "--live-logs", init = true, |repl| {
+    repl.sendln("import {console} from 'forge-std/Script.sol';");
+    repl.sendln("console.log('Hello, World!');");
+    repl.expect("Hello, World!");
+
+    repl.sendln("console.log('Goodbye, World!');");
+    repl.expect("Hello, World!"); // old log is also printed
+    repl.expect("Goodbye, World!");
+});

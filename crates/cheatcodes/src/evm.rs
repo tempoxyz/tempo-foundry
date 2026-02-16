@@ -31,6 +31,7 @@ use foundry_evm_core::{
     utils::get_blob_base_fee_update_fraction_by_spec_id,
 };
 use foundry_evm_traces::TraceMode;
+use foundry_primitives::FoundryTxEnvelope;
 use itertools::Itertools;
 use rand::Rng;
 use revm::{
@@ -1227,7 +1228,6 @@ impl Cheatcode for executeTransactionCall {
         Ok(output.abi_encode())
     }
 }
-
 impl Cheatcode for startDebugTraceRecordingCall {
     fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
         let Some(tracer) = executor.tracing_inspector() else {

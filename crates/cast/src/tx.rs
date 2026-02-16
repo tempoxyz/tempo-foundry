@@ -688,10 +688,7 @@ pub(crate) async fn decode_execution_revert(data: &RawValue) -> Result<Option<St
 }
 
 /// Creates a provider with wallet for signing transactions locally.
-///
-/// If `curl_mode` is true, the provider will print equivalent curl commands to stdout
-/// instead of executing RPC requests.
-pub(crate) async fn signing_provider_with_curl(
+pub(crate) async fn get_provider_with_wallet(
     tx_opts: &SendTxOpts,
     curl_mode: bool,
 ) -> eyre::Result<TempoRetryProviderWithSigner> {
