@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::{
     cmd::send::cast_send,
     format_uint_exp,
-    tx::{SendTxOpts, signing_provider_with_curl},
+    tx::{SendTxOpts, get_provider_with_wallet},
 };
 use alloy_eips::BlockId;
 use alloy_ens::NameOrAddress;
@@ -409,7 +409,7 @@ impl Erc20Subcommand {
             }
             // State-changing
             Self::Transfer { token, to, amount, send_tx, tx: tx_opts, .. } => {
-                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let provider = get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?;
                 let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
@@ -427,7 +427,7 @@ impl Erc20Subcommand {
                 .await?
             }
             Self::Approve { token, spender, amount, send_tx, tx: tx_opts, .. } => {
-                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let provider = get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?;
                 let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
@@ -445,7 +445,7 @@ impl Erc20Subcommand {
                 .await?
             }
             Self::Mint { token, to, amount, send_tx, tx: tx_opts, .. } => {
-                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let provider = get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?;
                 let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
@@ -463,7 +463,7 @@ impl Erc20Subcommand {
                 .await?
             }
             Self::Burn { token, amount, send_tx, tx: tx_opts, .. } => {
-                let provider = signing_provider_with_curl(&send_tx, send_tx.eth.rpc.curl).await?;
+                let provider = get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?;
                 let is_legacy = config.chain.is_some_and(|c| c.is_legacy());
                 let mut tx = IERC20::new(token.resolve(&provider).await?, &provider)
                     .burn(U256::from_str(&amount)?)
