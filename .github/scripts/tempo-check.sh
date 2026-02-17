@@ -267,7 +267,7 @@ echo -e "\n=== DEPLOY COUNTER WITH REQUIRE ==="
 # Use CounterWithRequire.sol (has require(newNumber > 100)) for batch revert testing
 cp "$SCRIPT_DIR/contracts/CounterWithRequire.sol" src/Counter.sol
 forge build
-REQUIRE_COUNTER_OUTPUT=$(forge create src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
+REQUIRE_COUNTER_OUTPUT=$(forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Counter.sol:Counter --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
 echo "Deploy output: $REQUIRE_COUNTER_OUTPUT"
 # Extract address from human-readable output (avoids jq parse errors from stderr log pollution)
 REQUIRE_COUNTER=$(echo "$REQUIRE_COUNTER_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
@@ -384,7 +384,7 @@ contract GasBurner {
 SOLEOF
 forge build
 
-GAS_BURNER_OUTPUT=$(forge create src/GasBurner.sol:GasBurner --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
+GAS_BURNER_OUTPUT=$(forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/GasBurner.sol:GasBurner --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
 echo "Deploy output: $GAS_BURNER_OUTPUT"
 GAS_BURNER=$(echo "$GAS_BURNER_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
 GAS_BURNER_TX=$(echo "$GAS_BURNER_OUTPUT" | grep -oP 'Transaction hash: \K0x[a-fA-F0-9]+')
@@ -417,7 +417,7 @@ contract MaxSizeContract {
 SOLEOF
 forge build
 
-MAX_SIZE_OUTPUT=$(forge create src/MaxSizeContract.sol:MaxSizeContract --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
+MAX_SIZE_OUTPUT=$(forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/MaxSizeContract.sol:MaxSizeContract --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
 echo "Deploy output: $MAX_SIZE_OUTPUT"
 MAX_SIZE_ADDR=$(echo "$MAX_SIZE_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
 if [[ -z "$MAX_SIZE_ADDR" ]]; then
