@@ -367,6 +367,84 @@ if [[ "$NUMBER_AFTER_REVERT" != "$NUMBER_BEFORE_REVERT" ]]; then
 fi
 echo "OK: forge script --batch correctly reverted atomically"
 
+echo -e "\n=== DEPLOY HIGH GAS CONTRACT ==="
+# Deploy a contract that can burn ~15M gas via cold storage writes (mapping)
+# Each cold SSTORE to a new slot costs ~22,000 gas; ~650 iterations ≈ 15M gas
+cat > src/GasBurner.sol <<'SOLEOF'
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+contract GasBurner {
+    mapping(uint256 => uint256) public values;
+    function burn(uint256 iterations) public {
+        for (uint256 i; i < iterations; i++) {
+            values[i] = i;
+        }
+    }
+}
+SOLEOF
+forge build
+
+GAS_BURNER_OUTPUT=$(forge create src/GasBurner.sol:GasBurner --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
+echo "Deploy output: $GAS_BURNER_OUTPUT"
+GAS_BURNER=$(echo "$GAS_BURNER_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
+GAS_BURNER_TX=$(echo "$GAS_BURNER_OUTPUT" | grep -oP 'Transaction hash: \K0x[a-fA-F0-9]+')
+if [[ -z "$GAS_BURNER" ]]; then
+  echo "ERROR: Failed to deploy GasBurner"
+  exit 1
+fi
+echo "GasBurner deployed at: $GAS_BURNER (tx: $GAS_BURNER_TX)"
+
+echo -e "\n=== CAST SEND HIGH GAS TX (~15M gas) ==="
+GAS_BURN_RECEIPT=$(cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  "$GAS_BURNER" 'burn(uint256)' 650 --gas-limit 15000000 --private-key "$PK" --json)
+GAS_BURN_TX=$(echo "$GAS_BURN_RECEIPT" | jq -r '.transactionHash')
+echo "High gas tx: $GAS_BURN_TX"
+GAS_USED=$(echo "$GAS_BURN_RECEIPT" | jq -r '.gasUsed')
+GAS_USED_DEC=$((GAS_USED))
+echo "Gas used: $GAS_USED_DEC"
+
+echo -e "\n=== DEPLOY LARGE CONTRACT ==="
+# Deploy a large contract with ~14KB of deployed bytecode (bytes constant padding)
+# Full 24KB EIP-170 limit needs ~26M gas which exceeds the 16M per-tx gas limit
+PADDING=$(python3 -c "print('ff' * 14000)")
+cat > src/MaxSizeContract.sol <<SOLEOF
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+contract MaxSizeContract {
+    bytes public constant PADDING = hex"${PADDING}";
+    function ping() external pure returns (uint256) { return 1; }
+}
+SOLEOF
+forge build
+
+MAX_SIZE_OUTPUT=$(forge create src/MaxSizeContract.sol:MaxSizeContract --rpc-url "$ETH_RPC_URL" --private-key "$PK" --broadcast 2>&1)
+echo "Deploy output: $MAX_SIZE_OUTPUT"
+MAX_SIZE_ADDR=$(echo "$MAX_SIZE_OUTPUT" | grep -oP 'Deployed to: \K0x[a-fA-F0-9]+')
+if [[ -z "$MAX_SIZE_ADDR" ]]; then
+  echo "ERROR: Failed to deploy MaxSizeContract"
+  exit 1
+fi
+echo "MaxSizeContract deployed at: $MAX_SIZE_ADDR"
+
+# Verify deployed code size is near the 24KB limit
+# cast code returns hex string with 0x prefix; subtract 2 for prefix, divide by 2 for bytes
+CODE_HEX=$(cast code --rpc-url "$ETH_RPC_URL" "$MAX_SIZE_ADDR")
+CODE_SIZE=$(( (${#CODE_HEX} - 2) / 2 ))
+echo "Deployed code size: $CODE_SIZE bytes (limit: 24576)"
+if [[ $CODE_SIZE -lt 14000 ]]; then
+  echo "ERROR: Deployed code size $CODE_SIZE is too small (expected ~14KB)"
+  exit 1
+fi
+echo "OK: Large contract deployed with $CODE_SIZE bytes of code"
+
+# Verify the contract is callable
+PING_RESULT=$(cast call --rpc-url "$ETH_RPC_URL" "$MAX_SIZE_ADDR" 'ping()(uint256)')
+if [[ "$PING_RESULT" != "1" ]]; then
+  echo "ERROR: ping() returned $PING_RESULT, expected 1"
+  exit 1
+fi
+echo "OK: MaxSizeContract ping() returned 1"
+
 # Skip DEX/liquidity tests when using custom fee token (they assume multiple fee tokens)
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
   echo -e "\n=== CHANGE USER DEFAULT FEE TOKEN ==="
