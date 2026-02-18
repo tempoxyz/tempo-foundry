@@ -30,3 +30,4 @@ tempo-changelog.md
 
 # LLVM profiling data
 *.profraw
+.worktrees/

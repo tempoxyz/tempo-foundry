@@ -14,7 +14,7 @@ use tempo_contracts::{
 use tempo_precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_DEX_ADDRESS,
     TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS,
-    VALIDATOR_CONFIG_ADDRESS,
+    VALIDATOR_CONFIG_ADDRESS, VALIDATOR_CONFIG_V2_ADDRESS,
     error::TempoPrecompileError,
     storage::{PrecompileStorageProvider, StorageCtx},
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token},
@@ -215,6 +215,7 @@ pub fn initialize_tempo_genesis(
             TIP403_REGISTRY_ADDRESS,
             TIP_FEE_MANAGER_ADDRESS,
             VALIDATOR_CONFIG_ADDRESS,
+            VALIDATOR_CONFIG_V2_ADDRESS,
             ACCOUNT_KEYCHAIN_ADDRESS,
         ] {
             ctx.set_code(precompile, sentinel.clone())?;

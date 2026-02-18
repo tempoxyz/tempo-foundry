@@ -44,6 +44,7 @@ pub struct AnvilStorageProvider<'a> {
     db: &'a mut dyn Db,
     chain_id: u64,
     timestamp: U256,
+    block_number: u64,
     gas_used: u64,
     gas_refunded: i64,
     transient: HashMap<(Address, U256), U256>,
@@ -55,12 +56,14 @@ impl<'a> AnvilStorageProvider<'a> {
         db: &'a mut dyn Db,
         chain_id: u64,
         timestamp: U256,
+        block_number: u64,
         hardfork: TempoHardfork,
     ) -> Self {
         Self {
             db,
             chain_id,
             timestamp,
+            block_number,
             gas_used: 0,
             gas_refunded: 0,
             transient: HashMap::new(),
@@ -80,6 +83,10 @@ impl PrecompileStorageProvider for AnvilStorageProvider<'_> {
 
     fn timestamp(&self) -> U256 {
         self.timestamp
+    }
+
+    fn block_number(&self) -> u64 {
+        self.block_number
     }
 
     fn set_code(&mut self, address: Address, code: Bytecode) -> Result<(), TempoPrecompileError> {
@@ -192,7 +199,7 @@ pub fn initialize_tempo_precompiles(
 ) -> Result<(), TempoPrecompileError> {
     let timestamp = U256::from(timestamp);
 
-    let mut storage = AnvilStorageProvider::new(db, chain_id, timestamp, hardfork);
+    let mut storage = AnvilStorageProvider::new(db, chain_id, timestamp, 0, hardfork);
 
     // Initialize base Tempo genesis (precompiles and tokens)
     initialize_tempo_genesis(&mut storage, ADMIN, SENDER)?;
