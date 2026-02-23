@@ -147,6 +147,7 @@ impl ScriptTransactionBuilder {
         mut self,
         result: &ScriptResult,
         gas_estimate_multiplier: u64,
+        gas_limit_cap: Option<u64>,
         linked_build_data: &LinkedBuildData,
     ) -> Self {
         let mut created_contracts =
@@ -164,7 +165,11 @@ impl ScriptTransactionBuilder {
             && let Some(unsigned) = self.transaction.transaction.as_unsigned_mut()
         {
             // We inflate the gas used by the user specified percentage
-            unsigned.inner.inner.gas = Some(result.gas_used * gas_estimate_multiplier / 100);
+            let mut adjusted_gas = result.gas_used * gas_estimate_multiplier / 100;
+            if let Some(cap) = gas_limit_cap {
+                adjusted_gas = adjusted_gas.min(cap);
+            }
+            unsigned.inner.inner.gas = Some(adjusted_gas);
         }
 
         self

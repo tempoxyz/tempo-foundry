@@ -15,7 +15,7 @@ use dialoguer::Confirm;
 use eyre::{Context, Result};
 use forge_script_sequence::{ScriptSequence, TransactionWithMetadata};
 use foundry_cheatcodes::Wallets;
-use foundry_cli::utils::{has_different_gas_calc, now};
+use foundry_cli::utils::{has_different_gas_calc, now, tx_gas_limit_cap};
 use foundry_common::{ContractData, shell};
 use foundry_evm::traces::{decode_trace_arena, render_trace_arena};
 use futures::future::{join_all, try_join_all};
@@ -152,6 +152,7 @@ impl PreSimulationState {
                     .with_execution_result(
                         &result,
                         self.args.gas_estimate_multiplier,
+                        tx_gas_limit_cap(&self.script_config.config),
                         &self.build_data,
                     )
                     .build();
@@ -314,6 +315,7 @@ impl FilledTransactionsState {
                             tx,
                             &provider_info.provider,
                             self.args.gas_estimate_multiplier,
+                            tx_gas_limit_cap(&self.script_config.config),
                         )
                         .await
                         {
