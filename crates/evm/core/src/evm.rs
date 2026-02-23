@@ -398,21 +398,13 @@ impl<'db, I: InspectorExt> FoundryHandler<'db, I> {
 impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
 
-    fn inspect_run(
-        &mut self,
-        evm: &mut Self::Evm,
-    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        self.inner.inspect_run(evm)
-    }
-
-    #[inline]
-    fn inspect_execution(
-        &mut self,
-        evm: &mut Self::Evm,
-        init_and_floor_gas: &InitialAndFloorGas,
-    ) -> Result<FrameResult, Self::Error> {
-        self.inner.inspect_execution(evm, init_and_floor_gas)
-    }
+    // NOTE: `inspect_run` and `inspect_execution` intentionally use the default implementations.
+    // The defaults chain through Handler trait methods (which delegate to TempoEvmHandler for
+    // Tempo-specific logic) and ultimately call `self.inspect_run_exec_loop()` on FoundryHandler,
+    // which contains the CREATE2 factory routing via `handle_create_frame`.
+    // Previously, these were overridden to delegate to `self.inner.inspect_run/inspect_execution`,
+    // which bypassed FoundryHandler::inspect_run_exec_loop entirely, making `handle_create_frame`
+    // dead code.
 
     fn inspect_run_exec_loop(
         &mut self,
