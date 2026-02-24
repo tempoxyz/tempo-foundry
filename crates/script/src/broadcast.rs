@@ -786,14 +786,18 @@ impl BundledState {
             None
         };
 
-        // Add receipt to sequence for each original transaction
-        // In batch mode, all calls share the same receipt
+        // Add receipt to sequence for each original transaction.
+        // In batch mode, all calls share the same receipt. The RPC receipt may
+        // already contain a `contract_address` (for batches starting with CREATE),
+        // so we must explicitly set it only for index 0 and clear it for the rest
+        // to prevent the verifier from attempting to verify the same address
+        // multiple times using CALL data as init code.
         for idx in 0..calls.len() {
             let mut tx_receipt = receipt.clone();
-            // Set contract_address on the CREATE transaction's receipt for verification
-            // CREATE is always at index 0 if present (validated above)
             if idx == 0 && has_create {
                 tx_receipt.contract_address = created_address;
+            } else {
+                tx_receipt.contract_address = None;
             }
             sequence.receipts.push(tx_receipt);
         }
