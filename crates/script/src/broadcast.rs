@@ -13,7 +13,7 @@ use alloy_serde::WithOtherFields;
 use eyre::{Context, Result, bail};
 use forge_verify::provider::VerificationProviderType;
 use foundry_cheatcodes::Wallets;
-use foundry_cli::utils::{has_batch_support, has_different_gas_calc, tx_gas_limit_cap};
+use foundry_cli::utils::{has_batch_support, has_different_gas_calc};
 use foundry_common::{
     TransactionMaybeSigned,
     provider::{
@@ -51,18 +51,13 @@ pub async fn estimate_gas<P: Provider<TempoNetwork>>(
     tx: &mut WithOtherFields<TempoTransactionRequest>,
     provider: &P,
     estimate_multiplier: u64,
-    gas_limit_cap: Option<u64>,
 ) -> Result<()> {
     // if already set, some RPC endpoints might simply return the gas value that is already
     // set in the request and omit the estimate altogether, so we remove it here
     tx.inner.inner.gas = None;
     let estimated_gas =
         provider.estimate_gas(tx.inner.clone()).await.wrap_err("Failed to estimate gas for tx")?;
-    let mut adjusted_gas = estimated_gas * estimate_multiplier / 100;
-    if let Some(cap) = gas_limit_cap {
-        adjusted_gas = adjusted_gas.min(cap);
-    }
-    tx.set_gas_limit(adjusted_gas);
+    tx.set_gas_limit(estimated_gas * estimate_multiplier / 100);
     Ok(())
 }
 
@@ -101,7 +96,6 @@ impl<'a> SendTransactionKind<'a> {
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
         estimate_multiplier: u64,
-        gas_limit_cap: Option<u64>,
     ) -> Result<()> {
         if let Self::Raw(tx, _) | Self::Unlocked(tx) | Self::Browser(tx, _) = self {
             if sequential_broadcast {
@@ -138,7 +132,7 @@ impl<'a> SendTransactionKind<'a> {
             // Chains which use `eth_estimateGas` are being sent sequentially and require their
             // gas to be re-estimated right before broadcasting.
             if !is_fixed_gas_limit && estimate_via_rpc {
-                estimate_gas(tx, provider, estimate_multiplier, gas_limit_cap).await?;
+                estimate_gas(tx, provider, estimate_multiplier).await?;
             }
         }
 
@@ -194,7 +188,6 @@ impl<'a> SendTransactionKind<'a> {
         is_fixed_gas_limit: bool,
         estimate_via_rpc: bool,
         estimate_multiplier: u64,
-        gas_limit_cap: Option<u64>,
     ) -> Result<TxHash> {
         self.prepare(
             &provider,
@@ -202,7 +195,6 @@ impl<'a> SendTransactionKind<'a> {
             is_fixed_gas_limit,
             estimate_via_rpc,
             estimate_multiplier,
-            gas_limit_cap,
         )
         .await?;
 
@@ -466,7 +458,13 @@ impl BundledState {
                 let is_tempo = detect_tempo_mode(&provider).await;
                 let estimate_via_rpc =
                     has_different_gas_calc(sequence.chain) || is_tempo || self.args.skip_simulation;
-                let gas_limit_cap = tx_gas_limit_cap(&self.script_config.config);
+
+                // Default gas estimate multiplier to 100 on Tempo (no overestimation needed).
+                let gas_estimate_multiplier = if is_tempo && self.args.gas_estimate_multiplier == 130 {
+                    100
+                } else {
+                    self.args.gas_estimate_multiplier
+                };
 
                 // We only wait for a transaction receipt before sending the next transaction, if
                 // there is more than one signer. There would be no way of assuring
@@ -501,8 +499,7 @@ impl BundledState {
                                             sequential_broadcast,
                                             *is_fixed_gas_limit,
                                             estimate_via_rpc,
-                                            self.args.gas_estimate_multiplier,
-                                            gas_limit_cap,
+                                            gas_estimate_multiplier,
                                         )
                                         .await;
                                     (res, kind, 0, None)
@@ -733,13 +730,18 @@ impl BundledState {
             ..Default::default()
         };
 
-        // Estimate gas for the batch transaction
+        // Estimate gas for the batch transaction.
+        // Batch transactions are Tempo-only, default multiplier to 100.
+        let gas_estimate_multiplier = if self.args.gas_estimate_multiplier == 130 {
+            100
+        } else {
+            self.args.gas_estimate_multiplier
+        };
         let mut tx_for_estimate = WithOtherFields::new(batch_tx.clone());
         estimate_gas(
             &mut tx_for_estimate,
             provider.as_ref(),
-            self.args.gas_estimate_multiplier,
-            tx_gas_limit_cap(&self.script_config.config),
+            gas_estimate_multiplier,
         )
         .await?;
         batch_tx.inner.gas = tx_for_estimate.gas_limit();

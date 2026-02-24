@@ -2,14 +2,11 @@ use alloy_json_abi::JsonAbi;
 use eyre::{Result, WrapErr};
 use foundry_common::{TestFunctionExt, fs, fs::json_files, selectors::SelectorKind, shell};
 use foundry_compilers::{
-    Artifact, ArtifactId, ProjectCompileOutput,
-    artifacts::{CompactBytecode, EvmVersion},
-    utils::read_json_file,
+    Artifact, ArtifactId, ProjectCompileOutput, artifacts::CompactBytecode, utils::read_json_file,
 };
 use foundry_config::{Chain, Config, NamedChain, error::ExtractConfigError, figment::Figment};
 use foundry_evm::{
     executors::{DeployResult, EvmError, RawCallResult},
-    hardforks::FoundryHardfork,
     opts::EvmOpts,
     traces::{
         CallTraceDecoder, TraceKind, Traces, decode_trace_arena, identifier::SignaturesCache,
@@ -152,26 +149,6 @@ pub fn has_different_gas_calc(chain_id: u64) -> bool {
             );
     }
     false
-}
-
-/// Returns the transaction gas limit cap for the configured chain, if any.
-///
-/// - Tempo chains (detected via `config.hardfork`): TIP-1000 caps at 30M gas.
-/// - Osaka+ chains: EIP-7825 caps at ~16.7M gas (2^24).
-/// - Other chains: no cap applied.
-pub fn tx_gas_limit_cap(config: &Config) -> Option<u64> {
-    const EIP7825_TX_GAS_LIMIT_CAP: u64 = 16_777_216;
-    const TIP1000_TX_GAS_LIMIT_CAP: u64 = 30_000_000;
-
-    if config.hardfork.is_some_and(|h| matches!(h, FoundryHardfork::Tempo(_))) {
-        return Some(TIP1000_TX_GAS_LIMIT_CAP);
-    }
-
-    if config.evm_version >= EvmVersion::Osaka {
-        return Some(EIP7825_TX_GAS_LIMIT_CAP);
-    }
-
-    None
 }
 
 /// True if it is a Tempo devnet.
