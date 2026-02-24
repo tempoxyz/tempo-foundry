@@ -395,7 +395,7 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
 
     /// Overrides the `inspect_run` to first call Tempo's fee token loading `load_fee_fields`.
-    /// Then, it chains to the default `inspect_run_without_catch_error` which flows trhough
+    /// Then, it chains to the default `inspect_run_without_catch_error` which flows through
     /// `self.inspect_execution()` --> `self.inspect_run_exec_loop()` for CREATE2 routing.
     fn inspect_run(
         &mut self,
