@@ -27,8 +27,8 @@ use revm::{
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::{TempoBlockEnv, TempoHaltReason};
 use tempo_revm::{
-    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext,
-    gas_params::tempo_gas_params, handler::TempoEvmHandler,
+    TempoEvm, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext, gas_params::tempo_gas_params,
+    handler::TempoEvmHandler,
 };
 
 pub fn new_evm_with_inspector<'db, I: InspectorExt>(
@@ -301,8 +301,7 @@ impl<'db, I: InspectorExt> Handler for FoundryHandler<'db, I> {
     }
 }
 
-/// Handles CREATE2 frame initialization, potentially transforming it to use the CREATE2
-/// factory.
+/// Handles CREATE2 frame initialization, potentially transforming it to use the CREATE2 factory.
 fn handle_create_frame<I: InspectorExt>(
     create2_overrides: &mut Vec<(usize, CallInputs)>,
     evm: &mut TempoEvm<&mut dyn DatabaseExt, I>,
@@ -392,47 +391,6 @@ fn handle_create2_override<I: InspectorExt>(
     }
 }
 
-/// Runs the CREATE2 factory routing exec loop.
-///
-/// Used by both `FoundryHandler::inspect_run_exec_loop` (for `run_execution`) and the closure
-/// passed to `TempoEvmHandler::inspect_execution_with` (for `transact_raw`).
-fn create2_exec_loop<I: InspectorExt>(
-    create2_overrides: &mut Vec<(usize, CallInputs)>,
-    evm: &mut TempoEvm<&mut dyn DatabaseExt, I>,
-    first_frame_input: FrameInit,
-) -> Result<FrameResult, EVMError<DatabaseError, TempoInvalidTransaction>> {
-    let res = evm.inspect_frame_init(first_frame_input)?;
-
-    if let ItemOrResult::Result(frame_result) = res {
-        return Ok(frame_result);
-    }
-
-    loop {
-        let call_or_result = evm.inspect_frame_run()?;
-
-        let result = match call_or_result {
-            ItemOrResult::Item(mut init) => {
-                if let Some(frame_result) = handle_create_frame(create2_overrides, evm, &mut init)?
-                {
-                    return Ok(frame_result);
-                }
-
-                match evm.inspect_frame_init(init)? {
-                    ItemOrResult::Item(_) => continue,
-                    ItemOrResult::Result(result) => result,
-                }
-            }
-            ItemOrResult::Result(result) => result,
-        };
-
-        let result = handle_create2_override(create2_overrides, evm, result);
-
-        if let Some(result) = evm.frame_return_result(result)? {
-            return Ok(result);
-        }
-    }
-}
-
 impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
 
@@ -471,5 +429,43 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
         first_frame_input: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameInit,
     ) -> Result<FrameResult, Self::Error> {
         create2_exec_loop(&mut self.create2_overrides, evm, first_frame_input)
+    }
+}
+
+/// Runs the CREATE2 factory routing exec loop.
+fn create2_exec_loop<I: InspectorExt>(
+    create2_overrides: &mut Vec<(usize, CallInputs)>,
+    evm: &mut TempoEvm<&mut dyn DatabaseExt, I>,
+    first_frame_input: FrameInit,
+) -> Result<FrameResult, EVMError<DatabaseError, TempoInvalidTransaction>> {
+    let res = evm.inspect_frame_init(first_frame_input)?;
+
+    if let ItemOrResult::Result(frame_result) = res {
+        return Ok(frame_result);
+    }
+
+    loop {
+        let call_or_result = evm.inspect_frame_run()?;
+
+        let result = match call_or_result {
+            ItemOrResult::Item(mut init) => {
+                if let Some(frame_result) = handle_create_frame(create2_overrides, evm, &mut init)?
+                {
+                    return Ok(frame_result);
+                }
+
+                match evm.inspect_frame_init(init)? {
+                    ItemOrResult::Item(_) => continue,
+                    ItemOrResult::Result(result) => result,
+                }
+            }
+            ItemOrResult::Result(result) => result,
+        };
+
+        let result = handle_create2_override(create2_overrides, evm, result);
+
+        if let Some(result) = evm.frame_return_result(result)? {
+            return Ok(result);
+        }
     }
 }
