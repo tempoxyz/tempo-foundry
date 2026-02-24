@@ -142,20 +142,20 @@ if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== CAST MKTX WITH EXPIRING NONCE (TIP-1009) ==="
   # Use the node's block timestamp to avoid clock skew between CI runner and devnet.
   BLOCK_TS=$(cast block latest --rpc-url "$ETH_RPC_URL" -f timestamp)
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 30))"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 25))"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE (TIP-1009) ==="
   BLOCK_TS=$(cast block latest --rpc-url "$ETH_RPC_URL" -f timestamp)
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 30))"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 25))"
 
   echo -e "\n=== CAST MKTX WITH EXPIRING NONCE + VALID-AFTER ==="
   BLOCK_TS=$(cast block latest --rpc-url "$ETH_RPC_URL" -f timestamp)
-  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 30))" --tempo.valid-after "$((BLOCK_TS + 5))"
+  cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 25))" --tempo.valid-after "$((BLOCK_TS + 5))"
 
   echo -e "\n=== CAST SEND WITH EXPIRING NONCE + VALID-AFTER ==="
   sleep 6  # Wait for valid_after to pass
   BLOCK_TS=$(cast block latest --rpc-url "$ETH_RPC_URL" -f timestamp)
-  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 30))" --tempo.valid-after "$((BLOCK_TS - 1))"
+  cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --tempo.expiring-nonce --tempo.valid-before "$((BLOCK_TS + 25))" --tempo.valid-after "$((BLOCK_TS - 1))"
 
   echo -e "\n=== SETUP ACCESS KEY ==="
   # Create an access key for testing
