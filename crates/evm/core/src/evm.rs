@@ -394,9 +394,9 @@ fn handle_create2_override<I: InspectorExt>(
 impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
 
-    /// Overrides the default `inspect_run` to call `load_fee_fields` first (Tempo-specific fee
-    /// token loading), then chains to the default `inspect_run_without_catch_error` which flows
-    /// through `self.inspect_execution()` → `self.inspect_run_exec_loop()` for CREATE2 routing.
+    /// Overrides the `inspect_run` to first call Tempo's fee token loading `load_fee_fields`.
+    /// Then, it chains to the default `inspect_run_without_catch_error` which flows trhough
+    /// `self.inspect_execution()` --> `self.inspect_run_exec_loop()` for CREATE2 routing.
     fn inspect_run(
         &mut self,
         evm: &mut Self::Evm,
@@ -410,8 +410,10 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     }
 
     /// Delegates to `TempoEvmHandler::inspect_execution_with`, injecting the CREATE2 factory
-    /// routing exec loop for standard transactions. Tempo-specific gas adjustment and AA
-    /// multi-call dispatch are handled by `inspect_execution_with` as a single source of truth.
+    /// routing exec loop for standard transactions.
+    ///
+    /// Tempo-specific gas and AA multi-call dispatch are handled by `inspect_execution_with`.
+    #[inline]
     fn inspect_execution(
         &mut self,
         evm: &mut Self::Evm,
@@ -449,6 +451,7 @@ fn create2_exec_loop<I: InspectorExt>(
 
         let result = match call_or_result {
             ItemOrResult::Item(mut init) => {
+                // Handle CREATE/CREATE2 frame initialization
                 if let Some(frame_result) = handle_create_frame(create2_overrides, evm, &mut init)?
                 {
                     return Ok(frame_result);
