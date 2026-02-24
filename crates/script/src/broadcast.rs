@@ -459,12 +459,7 @@ impl BundledState {
                 let estimate_via_rpc =
                     has_different_gas_calc(sequence.chain) || is_tempo || self.args.skip_simulation;
 
-                // Default gas estimate multiplier to 100 on Tempo (no overestimation needed).
-                let gas_estimate_multiplier = if is_tempo && self.args.gas_estimate_multiplier == 130 {
-                    100
-                } else {
-                    self.args.gas_estimate_multiplier
-                };
+                let gas_estimate_multiplier = self.args.gas_estimate_multiplier_for(is_tempo);
 
                 // We only wait for a transaction receipt before sending the next transaction, if
                 // there is more than one signer. There would be no way of assuring
@@ -730,20 +725,10 @@ impl BundledState {
             ..Default::default()
         };
 
-        // Estimate gas for the batch transaction.
-        // Batch transactions are Tempo-only, default multiplier to 100.
-        let gas_estimate_multiplier = if self.args.gas_estimate_multiplier == 130 {
-            100
-        } else {
-            self.args.gas_estimate_multiplier
-        };
+        // Estimate gas for the batch transaction (batch txs are Tempo-only).
+        let gas_estimate_multiplier = self.args.gas_estimate_multiplier_for(true);
         let mut tx_for_estimate = WithOtherFields::new(batch_tx.clone());
-        estimate_gas(
-            &mut tx_for_estimate,
-            provider.as_ref(),
-            gas_estimate_multiplier,
-        )
-        .await?;
+        estimate_gas(&mut tx_for_estimate, provider.as_ref(), gas_estimate_multiplier).await?;
         batch_tx.inner.gas = tx_for_estimate.gas_limit();
 
         sh_println!("Estimated gas: {}", batch_tx.inner.gas.unwrap_or(0))?;

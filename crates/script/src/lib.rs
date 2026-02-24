@@ -261,6 +261,16 @@ pub struct ScriptArgs {
 }
 
 impl ScriptArgs {
+    /// Returns the gas estimate multiplier, defaulting to 100 on Tempo chains
+    /// (no overestimation needed) instead of the CLI default of 130.
+    pub fn gas_estimate_multiplier_for(&self, is_tempo: bool) -> u64 {
+        if is_tempo && self.gas_estimate_multiplier == 130 {
+            100
+        } else {
+            self.gas_estimate_multiplier
+        }
+    }
+
     pub async fn preprocess(self) -> Result<PreprocessedState> {
         let script_wallets = Wallets::new(self.wallets.get_multi_wallet().await?, self.evm.sender);
 
