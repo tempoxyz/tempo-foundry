@@ -280,11 +280,24 @@ impl RunArgs {
 
                     env.evm_env.cfg_env.disable_balance_check = true;
 
+                    // AA batch transactions must use transact_with_env because
+                    // multi-call execution returns the last call's result type, which
+                    // may differ from the first call (e.g., batch starts with CREATE
+                    // but ends with CALL).
                     if let Some(to) = Transaction::to(tx) {
                         trace!(tx=?tx.tx_hash(),?to, "executing previous call transaction");
                         executor.transact_with_env(env.clone()).wrap_err_with(|| {
                             format!(
                                 "Failed to execute transaction: {:?} in block {}",
+                                tx.tx_hash(),
+                                env.evm_env.block_env.number
+                            )
+                        })?;
+                    } else if tx.inner.inner().is_aa() {
+                        trace!(tx=?tx.tx_hash(), "executing previous AA batch transaction");
+                        executor.transact_with_env(env.clone()).wrap_err_with(|| {
+                            format!(
+                                "Failed to execute AA transaction: {:?} in block {}",
                                 tx.tx_hash(),
                                 env.evm_env.block_env.number
                             )
@@ -324,6 +337,9 @@ impl RunArgs {
 
             if let Some(to) = Transaction::to(&tx) {
                 trace!(tx=?tx.tx_hash(), to=?to, "executing call transaction");
+                TraceResult::try_from(executor.transact_with_env(env))?
+            } else if tx.inner.inner().is_aa() {
+                trace!(tx=?tx.tx_hash(), "executing AA batch transaction");
                 TraceResult::try_from(executor.transact_with_env(env))?
             } else {
                 trace!(tx=?tx.tx_hash(), "executing create transaction");
