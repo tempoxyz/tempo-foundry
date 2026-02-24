@@ -163,7 +163,7 @@ pub struct ScriptArgs {
     pub batch: bool,
 
     /// Relative percentage to multiply gas estimates by.
-    #[arg(long, short, default_value = "130")]
+    #[arg(long, short, default_value_t = Self::DEFAULT_GAS_ESTIMATE_MULTIPLIER)]
     pub gas_estimate_multiplier: u64,
 
     /// Send via `eth_sendTransaction` using the `--sender` argument as sender.
@@ -261,11 +261,17 @@ pub struct ScriptArgs {
 }
 
 impl ScriptArgs {
+    /// Default gas estimate multiplier (130%).
+    const DEFAULT_GAS_ESTIMATE_MULTIPLIER: u64 = 130;
+
+    /// Default gas estimate multiplier for Tempo chains (100%, no overestimation needed).
+    const TEMPO_GAS_ESTIMATE_MULTIPLIER: u64 = 100;
+
     /// Returns the gas estimate multiplier, defaulting to 100 on Tempo chains
     /// (no overestimation needed) instead of the CLI default of 130.
     pub fn gas_estimate_multiplier_for(&self, is_tempo: bool) -> u64 {
-        if is_tempo && self.gas_estimate_multiplier == 130 {
-            100
+        if is_tempo && self.gas_estimate_multiplier == Self::DEFAULT_GAS_ESTIMATE_MULTIPLIER {
+            Self::TEMPO_GAS_ESTIMATE_MULTIPLIER
         } else {
             self.gas_estimate_multiplier
         }
