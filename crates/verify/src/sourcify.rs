@@ -174,13 +174,13 @@ impl VerificationProvider for SourcifyVerificationProvider {
                     )));
                 }
 
-                if let Some(contract) = job_response.contract {
-                    if let Some(contract_status) = contract.match_status {
-                        let _ = sh_println!(
-                            "Contract successfully verified:\nStatus: `{}`",
-                            contract_status,
-                        );
-                    }
+                if let Some(contract) = job_response.contract
+                    && let Some(contract_status) = contract.match_status
+                {
+                    let _ = sh_println!(
+                        "Contract successfully verified:\nStatus: `{}`",
+                        contract_status,
+                    );
                 }
                 Ok(())
             })
