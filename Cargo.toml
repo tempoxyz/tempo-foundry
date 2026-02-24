@@ -532,11 +532,3 @@ solar-interface = { package = "solar-interface", git = "https://github.com/parad
 solar-ast = { package = "solar-ast", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }
 solar-sema = { package = "solar-sema", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }
 
-[patch."https://github.com/tempoxyz/tempo"]
-tempo-revm = { path = "../tempo/crates/revm" }
-tempo-alloy = { path = "../tempo/crates/alloy" }
-tempo-contracts = { path = "../tempo/crates/contracts" }
-tempo-evm = { path = "../tempo/crates/evm" }
-tempo-chainspec = { path = "../tempo/crates/chainspec" }
-tempo-primitives = { path = "../tempo/crates/primitives" }
-tempo-precompiles = { path = "../tempo/crates/precompiles" }
