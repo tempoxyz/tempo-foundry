@@ -299,6 +299,24 @@ impl<'db, I: InspectorExt> Handler for FoundryHandler<'db, I> {
     ) -> Result<InitialAndFloorGas, Self::Error> {
         self.inner.validate_initial_tx_gas(evm)
     }
+
+    #[inline]
+    fn execution_result(
+        &mut self,
+        evm: &mut Self::Evm,
+        result: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        self.inner.execution_result(evm, result)
+    }
+
+    #[inline]
+    fn catch_error(
+        &self,
+        evm: &mut Self::Evm,
+        error: Self::Error,
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        self.inner.catch_error(evm, error)
+    }
 }
 
 /// Handles CREATE2 frame initialization, potentially transforming it to use the CREATE2 factory.
