@@ -19,7 +19,7 @@ use foundry_cli::{
     utils::{self, LoadConfig, get_tempo_provider_builder, parse_function_args},
 };
 use foundry_common::{
-    TransactionReceiptWithRevertReason, fmt::*, get_pretty_tx_receipt_attr,
+    TransactionReceiptWithRevertReason, fmt::*, get_pretty_receipt_w_reason_attr,
     provider::tempo::TempoRetryProviderWithSigner, shell,
 };
 use foundry_config::{Chain, Config};
@@ -271,7 +271,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
         field: Option<String>,
     ) -> Result<String> {
         Ok(if let Some(ref field) = field {
-            get_pretty_tx_receipt_attr(&receipt, field)
+            get_pretty_receipt_w_reason_attr(&receipt, field)
                 .ok_or_else(|| eyre::eyre!("invalid receipt field: {}", field))?
         } else if shell::is_json() {
             // to_value first to sort json object keys

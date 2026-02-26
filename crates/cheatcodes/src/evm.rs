@@ -3,10 +3,10 @@
 use crate::{
     BroadcastableTransaction, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Error, Result,
     Vm::*,
-    env::FORGE_CONTEXT,
     inspector::{Ecx, RecordDebugStepInfo},
 };
-use alloy_evm::evm::Evm as EvmTrait;
+use alloy_consensus::transaction::SignerRecoverable;
+use alloy_evm::{FromRecoveredTx, evm::Evm as EvmTrait};
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_network::eip2718::EIP4844_TX_TYPE_ID;
 use alloy_primitives::{
@@ -47,7 +47,6 @@ use std::{
 };
 
 mod record_debug_step;
-use alloy_evm::FromRecoveredTx;
 use foundry_common::fmt::format_token_raw;
 use foundry_config::evm_spec_id;
 use record_debug_step::{convert_call_trace_ctx_to_debug_step, flatten_call_trace};
@@ -1091,7 +1090,9 @@ impl Cheatcode for setBlockhashCall {
 
 impl Cheatcode for executeTransactionCall {
     fn apply_full(&self, ccx: &mut CheatsCtxt, executor: &mut dyn CheatcodesExecutor) -> Result {
-        // Check if we're in a forge script context
+        use crate::env::FORGE_CONTEXT;
+
+        // Block in script contexts.
         if let Some(ctx) = FORGE_CONTEXT.get()
             && *ctx == ForgeContext::ScriptGroup
         {
@@ -1102,99 +1103,104 @@ impl Cheatcode for executeTransactionCall {
         let tx = TempoTxEnvelope::decode(&mut self.rawTx.as_ref())
             .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
 
-        // Recover the sender from the transaction signature
-        use alloy_consensus::transaction::SignerRecoverable;
+        // Reject unsupported transaction types.
+        // TODO: add support for Tempo AA transactions.
+        if matches!(tx, TempoTxEnvelope::AA(_)) {
+            return Err(fmt_err!("Tempo transactions are not yet supported by executeTransaction"));
+        }
+
+        // Recover signer from the transaction signature.
         let sender =
             tx.recover_signer().map_err(|err| fmt_err!("failed to recover signer: {err}"))?;
 
-        // Get inspector
-        let mut inspector = executor.get_inspector(ccx.state);
+        // Build TempoTxEnv from the recovered transaction.
+        let mut tx_env = TempoTxEnv::from_recovered_tx(&tx, sender);
+
+        // Mark as inner context so isolation mode doesn't trigger a nested transact_inner
+        // when the inner EVM executes calls at depth == 1.
+        executor.set_in_inner_context(true, Some(sender));
 
         let res = {
-            let (db, journal, env) = ccx.ecx.as_db_env_and_journal();
+            let mut inspector = executor.get_inspector(ccx.state);
 
-            // Cache the original environment for restoration
-            let cached_env = env.to_owned();
+            let res = {
+                let (db, journal, env) = ccx.ecx.as_db_env_and_journal();
+                let cached_env =
+                    foundry_evm_core::Env::from(env.cfg.clone(), env.block.clone(), env.tx.clone());
 
-            // Convert the TempoTxEnvelope to TempoTxEnv, preserving all AA-specific fields
-            // including nonce_key for 2D nonce support
-            let mut tempo_tx_env = TempoTxEnv::from_recovered_tx(&tx, sender);
+                // Override env for isolated execution.
+                env.block.basefee = 0;
+                tx_env.gas_price = 0;
+                tx_env.gas_priority_fee = None;
+                *env.tx = tx_env;
 
-            // Set basefee and gas fees to 0 for isolated execution.
-            // NOTE: `gas_priority_fee` must also be cleared to avoid validation errors for
-            // EIP-1559/EIP-7702 txs.
-            env.block.basefee = 0;
-            tempo_tx_env.gas_price = 0;
-            tempo_tx_env.gas_priority_fee = None;
+                // Enable nonce checks for realistic simulation.
+                env.cfg.disable_nonce_check = false;
 
-            // Update the environment's tx with the properly converted TempoTxEnv
-            *env.tx = tempo_tx_env;
+                // EIP-3860: Enforce initcode size limit for executeTransaction to match production
+                // behavior. The global config sets limit_contract_code_size = usize::MAX
+                // for test flexibility, which causes max_initcode_size() to return
+                // usize::MAX. We override this here to enforce the EIP-3860 limit (49152
+                // bytes) for realistic transaction simulation.
+                env.cfg.limit_contract_initcode_size =
+                    Some(revm::primitives::eip3860::MAX_INITCODE_SIZE);
 
-            // Enable nonce checks for executeTransaction to properly simulate real transactions
-            // This is different from regular test calls where nonce checks are disabled for
-            // convenience
-            env.cfg.disable_nonce_check = false;
-
-            // EIP-3860: Enforce initcode size limit for executeTransaction to match production
-            // behavior. The global config sets limit_contract_code_size = usize::MAX
-            // for test flexibility, which causes max_initcode_size() to return
-            // usize::MAX. We override this here to enforce the EIP-3860 limit (49152
-            // bytes) for realistic transaction simulation.
-            env.cfg.limit_contract_initcode_size =
-                Some(revm::primitives::eip3860::MAX_INITCODE_SIZE);
-
-            // TIP-1000: Enforce transaction gas limit cap (30M) for T1 hardfork.
-            // This ensures executeTransaction validates gas limits the same way as
-            // the production Tempo chain.
-            if env.cfg.spec.is_t1() {
-                env.cfg.tx_gas_limit_cap = Some(TIP1000_TX_GAS_LIMIT_CAP);
-            }
-
-            let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);
-
-            // Clone the journaled state and mark all accounts/slots cold
-            evm.journaled_state.state = {
-                let mut state = journal.state.clone();
-
-                for (addr, acc_mut) in &mut state {
-                    // Mark all accounts cold, besides preloaded addresses
-                    if journal.warm_addresses.is_cold(addr) {
-                        acc_mut.mark_cold();
-                    }
-
-                    // Mark all slots cold and reset original values
-                    for slot_mut in acc_mut.storage.values_mut() {
-                        slot_mut.is_cold = true;
-                        slot_mut.original_value = slot_mut.present_value;
-                    }
+                // TIP-1000: Enforce transaction gas limit cap (30M) for T1 hardfork.
+                // This ensures executeTransaction validates gas limits the same way as
+                // the production Tempo chain.
+                if env.cfg.spec.is_t1() {
+                    env.cfg.tx_gas_limit_cap = Some(TIP1000_TX_GAS_LIMIT_CAP);
                 }
 
-                state
+                // Create a new EVM instance with the inspector.
+                let mut evm = new_evm_with_inspector(db, env.to_owned(), &mut *inspector);
+
+                // Clone journaled state and mark all accounts/slots cold.
+                evm.journaled_state.state = {
+                    let mut state = journal.state.clone();
+                    for (addr, acc_mut) in &mut state {
+                        if journal.warm_addresses.is_cold(addr) {
+                            acc_mut.mark_cold();
+                        }
+                        for slot_mut in acc_mut.storage.values_mut() {
+                            slot_mut.is_cold = true;
+                            slot_mut.original_value = slot_mut.present_value;
+                        }
+                    }
+                    state
+                };
+
+                // Set depth to 1 for proper trace collection.
+                evm.journaled_state.depth = 1;
+
+                let res = evm.transact(env.tx.clone());
+
+                // Restore the original environment.
+                *env.tx = cached_env.tx;
+                *env.cfg = cached_env.evm_env.cfg_env;
+                env.block.basefee = cached_env.evm_env.block_env.basefee;
+
+                res
             };
 
-            // Set depth to 1 for proper trace collection
-            evm.journaled_state.depth = 1;
-
-            let res = evm.transact(env.tx.clone());
-
-            // Restore original environment
-            *env.tx = cached_env.tx;
-            env.block.basefee = cached_env.evm_env.block_env.basefee;
-
+            // Inspector must be dropped before we can call set_in_inner_context again.
+            drop(inspector);
             res
         };
 
-        // Handle execution error
+        // Reset inner context flag.
+        executor.set_in_inner_context(false, None);
+
         let res = res.map_err(|e| fmt_err!("transaction execution failed: {e}"))?;
 
-        // Merge state diff back into parent journaled state
+        // Merge state changes back into the parent journaled state.
         for (addr, mut acc) in res.state {
             let Some(acc_mut) = ccx.ecx.journaled_state.state.get_mut(&addr) else {
                 ccx.ecx.journaled_state.state.insert(addr, acc);
                 continue;
             };
 
-            // Make sure accounts that were warmed earlier do not become cold
+            // Preserve warm account status from parent context.
             if acc.status.contains(AccountStatus::Cold)
                 && !acc_mut.status.contains(AccountStatus::Cold)
             {
@@ -1203,6 +1209,7 @@ impl Cheatcode for executeTransactionCall {
             acc_mut.info = acc.info;
             acc_mut.status |= acc.status;
 
+            // Merge storage changes.
             for (key, val) in acc.storage {
                 let Some(slot_mut) = acc_mut.storage.get_mut(&key) else {
                     acc_mut.storage.insert(key, val);
@@ -1213,7 +1220,7 @@ impl Cheatcode for executeTransactionCall {
             }
         }
 
-        // Extract output from execution result
+        // Return output bytes.
         let output = match res.result {
             ExecutionResult::Success { output, .. } => output.into_data(),
             ExecutionResult::Halt { reason, .. } => {

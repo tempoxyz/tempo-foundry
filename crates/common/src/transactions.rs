@@ -10,7 +10,7 @@ use alloy_provider::{
 use alloy_rpc_types::BlockId;
 use alloy_serde::WithOtherFields;
 use eyre::Result;
-use foundry_common_fmt::UIfmt;
+use foundry_common_fmt::{UIfmt, get_pretty_receipt_attr};
 use serde::{Deserialize, Serialize};
 use tempo_alloy::{
     TempoNetwork,
@@ -31,11 +31,6 @@ pub struct TransactionReceiptWithRevertReason {
 }
 
 impl TransactionReceiptWithRevertReason {
-    /// Returns if the status of the transaction is 0 (failure)
-    pub fn is_failure(&self) -> bool {
-        !self.receipt.inner.inner.receipt.success
-    }
-
     /// Updates the revert reason field using `eth_call` and returns an Err variant if the revert
     /// reason was not successfully updated
     pub async fn update_revert_reason<P: Provider<TempoNetwork>>(
@@ -50,12 +45,13 @@ impl TransactionReceiptWithRevertReason {
         &self,
         provider: &P,
     ) -> Result<Option<String>> {
-        if !self.is_failure() {
+        // If the transaction succeeded, there is no revert reason to fetch
+        if self.receipt.status() {
             return Ok(None);
         }
 
         let transaction = provider
-            .get_transaction_by_hash(self.receipt.transaction_hash)
+            .get_transaction_by_hash(self.receipt.transaction_hash())
             .await
             .map_err(|err| eyre::eyre!("unable to fetch transaction: {err}"))?
             .ok_or_else(|| eyre::eyre!("transaction not found"))?;
@@ -146,36 +142,16 @@ fn extract_revert_reason<S: AsRef<str>>(error_string: S) -> Option<String> {
         .map(|index| error_string.as_ref().split_at(index + message_substr.len()).1.to_string())
 }
 
-/// Returns the `UiFmt::pretty()` formatted attribute of the transaction receipt
-pub fn get_pretty_tx_receipt_attr(
+/// Returns the `UiFmt::pretty()` formatted attribute of the transaction receipt with revert reason
+pub fn get_pretty_receipt_w_reason_attr(
     receipt: &TransactionReceiptWithRevertReason,
     attr: &str,
 ) -> Option<String> {
-    match attr {
-        "blockHash" | "block_hash" => Some(receipt.receipt.block_hash.pretty()),
-        "blockNumber" | "block_number" => Some(receipt.receipt.block_number.pretty()),
-        "contractAddress" | "contract_address" => Some(receipt.receipt.contract_address.pretty()),
-        "cumulativeGasUsed" | "cumulative_gas_used" => {
-            Some(receipt.receipt.inner.inner.receipt.cumulative_gas_used.pretty())
-        }
-        "effectiveGasPrice" | "effective_gas_price" => {
-            Some(receipt.receipt.effective_gas_price.to_string())
-        }
-        "gasUsed" | "gas_used" => Some(receipt.receipt.gas_used.to_string()),
-        "logs" => Some(receipt.receipt.inner.inner.receipt.logs.as_slice().pretty()),
-        "logsBloom" | "logs_bloom" => Some(receipt.receipt.inner.inner.logs_bloom.pretty()),
-        "root" | "stateRoot" | "state_root " => Some(receipt.receipt.state_root().pretty()),
-        "status" | "statusCode" | "status_code" => Some(receipt.receipt.inner.status().pretty()),
-        "transactionHash" | "transaction_hash" => Some(receipt.receipt.transaction_hash.pretty()),
-        "transactionIndex" | "transaction_index" => {
-            Some(receipt.receipt.transaction_index.pretty())
-        }
-        "type" | "transaction_type" => {
-            Some(receipt.receipt.inner.inner.receipt.tx_type.to_string())
-        }
-        "revertReason" | "revert_reason" => Some(receipt.revert_reason.pretty()),
-        _ => None,
+    // Handle revert reason first, then delegate to the receipt formatting function
+    if matches!(attr, "revertReason" | "revert_reason") {
+        return Some(receipt.revert_reason.pretty());
     }
+    get_pretty_receipt_attr::<TempoNetwork>(&receipt.receipt, attr)
 }
 
 /// Used for broadcasting transactions

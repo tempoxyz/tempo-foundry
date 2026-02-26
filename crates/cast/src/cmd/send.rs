@@ -245,9 +245,11 @@ impl SendTxArgs {
                     sign_with_access_key(tx_request.inner, &signer, config.root_account).await?;
 
                 let cast = CastTxSender::new(&provider);
-                if send_tx.sync {
-                    let receipt = cast.send_raw_sync(&raw_tx).await?;
-                    sh_println!("{receipt}")?;
+                let pending_tx = cast.send_raw(&raw_tx).await?;
+                let tx_hash = pending_tx.inner().tx_hash();
+
+                if send_tx.cast_async {
+                    sh_println!("{tx_hash:#x}")?;
                 } else {
                     let pending_tx = provider.send_raw_transaction(&raw_tx).await?;
                     let tx_hash = pending_tx.tx_hash();
