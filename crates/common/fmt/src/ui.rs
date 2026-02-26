@@ -387,8 +387,12 @@ impl UIfmt for AccessListItem {
 
 impl UIfmt for TempoTxEnvelope {
     fn pretty(&self) -> String {
-        match &self {
-            Self::AA(_tx) => format!(
+        match self {
+            Self::Legacy(tx) => TxEnvelope::Legacy(tx.clone()).pretty(),
+            Self::Eip2930(tx) => TxEnvelope::Eip2930(tx.clone()).pretty(),
+            Self::Eip1559(tx) => TxEnvelope::Eip1559(tx.clone()).pretty(),
+            Self::Eip7702(tx) => TxEnvelope::Eip7702(tx.clone()).pretty(),
+            Self::AA(_) => format!(
                 "
 gas                  {}
 gasPrice             {}
@@ -406,137 +410,6 @@ value                {}",
                 self.to().pretty(),
                 self.tx_type().ty(),
                 self.value().pretty(),
-            ),
-            Self::Eip2930(tx) => format!(
-                "
-accessList           {}
-chainId              {}
-gasLimit             {}
-gasPrice             {}
-hash                 {}
-input                {}
-nonce                {}
-r                    {}
-s                    {}
-to                   {}
-type                 {}
-value                {}
-yParity              {}",
-                self.access_list()
-                    .map(|a| a.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.chain_id().pretty(),
-                self.gas_limit().pretty(),
-                self.gas_price().pretty(),
-                self.tx_hash().pretty(),
-                self.input().pretty(),
-                self.nonce().pretty(),
-                FixedBytes::from(tx.signature().r()).pretty(),
-                FixedBytes::from(tx.signature().s()).pretty(),
-                self.to().pretty(),
-                self.tx_type().ty(),
-                self.value().pretty(),
-                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
-            ),
-            Self::Eip1559(tx) => format!(
-                "
-accessList           {}
-chainId              {}
-gasLimit             {}
-hash                 {}
-input                {}
-maxFeePerGas         {}
-maxPriorityFeePerGas {}
-nonce                {}
-r                    {}
-s                    {}
-to                   {}
-type                 {}
-value                {}
-yParity              {}",
-                self.access_list()
-                    .map(|a| a.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.chain_id().pretty(),
-                self.gas_limit().pretty(),
-                self.tx_hash().pretty(),
-                self.input().pretty(),
-                self.max_fee_per_gas().pretty(),
-                self.max_priority_fee_per_gas().pretty(),
-                self.nonce().pretty(),
-                FixedBytes::from(tx.signature().r()).pretty(),
-                FixedBytes::from(tx.signature().s()).pretty(),
-                self.to().pretty(),
-                self.tx_type().ty(),
-                self.value().pretty(),
-                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
-            ),
-            Self::Eip7702(tx) => format!(
-                "
-accessList           {}
-authorizationList    {}
-chainId              {}
-gasLimit             {}
-hash                 {}
-input                {}
-maxFeePerGas         {}
-maxPriorityFeePerGas {}
-nonce                {}
-r                    {}
-s                    {}
-to                   {}
-type                 {}
-value                {}
-yParity              {}",
-                self.access_list()
-                    .map(|a| a.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.authorization_list()
-                    .as_ref()
-                    .map(|l| l.iter().collect::<Vec<_>>())
-                    .unwrap_or_default()
-                    .pretty(),
-                self.chain_id().pretty(),
-                self.gas_limit().pretty(),
-                self.tx_hash().pretty(),
-                self.input().pretty(),
-                self.max_fee_per_gas().pretty(),
-                self.max_priority_fee_per_gas().pretty(),
-                self.nonce().pretty(),
-                FixedBytes::from(tx.signature().r()).pretty(),
-                FixedBytes::from(tx.signature().s()).pretty(),
-                self.to().pretty(),
-                self.tx_type().ty(),
-                self.value().pretty(),
-                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
-            ),
-            Self::Legacy(tx) => format!(
-                "
-gas                  {}
-gasPrice             {}
-hash                 {}
-input                {}
-nonce                {}
-r                    {}
-s                    {}
-to                   {}
-type                 {}
-v                    {}
-value                {}",
-                self.gas_limit().pretty(),
-                self.gas_price().pretty(),
-                self.tx_hash().pretty(),
-                self.input().pretty(),
-                self.nonce().pretty(),
-                tx.signature().r().pretty(),
-                tx.signature().s().pretty(),
-                self.to().pretty(),
-                self.tx_type().ty(),
-                self.value().pretty(),
-                (if tx.signature().v() { 1u64 } else { 0 }).pretty(),
             ),
         }
     }
