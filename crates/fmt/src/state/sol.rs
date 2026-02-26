@@ -2439,9 +2439,7 @@ impl<'ast> State<'_, 'ast> {
             {
                 return Decision { outcome: false, is_cached: false };
             }
-            config::SingleLineBlockStyle::Single
-                if self.is_multiline_block_stmt(then, true) =>
-            {
+            config::SingleLineBlockStyle::Single if self.is_multiline_block_stmt(then, true) => {
                 return Decision { outcome: false, is_cached: false };
             }
             config::SingleLineBlockStyle::Preserve | config::SingleLineBlockStyle::Single => {}

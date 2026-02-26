@@ -925,13 +925,12 @@ impl<'a> FunctionRunner<'a> {
                                         test_bytecode,
                                     );
 
-                                    let original_seq_len = if let TestError::Fail(_, calls) =
-                                        &case_data.test_error
-                                    {
-                                        calls.len()
-                                    } else {
-                                        call_sequence.len()
-                                    };
+                                    let original_seq_len =
+                                        if let TestError::Fail(_, calls) = &case_data.test_error {
+                                            calls.len()
+                                        } else {
+                                            call_sequence.len()
+                                        };
 
                                     counterexample = Some(CounterExample::Sequence(
                                         original_seq_len,

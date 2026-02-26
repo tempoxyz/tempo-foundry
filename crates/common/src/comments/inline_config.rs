@@ -209,10 +209,7 @@ impl<I: ItemIdIterator> InlineConfig<I> {
             InlineConfigItem::DisableNextItem(ids)
                 if let Some(next_item) = find_next_item(span.hi()) =>
             {
-                self.disable_many(
-                    ids,
-                    DisabledRange { lo: next_item.lo(), hi: next_item.hi() },
-                );
+                self.disable_many(ids, DisabledRange { lo: next_item.lo(), hi: next_item.hi() });
             }
             InlineConfigItem::DisableLine(ids) => {
                 let start = src[..comment_range.start].rfind('\n').map_or(0, |i| i);
