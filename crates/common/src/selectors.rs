@@ -536,20 +536,14 @@ pub fn parse_signatures(tokens: Vec<String>) -> ParsedSignatures {
         |mut data, signature| {
             let mut split = signature.split(' ');
             match split.next() {
-                Some("function") => {
-                    if let Some(sig) = split.next() {
-                        data.function.push(sig.to_string())
-                    }
+                Some("function") if let Some(sig) = split.next() => {
+                    data.function.push(sig.to_string())
                 }
-                Some("event") => {
-                    if let Some(sig) = split.next() {
-                        data.event.push(sig.to_string())
-                    }
+                Some("event") if let Some(sig) = split.next() => {
+                    data.event.push(sig.to_string())
                 }
-                Some("error") => {
-                    if let Some(sig) = split.next() {
-                        data.error.push(sig.to_string())
-                    }
+                Some("error") if let Some(sig) = split.next() => {
+                    data.error.push(sig.to_string())
                 }
                 Some(signature) => {
                     // if no type given, assume function

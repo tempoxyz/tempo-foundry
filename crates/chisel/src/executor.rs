@@ -684,17 +684,17 @@ impl Type {
         // Type members, like array, bytes etc
         #[expect(clippy::single_match)]
         match &self {
-            Self::Access(inner, access) => {
-                if let Some(ty) = inner.as_ref().clone().try_as_ethabi(None) {
-                    // Array / bytes members
-                    let ty = Self::Builtin(ty);
-                    match access.as_str() {
-                        "length" if ty.is_dynamic() || ty.is_array() || ty.is_fixed_bytes() => {
-                            return Self::Builtin(DynSolType::Uint(256));
-                        }
-                        "pop" if ty.is_dynamic_array() => return ty,
-                        _ => {}
+            Self::Access(inner, access)
+                if let Some(ty) = inner.as_ref().clone().try_as_ethabi(None) =>
+            {
+                // Array / bytes members
+                let ty = Self::Builtin(ty);
+                match access.as_str() {
+                    "length" if ty.is_dynamic() || ty.is_array() || ty.is_fixed_bytes() => {
+                        return Self::Builtin(DynSolType::Uint(256));
                     }
+                    "pop" if ty.is_dynamic_array() => return ty,
+                    _ => {}
                 }
             }
             _ => {}

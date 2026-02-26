@@ -196,27 +196,26 @@ impl<'ast> CommentGatherer<'ast> {
         }
 
         match token.kind {
-            TokenKind::Whitespace => {
-                if let Some(mut idx) = token_text.find('\n') {
-                    self.code_to_the_left = false;
+            TokenKind::Whitespace if let Some(mut idx) = token_text.find('\n') => {
+                self.code_to_the_left = false;
 
-                    while let Some(next_newline) = token_text[idx + 1..].find('\n') {
-                        idx += 1 + next_newline;
-                        let pos = self.pos + idx;
-                        self.comments.push(Comment {
-                            is_doc: false,
-                            kind: CommentKind::Line,
-                            style: CommentStyle::BlankLine,
-                            lines: vec![],
-                            span: self.make_span(pos..pos),
-                        });
-                        // If not disabled, early-exit as we want only a single blank line.
-                        if self.disabled_block_depth == 0 {
-                            break;
-                        }
+                while let Some(next_newline) = token_text[idx + 1..].find('\n') {
+                    idx += 1 + next_newline;
+                    let pos = self.pos + idx;
+                    self.comments.push(Comment {
+                        is_doc: false,
+                        kind: CommentKind::Line,
+                        style: CommentStyle::BlankLine,
+                        lines: vec![],
+                        span: self.make_span(pos..pos),
+                    });
+                    // If not disabled, early-exit as we want only a single blank line.
+                    if self.disabled_block_depth == 0 {
+                        break;
                     }
                 }
             }
+            TokenKind::Whitespace => {}
             TokenKind::BlockComment { is_doc, .. } => {
                 let code_to_the_right = !matches!(
                     self.text[self.pos + token.len as usize..].chars().next(),

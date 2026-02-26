@@ -183,7 +183,7 @@ impl<'gcx> Visit<'gcx> for BytecodeDependencyCollector<'gcx, '_> {
 
     fn visit_expr(&mut self, expr: &'gcx Expr<'gcx>) -> ControlFlow<Self::BreakValue> {
         match &expr.kind {
-            ExprKind::Call(call_expr, call_args, named_args) => {
+            ExprKind::Call(call_expr, call_args, named_args)
                 if let Some(dependency) = handle_call_expr(
                     self.src,
                     self.gcx.sess.source_map(),
@@ -191,22 +191,21 @@ impl<'gcx> Visit<'gcx> for BytecodeDependencyCollector<'gcx, '_> {
                     call_expr,
                     call_args,
                     named_args,
-                ) {
-                    self.collect_dependency(dependency);
-                }
+                ) =>
+            {
+                self.collect_dependency(dependency);
             }
-            ExprKind::Member(member_expr, ident) => {
+            ExprKind::Member(member_expr, ident)
                 if let ExprKind::TypeCall(ty) = &member_expr.kind
                     && let TypeKind::Custom(contract_id) = &ty.kind
                     && ident.name.as_str() == "creationCode"
-                    && let Some(contract_id) = contract_id.as_contract()
-                {
-                    self.collect_dependency(BytecodeDependency {
-                        kind: BytecodeDependencyKind::CreationCode,
-                        loc: span_to_range(self.gcx.sess.source_map(), expr.span),
-                        referenced_contract: contract_id,
-                    });
-                }
+                    && let Some(contract_id) = contract_id.as_contract() =>
+            {
+                self.collect_dependency(BytecodeDependency {
+                    kind: BytecodeDependencyKind::CreationCode,
+                    loc: span_to_range(self.gcx.sess.source_map(), expr.span),
+                    referenced_contract: contract_id,
+                });
             }
             _ => {}
         }

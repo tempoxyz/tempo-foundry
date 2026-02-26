@@ -173,11 +173,12 @@ impl CoverageReporter for LcovReporter {
                         }
                     }
                     // Add lines / statement hits only once.
-                    CoverageItemKind::Line | CoverageItemKind::Statement => {
-                        if recorded_lines.insert(line) {
-                            writeln!(out, "DA:{line},{hits}")?;
-                        }
+                    CoverageItemKind::Line | CoverageItemKind::Statement
+                        if recorded_lines.insert(line) =>
+                    {
+                        writeln!(out, "DA:{line},{hits}")?;
                     }
+                    CoverageItemKind::Line | CoverageItemKind::Statement => {}
                     CoverageItemKind::Branch { branch_id, path_id, .. } => {
                         // Per LCOV spec: "-" means the expression was never evaluated (line not
                         // executed), "0" means branch exists but was never taken.
