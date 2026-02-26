@@ -173,7 +173,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
 
     /// Sends a transaction and waits for receipt synchronously
     pub async fn send_sync(&self, tx: TempoTransactionRequest) -> Result<String> {
-        let mut receipt: TransactionReceiptWithRevertReason =
+        let mut receipt: TransactionReceiptWithRevertReason<TempoNetwork> =
             self.provider.send_transaction_sync(tx).await?.into();
 
         // Allow to fail silently
@@ -186,7 +186,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     pub async fn send_raw_sync(&self, raw_tx: &[u8]) -> Result<String> {
         let pending = self.provider.send_raw_transaction(raw_tx).await?;
         let receipt = pending.get_receipt().await?;
-        let mut receipt: TransactionReceiptWithRevertReason = receipt.into();
+        let mut receipt: TransactionReceiptWithRevertReason<TempoNetwork> = receipt.into();
         let _ = receipt.update_revert_reason(&self.provider).await;
         self.format_receipt(receipt, None)
     }
@@ -239,7 +239,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     ) -> Result<String> {
         let tx_hash = TxHash::from_str(&tx_hash).wrap_err("invalid tx hash")?;
 
-        let mut receipt: TransactionReceiptWithRevertReason =
+        let mut receipt: TransactionReceiptWithRevertReason<TempoNetwork> =
             match self.provider.get_transaction_receipt(tx_hash).await? {
                 Some(r) => r,
                 None => {
@@ -267,7 +267,7 @@ impl<P: Provider<TempoNetwork>> CastTxSender<P> {
     /// Helper method to format transaction receipts consistently
     fn format_receipt(
         &self,
-        receipt: TransactionReceiptWithRevertReason,
+        receipt: TransactionReceiptWithRevertReason<TempoNetwork>,
         field: Option<String>,
     ) -> Result<String> {
         Ok(if let Some(ref field) = field {

@@ -2,6 +2,7 @@
 
 use alloy_consensus::{Transaction, transaction::SignerRecoverable};
 use alloy_eips::eip7702::SignedAuthorization;
+use alloy_network::{Network, TransactionResponse};
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_provider::{
     Provider,
@@ -10,41 +11,36 @@ use alloy_provider::{
 use alloy_rpc_types::BlockId;
 use alloy_serde::WithOtherFields;
 use eyre::Result;
-use foundry_common_fmt::{UIfmt, get_pretty_receipt_attr};
+use foundry_common_fmt::{UIfmt, UIfmtReceiptExt, get_pretty_receipt_attr};
 use serde::{Deserialize, Serialize};
-use tempo_alloy::{
-    TempoNetwork,
-    rpc::{TempoTransactionReceipt, TempoTransactionRequest},
-};
+use tempo_alloy::rpc::{TempoTransactionReceipt, TempoTransactionRequest};
 use tempo_primitives::TempoTxEnvelope;
 
 /// Helper type to carry a transaction along with an optional revert reason
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionReceiptWithRevertReason {
+pub struct TransactionReceiptWithRevertReason<N: Network> {
     /// The underlying transaction receipt
     #[serde(flatten)]
-    pub receipt: TempoTransactionReceipt,
+    pub receipt: N::ReceiptResponse,
 
     /// The revert reason string if the transaction status is failed
     #[serde(skip_serializing_if = "Option::is_none", rename = "revertReason")]
     pub revert_reason: Option<String>,
 }
 
-impl TransactionReceiptWithRevertReason {
+impl<N: Network> TransactionReceiptWithRevertReason<N>
+where
+    N::TxEnvelope: Clone,
+    N::ReceiptResponse: UIfmtReceiptExt,
+{
     /// Updates the revert reason field using `eth_call` and returns an Err variant if the revert
     /// reason was not successfully updated
-    pub async fn update_revert_reason<P: Provider<TempoNetwork>>(
-        &mut self,
-        provider: &P,
-    ) -> Result<()> {
+    pub async fn update_revert_reason<P: Provider<N>>(&mut self, provider: &P) -> Result<()> {
         self.revert_reason = self.fetch_revert_reason(provider).await?;
         Ok(())
     }
 
-    async fn fetch_revert_reason<P: Provider<TempoNetwork>>(
-        &self,
-        provider: &P,
-    ) -> Result<Option<String>> {
+    async fn fetch_revert_reason<P: Provider<N>>(&self, provider: &P) -> Result<Option<String>> {
         // If the transaction succeeded, there is no revert reason to fetch
         if self.receipt.status() {
             return Ok(None);
@@ -56,9 +52,9 @@ impl TransactionReceiptWithRevertReason {
             .map_err(|err| eyre::eyre!("unable to fetch transaction: {err}"))?
             .ok_or_else(|| eyre::eyre!("transaction not found"))?;
 
-        if let Some(block_hash) = self.receipt.block_hash {
-            let mut call_request: TempoTransactionRequest = transaction.inner.clone_inner().into();
-            call_request.set_from(transaction.inner.signer());
+        if let Some(block_hash) = self.receipt.block_hash() {
+            let mut call_request: N::TransactionRequest = transaction.as_ref().clone().into();
+            call_request.set_from(transaction.from());
             match provider.call(call_request).block(BlockId::Hash(block_hash.into())).await {
                 Err(e) => return Ok(extract_revert_reason(e.to_string())),
                 Ok(_) => eyre::bail!("no revert reason as transaction succeeded"),
@@ -68,19 +64,28 @@ impl TransactionReceiptWithRevertReason {
     }
 }
 
-impl From<TempoTransactionReceipt> for TransactionReceiptWithRevertReason {
+impl From<TempoTransactionReceipt>
+    for TransactionReceiptWithRevertReason<tempo_alloy::TempoNetwork>
+{
     fn from(receipt: TempoTransactionReceipt) -> Self {
         Self { receipt, revert_reason: None }
     }
 }
 
-impl From<TransactionReceiptWithRevertReason> for TempoTransactionReceipt {
-    fn from(receipt_with_reason: TransactionReceiptWithRevertReason) -> Self {
+impl From<TransactionReceiptWithRevertReason<tempo_alloy::TempoNetwork>>
+    for TempoTransactionReceipt
+{
+    fn from(
+        receipt_with_reason: TransactionReceiptWithRevertReason<tempo_alloy::TempoNetwork>,
+    ) -> Self {
         receipt_with_reason.receipt
     }
 }
 
-impl UIfmt for TransactionReceiptWithRevertReason {
+impl<N: Network> UIfmt for TransactionReceiptWithRevertReason<N>
+where
+    N::ReceiptResponse: UIfmt,
+{
     fn pretty(&self) -> String {
         if let Some(revert_reason) = &self.revert_reason {
             format!(
@@ -143,15 +148,19 @@ fn extract_revert_reason<S: AsRef<str>>(error_string: S) -> Option<String> {
 }
 
 /// Returns the `UiFmt::pretty()` formatted attribute of the transaction receipt with revert reason
-pub fn get_pretty_receipt_w_reason_attr(
-    receipt: &TransactionReceiptWithRevertReason,
+pub fn get_pretty_receipt_w_reason_attr<N>(
+    receipt: &TransactionReceiptWithRevertReason<N>,
     attr: &str,
-) -> Option<String> {
+) -> Option<String>
+where
+    N: Network,
+    N::ReceiptResponse: UIfmtReceiptExt,
+{
     // Handle revert reason first, then delegate to the receipt formatting function
     if matches!(attr, "revertReason" | "revert_reason") {
         return Some(receipt.revert_reason.pretty());
     }
-    get_pretty_receipt_attr::<TempoNetwork>(&receipt.receipt, attr)
+    get_pretty_receipt_attr::<N>(&receipt.receipt, attr)
 }
 
 /// Used for broadcasting transactions
