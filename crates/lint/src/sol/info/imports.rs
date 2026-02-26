@@ -76,14 +76,15 @@ impl<'ast> UnusedChecker<'ast> {
         for item in ast.items.iter() {
             let span = item.span;
             let ast::ItemKind::Import(import) = &item.kind else { continue };
+            #[allow(clippy::collapsible_match)]
             match &import.items {
-                ast::ImportItems::Plain(_) | ast::ImportItems::Glob(_)
+                ast::ImportItems::Plain(_) | ast::ImportItems::Glob(_) => {
                     if let Some(alias) = import.source_alias()
-                        && !self.used_symbols.contains(&alias.name) =>
-                {
-                    self.unused_import(ctx, span);
+                        && !self.used_symbols.contains(&alias.name)
+                    {
+                        self.unused_import(ctx, span);
+                    }
                 }
-                ast::ImportItems::Plain(_) | ast::ImportItems::Glob(_) => {}
                 ast::ImportItems::Aliases(symbols) => {
                     for &(orig, alias) in symbols.iter() {
                         let name = alias.unwrap_or(orig);

@@ -308,16 +308,20 @@ impl ClientFork {
         index: usize,
     ) -> Result<Option<AnyRpcTransaction>, TransportError> {
         if let Some(block) = self.block_by_number(number).await? {
+            #[allow(clippy::collapsible_match)]
             match block.transactions() {
-                BlockTransactions::Full(txs) if let Some(tx) = txs.get(index) => {
-                    return Ok(Some(tx.clone()));
+                BlockTransactions::Full(txs) => {
+                    if let Some(tx) = txs.get(index) {
+                        return Ok(Some(tx.clone()));
+                    }
                 }
-                BlockTransactions::Hashes(hashes) if let Some(tx_hash) = hashes.get(index) => {
-                    return self.transaction_by_hash(*tx_hash).await;
+                BlockTransactions::Hashes(hashes) => {
+                    if let Some(tx_hash) = hashes.get(index) {
+                        return self.transaction_by_hash(*tx_hash).await;
+                    }
                 }
                 // TODO(evalir): Is it possible to reach this case? Should we support it
                 BlockTransactions::Uncle => panic!("Uncles not supported"),
-                _ => {}
             }
         }
         Ok(None)
@@ -329,16 +333,20 @@ impl ClientFork {
         index: usize,
     ) -> Result<Option<AnyRpcTransaction>, TransportError> {
         if let Some(block) = self.block_by_hash(hash).await? {
+            #[allow(clippy::collapsible_match)]
             match block.transactions() {
-                BlockTransactions::Full(txs) if let Some(tx) = txs.get(index) => {
-                    return Ok(Some(tx.clone()));
+                BlockTransactions::Full(txs) => {
+                    if let Some(tx) = txs.get(index) {
+                        return Ok(Some(tx.clone()));
+                    }
                 }
-                BlockTransactions::Hashes(hashes) if let Some(tx_hash) = hashes.get(index) => {
-                    return self.transaction_by_hash(*tx_hash).await;
+                BlockTransactions::Hashes(hashes) => {
+                    if let Some(tx_hash) = hashes.get(index) {
+                        return self.transaction_by_hash(*tx_hash).await;
+                    }
                 }
                 // TODO(evalir): Is it possible to reach this case? Should we support it
                 BlockTransactions::Uncle => panic!("Uncles not supported"),
-                _ => {}
             }
         }
         Ok(None)

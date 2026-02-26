@@ -205,11 +205,15 @@ impl<I: ItemIdIterator> InlineConfig<I> {
         let comment_range = result.data;
         let src = file.src.as_str();
 
+        #[allow(clippy::collapsible_match)]
         match item {
-            InlineConfigItem::DisableNextItem(ids)
-                if let Some(next_item) = find_next_item(span.hi()) =>
-            {
-                self.disable_many(ids, DisabledRange { lo: next_item.lo(), hi: next_item.hi() });
+            InlineConfigItem::DisableNextItem(ids) => {
+                if let Some(next_item) = find_next_item(span.hi()) {
+                    self.disable_many(
+                        ids,
+                        DisabledRange { lo: next_item.lo(), hi: next_item.hi() },
+                    );
+                }
             }
             InlineConfigItem::DisableLine(ids) => {
                 let start = src[..comment_range.start].rfind('\n').map_or(0, |i| i);
@@ -224,24 +228,23 @@ impl<I: ItemIdIterator> InlineConfig<I> {
                     },
                 );
             }
-            InlineConfigItem::DisableNextLine(ids)
-                if let Some(offset) = src[comment_range.end..].find('\n') =>
-            {
-                let next_line = comment_range.end + offset + 1;
-                if next_line < src.len() {
-                    let end = src[next_line..].find('\n').map_or(src.len(), |i| next_line + i);
-                    self.disable_many(
-                        ids,
-                        DisabledRange {
-                            lo: file.absolute_position(RelativeBytePos::from_usize(
-                                comment_range.start,
-                            )),
-                            hi: file.absolute_position(RelativeBytePos::from_usize(end)),
-                        },
-                    );
+            InlineConfigItem::DisableNextLine(ids) => {
+                if let Some(offset) = src[comment_range.end..].find('\n') {
+                    let next_line = comment_range.end + offset + 1;
+                    if next_line < src.len() {
+                        let end = src[next_line..].find('\n').map_or(src.len(), |i| next_line + i);
+                        self.disable_many(
+                            ids,
+                            DisabledRange {
+                                lo: file.absolute_position(RelativeBytePos::from_usize(
+                                    comment_range.start,
+                                )),
+                                hi: file.absolute_position(RelativeBytePos::from_usize(end)),
+                            },
+                        );
+                    }
                 }
             }
-            InlineConfigItem::DisableNextItem(_) | InlineConfigItem::DisableNextLine(_) => {}
 
             InlineConfigItem::DisableStart(ids) => {
                 for id in ids.into_iter() {
