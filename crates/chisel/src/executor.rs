@@ -535,19 +535,11 @@ impl Type {
 
             // address
             pt::Expression::AddressLiteral(_, _) => Some(Self::Builtin(DynSolType::Address)),
-            pt::Expression::HexNumberLiteral(_, s, _) => {
-                match s.parse::<Address>() {
-                    Ok(addr) => {
-                        if *s == addr.to_checksum(None) {
-                            Some(Self::Builtin(DynSolType::Address))
-                        } else {
-                            Some(Self::Builtin(DynSolType::Uint(256)))
-                        }
-                    },
-                    _ => {
-                        Some(Self::Builtin(DynSolType::Uint(256)))
-                    }
+            pt::Expression::HexNumberLiteral(_, s, _) => match s.parse::<Address>() {
+                Ok(addr) if *s == addr.to_checksum(None) => {
+                    Some(Self::Builtin(DynSolType::Address))
                 }
+                _ => Some(Self::Builtin(DynSolType::Uint(256))),
             }
 
             // uint and int
