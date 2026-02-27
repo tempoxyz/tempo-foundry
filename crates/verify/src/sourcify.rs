@@ -174,7 +174,9 @@ impl VerificationProvider for SourcifyVerificationProvider {
                     )));
                 }
 
-                if let Some(contract_status) = job_response.contract.match_status {
+                if let Some(contract) = job_response.contract
+                    && let Some(contract_status) = contract.match_status
+                {
                     let _ = sh_println!(
                         "Contract successfully verified:\nStatus: `{}`",
                         contract_status,
@@ -352,7 +354,7 @@ pub struct SourcifyVerificationResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SourcifyJobResponse {
     is_job_completed: bool,
-    contract: SourcifyContractResponse,
+    contract: Option<SourcifyContractResponse>,
     error: Option<SourcifyErrorResponse>,
 }
 

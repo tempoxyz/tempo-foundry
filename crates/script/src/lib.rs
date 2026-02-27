@@ -163,7 +163,7 @@ pub struct ScriptArgs {
     pub batch: bool,
 
     /// Relative percentage to multiply gas estimates by.
-    #[arg(long, short, default_value = "130")]
+    #[arg(long, short, default_value_t = Self::GAS_ESTIMATE_MULTIPLIER_DEFAULT)]
     pub gas_estimate_multiplier: u64,
 
     /// Send via `eth_sendTransaction` using the `--sender` argument as sender.
@@ -261,6 +261,22 @@ pub struct ScriptArgs {
 }
 
 impl ScriptArgs {
+    /// Default gas estimate multiplier (130%).
+    const GAS_ESTIMATE_MULTIPLIER_DEFAULT: u64 = 130;
+
+    /// Gas estimate multiplier for Tempo chains (100%, no overestimation needed).
+    const GAS_ESTIMATE_MULTIPLIER_TEMPO: u64 = 100;
+
+    /// Returns the gas estimate multiplier, defaulting to 100 on Tempo chains
+    /// (no overestimation needed) instead of the CLI default of 130.
+    pub fn gas_estimate_multiplier_for(&self, is_tempo: bool) -> u64 {
+        if is_tempo && self.gas_estimate_multiplier == Self::GAS_ESTIMATE_MULTIPLIER_DEFAULT {
+            Self::GAS_ESTIMATE_MULTIPLIER_TEMPO
+        } else {
+            self.gas_estimate_multiplier
+        }
+    }
+
     pub async fn preprocess(self) -> Result<PreprocessedState> {
         let script_wallets = Wallets::new(self.wallets.get_multi_wallet().await?, self.evm.sender);
 

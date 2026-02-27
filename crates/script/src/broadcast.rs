@@ -459,6 +459,8 @@ impl BundledState {
                 let estimate_via_rpc =
                     has_different_gas_calc(sequence.chain) || is_tempo || self.args.skip_simulation;
 
+                let gas_estimate_multiplier = self.args.gas_estimate_multiplier_for(is_tempo);
+
                 // We only wait for a transaction receipt before sending the next transaction, if
                 // there is more than one signer. There would be no way of assuring
                 // their order otherwise.
@@ -492,7 +494,7 @@ impl BundledState {
                                             sequential_broadcast,
                                             *is_fixed_gas_limit,
                                             estimate_via_rpc,
-                                            self.args.gas_estimate_multiplier,
+                                            gas_estimate_multiplier,
                                         )
                                         .await;
                                     (res, kind, 0, None)
@@ -723,10 +725,10 @@ impl BundledState {
             ..Default::default()
         };
 
-        // Estimate gas for the batch transaction
+        // Estimate gas for the batch transaction (batch txs are Tempo-only).
+        let gas_estimate_multiplier = self.args.gas_estimate_multiplier_for(true);
         let mut tx_for_estimate = WithOtherFields::new(batch_tx.clone());
-        estimate_gas(&mut tx_for_estimate, provider.as_ref(), self.args.gas_estimate_multiplier)
-            .await?;
+        estimate_gas(&mut tx_for_estimate, provider.as_ref(), gas_estimate_multiplier).await?;
         batch_tx.inner.gas = tx_for_estimate.gas_limit();
 
         sh_println!("Estimated gas: {}", batch_tx.inner.gas.unwrap_or(0))?;
@@ -784,14 +786,18 @@ impl BundledState {
             None
         };
 
-        // Add receipt to sequence for each original transaction
-        // In batch mode, all calls share the same receipt
+        // Add receipt to sequence for each original transaction.
+        // In batch mode, all calls share the same receipt. The RPC receipt may
+        // already contain a `contract_address` (for batches starting with CREATE),
+        // so we must explicitly set it only for index 0 and clear it for the rest
+        // to prevent the verifier from attempting to verify the same address
+        // multiple times using CALL data as init code.
         for idx in 0..calls.len() {
             let mut tx_receipt = receipt.clone();
-            // Set contract_address on the CREATE transaction's receipt for verification
-            // CREATE is always at index 0 if present (validated above)
             if idx == 0 && has_create {
                 tx_receipt.contract_address = created_address;
+            } else {
+                tx_receipt.contract_address = None;
             }
             sequence.receipts.push(tx_receipt);
         }

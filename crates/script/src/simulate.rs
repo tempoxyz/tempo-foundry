@@ -294,6 +294,9 @@ impl FilledTransactionsState {
                 let tx = tx.tx_mut();
 
                 if has_different_gas_calc(provider_info.chain) || provider_info.is_tempo {
+                    let gas_estimate_multiplier =
+                        self.args.gas_estimate_multiplier_for(provider_info.is_tempo);
+
                     // only estimate gas for unsigned transactions
                     if let Some(tx) = tx.as_unsigned_mut() {
                         trace!("estimating with different gas calculation");
@@ -310,12 +313,8 @@ impl FilledTransactionsState {
                         // because for chains where `has_different_gas_calc`
                         // returns true, we await each transaction before
                         // broadcasting the next one.
-                        if let Err(err) = estimate_gas(
-                            tx,
-                            &provider_info.provider,
-                            self.args.gas_estimate_multiplier,
-                        )
-                        .await
+                        if let Err(err) =
+                            estimate_gas(tx, &provider_info.provider, gas_estimate_multiplier).await
                         {
                             trace!("gas estimation failed: {err}");
 
