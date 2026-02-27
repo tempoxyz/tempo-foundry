@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use alloy_primitives::{Address, Bytes, U256, address};
 use revm::{
     Database,
+    context::journaled_state::JournalCheckpoint,
     state::{AccountInfo, Bytecode},
 };
 use tempo_chainspec::hardfork::TempoHardfork;
@@ -181,6 +182,15 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn is_static(&self) -> bool {
         false
     }
+
+    fn checkpoint(&mut self) -> JournalCheckpoint {
+        // Checkpoints are not used during test initialization
+        JournalCheckpoint { log_i: 0, journal_i: 0 }
+    }
+
+    fn checkpoint_commit(&mut self) {}
+
+    fn checkpoint_revert(&mut self, _checkpoint: JournalCheckpoint) {}
 }
 
 /// Initialize Tempo precompiles and contracts using a storage provider.

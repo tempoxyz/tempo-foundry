@@ -12,7 +12,7 @@ use foundry_evm::core::tempo::{
     ALPHA_USD_ADDRESS, BETA_USD_ADDRESS, PATH_USD_ADDRESS, THETA_USD_ADDRESS,
     initialize_tempo_genesis,
 };
-use revm::state::{AccountInfo, Bytecode};
+use revm::{context::journaled_state::JournalCheckpoint, state::{AccountInfo, Bytecode}};
 use std::collections::HashMap;
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_precompiles::{
@@ -181,6 +181,15 @@ impl PrecompileStorageProvider for AnvilStorageProvider<'_> {
     fn is_static(&self) -> bool {
         false
     }
+
+    fn checkpoint(&mut self) -> JournalCheckpoint {
+        // Checkpoints are not used during test initialization
+        JournalCheckpoint { log_i: 0, journal_i: 0 }
+    }
+
+    fn checkpoint_commit(&mut self) {}
+
+    fn checkpoint_revert(&mut self, _checkpoint: JournalCheckpoint) {}
 }
 
 /// Initialize Tempo precompiles and fee tokens for Anvil.
