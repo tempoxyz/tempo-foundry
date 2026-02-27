@@ -13,6 +13,8 @@ extern crate tracing;
 
 pub mod clap;
 pub mod handler;
+#[cfg(feature = "incur")]
+pub mod incur_bridge;
 pub mod opts;
 pub mod utils;
 

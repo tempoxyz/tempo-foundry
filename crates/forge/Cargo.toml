@@ -49,7 +49,7 @@ forge-lint.workspace = true
 forge-verify.workspace = true
 forge-script.workspace = true
 forge-sol-macro-gen.workspace = true
-foundry-cli.workspace = true
+foundry-cli = { workspace = true, features = ["incur"] }
 foundry-debugger.workspace = true
 foundry-wallets = { workspace = true, optional = true }
 

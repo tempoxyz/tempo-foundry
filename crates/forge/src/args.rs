@@ -14,6 +14,7 @@ pub fn run() -> Result<()> {
     setup()?;
 
     foundry_cli::opts::GlobalArgs::check_markdown_help::<Forge>();
+    foundry_cli::incur_bridge::intercept::<Forge>();
 
     let args = Forge::parse();
     args.global.init()?;

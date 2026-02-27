@@ -8,6 +8,7 @@ pub fn run() -> Result<()> {
     setup()?;
 
     foundry_cli::opts::GlobalArgs::check_markdown_help::<Anvil>();
+    foundry_cli::incur_bridge::intercept::<Anvil>();
 
     let mut args = Anvil::parse();
     args.global.init()?;

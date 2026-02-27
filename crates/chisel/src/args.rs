@@ -15,6 +15,7 @@ pub fn run() -> Result<()> {
     setup()?;
 
     foundry_cli::opts::GlobalArgs::check_markdown_help::<Chisel>();
+    foundry_cli::incur_bridge::intercept::<Chisel>();
 
     let args = Chisel::parse();
     args.global.init()?;

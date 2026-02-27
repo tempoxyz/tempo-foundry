@@ -21,7 +21,7 @@ path = "bin/main.rs"
 # forge
 forge-doc.workspace = true
 forge-fmt.workspace = true
-foundry-cli.workspace = true
+foundry-cli = { workspace = true, features = ["incur"] }
 foundry-common.workspace = true
 foundry-compilers.workspace = true
 foundry-config.workspace = true

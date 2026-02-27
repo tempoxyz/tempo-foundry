@@ -443,6 +443,9 @@ ethereum_ssz = "0.10"
 tempo-primitives = { git = "https://github.com/tempoxyz/tempo", tag = "v1.0.0", default-features = false, features = ["serde"] }
 tempo-alloy = { git = "https://github.com/tempoxyz/tempo", tag = "v1.0.0", default-features = false }
 
+# incur — CLI framework with MCP server support
+incur = { git = "https://github.com/tempoxyz/incur-rs", rev = "0ee48eb", features = ["clap"] }
+
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
 # testing

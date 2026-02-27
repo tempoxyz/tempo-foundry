@@ -71,7 +71,7 @@ serde_json.workspace = true
 serde.workspace = true
 
 # bin
-foundry-cli.workspace = true
+foundry-cli = { workspace = true, features = ["incur"] }
 
 clap = { version = "4", features = ["derive", "env", "unicode", "wrap_help"] }
 clap_complete.workspace = true

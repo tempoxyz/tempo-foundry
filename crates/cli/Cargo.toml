@@ -34,6 +34,7 @@ alloy-ens = { workspace = true, features = ["provider"] }
 
 cfg-if = "1.0"
 clap = { version = "4", features = ["derive", "env", "unicode", "wrap_help"] }
+incur = { workspace = true, optional = true }
 clap_complete.workspace = true
 clap_complete_nushell.workspace = true
 color-eyre.workspace = true
@@ -66,6 +67,7 @@ tempfile.workspace = true
 tikv-jemallocator = { workspace = true, optional = true }
 
 [features]
+incur = ["dep:incur"]
 tracy = ["dep:tracing-tracy"]
 tracy-allocator = ["tracy"]
 jemalloc = ["dep:tikv-jemallocator"]

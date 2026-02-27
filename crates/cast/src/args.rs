@@ -34,6 +34,7 @@ pub fn run() -> Result<()> {
     setup()?;
 
     foundry_cli::opts::GlobalArgs::check_markdown_help::<CastArgs>();
+    foundry_cli::incur_bridge::intercept::<CastArgs>();
 
     let args = CastArgs::parse();
     args.global.init()?;
