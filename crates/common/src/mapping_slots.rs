@@ -48,9 +48,7 @@ impl MappingSlots {
 #[cold]
 pub fn step(mapping_slots: &mut AddressHashMap<MappingSlots>, interpreter: &Interpreter) {
     match interpreter.bytecode.opcode() {
-        opcode::KECCAK256
-            if interpreter.stack.peek(1) == Ok(U256::from(0x40)) =>
-        {
+        opcode::KECCAK256 if interpreter.stack.peek(1) == Ok(U256::from(0x40)) => {
             let address = interpreter.input.target_address;
             let offset = interpreter.stack.peek(0).expect("stack size > 1").saturating_to();
             let data = interpreter.memory.slice_len(offset, 0x40);
