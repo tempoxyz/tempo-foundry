@@ -12,7 +12,10 @@ use foundry_evm::core::tempo::{
     ALPHA_USD_ADDRESS, BETA_USD_ADDRESS, PATH_USD_ADDRESS, THETA_USD_ADDRESS,
     initialize_tempo_genesis,
 };
-use revm::{context::journaled_state::JournalCheckpoint, state::{AccountInfo, Bytecode}};
+use revm::{
+    context::journaled_state::JournalCheckpoint,
+    state::{AccountInfo, Bytecode},
+};
 use std::collections::HashMap;
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_precompiles::{
