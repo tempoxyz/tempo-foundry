@@ -538,8 +538,7 @@ impl CallArgs {
 
         // Parse and apply state diff overrides
         for (addr, entries) in parse_state_overrides(&self.state_diff_overrides)? {
-            state_overrides_builder =
-                state_overrides_builder.with_state_diff(addr, entries)
+            state_overrides_builder = state_overrides_builder.with_state_diff(addr, entries)
         }
 
         Ok(Some(state_overrides_builder.build()))
