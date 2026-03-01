@@ -30,27 +30,34 @@ cd "$tmp_dir"
 forge init -n tempo tempo-deploy
 cd tempo-deploy
 
-echo -e "\n=== CREATE AND FUND ADDRESS ==="
-wallet_json="$(cast wallet new --json)"
-ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
-PK="$(jq -r '.[0].private_key' <<<"$wallet_json")"
+if [[ -n "${PRIVATE_KEY:-}" ]]; then
+  echo -e "\n=== USING PROVIDED PRIVATE KEY ==="
+  PK="$PRIVATE_KEY"
+  ADDR="$(cast wallet address "$PK")"
+  printf "\naddress: %s\n" "$ADDR"
+else
+  echo -e "\n=== CREATE AND FUND ADDRESS ==="
+  wallet_json="$(cast wallet new --json)"
+  ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
+  PK="$(jq -r '.[0].private_key' <<<"$wallet_json")"
 
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+  for i in {1..100}; do
+    OUT=$(cast rpc tempo_fundAddress "$ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
 
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    echo "$OUT" | jq
-    break
-  fi
+    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+      echo "$OUT" | jq
+      break
+    fi
 
-  echo "[$i] $OUT"
-  sleep 0.2
-done
+    echo "[$i] $OUT"
+    sleep 0.2
+  done
 
-printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
+  printf "\naddress: %s\nprivate_key: %s\n" "$ADDR" "$PK"
 
-echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
-sleep 5
+  echo -e "\n=== WAIT FOR BLOCKS TO MINE ==="
+  sleep 5
+fi
 
 echo -e "\n=== FORGE SCRIPT DEPLOY ==="
 forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol --sig "run(string)" "$(date +%s%N)" --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"}
