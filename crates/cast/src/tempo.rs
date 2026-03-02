@@ -536,11 +536,12 @@ pub async fn sign_with_access_key<S: Signer>(
     let tempo_tx =
         tx_request.build_aa().map_err(|e| eyre!("Failed to build AA transaction: {:?}", e))?;
 
-    // 2. Compute the signature hash
+    // 2. Compute the V2 signing hash: keccak256(0x04 || sig_hash || user_address)
     let sig_hash = tempo_tx.signature_hash();
+    let signing_hash = KeychainSignature::signing_hash(sig_hash, root_account);
 
-    // 3. Sign the hash with the access key
-    let raw_sig = signer.sign_hash(&sig_hash).await?;
+    // 3. Sign the V2 hash with the access key
+    let raw_sig = signer.sign_hash(&signing_hash).await?;
 
     // 4. Wrap in KeychainSignature with root account address
     let primitive_sig = PrimitiveSignature::Secp256k1(raw_sig);
