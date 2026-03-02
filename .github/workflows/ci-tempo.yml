@@ -99,7 +99,6 @@ jobs:
           github.event.inputs.network == 'all'
         env:
           ETH_RPC_URL: ${{ secrets.TEMPO_MAINNET_RPC_URL }}
-          TEMPO_FEE_TOKEN: "0x20c000000000000000000000033abb6ac7d235e5"
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
           PRIVATE_KEY: ${{ secrets.THROW_AWAY_MAINNET_PKEY }}
           SCRIPTS: ${{ github.event.inputs.scripts || 'both' }}
