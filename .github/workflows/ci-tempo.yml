@@ -17,6 +17,15 @@ on:
           - devnet
           - mainnet
           - all
+      scripts:
+        description: "Which scripts to run"
+        required: false
+        type: choice
+        default: "both"
+        options:
+          - check
+          - deploy
+          - both
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -59,9 +68,14 @@ jobs:
           github.event.inputs.network == 'all'
         env:
           ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
+          SCRIPTS: ${{ github.event.inputs.scripts || 'both' }}
         run: |
-          ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-deploy.sh
+          if [ "$SCRIPTS" = "check" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-check.sh
+          fi
+          if [ "$SCRIPTS" = "deploy" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-deploy.sh
+          fi
 
       - name: Run Tempo check on testnet
         if: |
@@ -70,9 +84,14 @@ jobs:
         env:
           ETH_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
+          SCRIPTS: ${{ github.event.inputs.scripts || 'both' }}
         run: |
-          ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-deploy.sh
+          if [ "$SCRIPTS" = "check" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-check.sh
+          fi
+          if [ "$SCRIPTS" = "deploy" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-deploy.sh
+          fi
 
       - name: Run Tempo check on mainnet
         if: |
@@ -83,6 +102,11 @@ jobs:
           TEMPO_FEE_TOKEN: "0x20c000000000000000000000033abb6ac7d235e5"
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
           PRIVATE_KEY: ${{ secrets.THROW_AWAY_MAINNET_PKEY }}
+          SCRIPTS: ${{ github.event.inputs.scripts || 'both' }}
         run: |
-          ./.github/scripts/tempo-check.sh
-          ./.github/scripts/tempo-deploy.sh
+          if [ "$SCRIPTS" = "check" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-check.sh
+          fi
+          if [ "$SCRIPTS" = "deploy" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-deploy.sh
+          fi
