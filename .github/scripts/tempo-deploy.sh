@@ -69,9 +69,15 @@ echo -e "\n=== FORGE CREATE DEPLOY ==="
 forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
 
 echo -e "\n=== FORGE CREATE DEPLOY WITH FEE TOKEN ==="
+CHAIN_ID=$(cast chain-id --rpc-url "$ETH_RPC_URL")
 if [[ ${#FEE_TOKEN_ARG[@]} -eq 0 ]]; then
-  forge create --tempo.fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
-  forge create --tempo.fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+  if [[ "$CHAIN_ID" == "4217" ]]; then
+    echo "Skipping alternate fee token test on mainnet (chain 4217)"
+  else
+    # Test alternate fee tokens only on testnet
+    forge create --tempo.fee-token 0x20C0000000000000000000000000000000000002 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+    forge create --tempo.fee-token 0x20C0000000000000000000000000000000000003 src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
+  fi
 else
   forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail --private-key "$PK" --rpc-url "$ETH_RPC_URL" --broadcast ${VERIFY_ARG[@]+"${VERIFY_ARG[@]}"} --constructor-args "$FEE_TOKEN"
 fi
