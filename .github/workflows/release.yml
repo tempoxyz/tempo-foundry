@@ -13,6 +13,11 @@ on:
         options:
           - 'true'
           - 'false'
+      tag_name:
+        description: 'Version tag name passed to build (e.g. t1b). Leave empty for default behavior.'
+        required: false
+        default: ''
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -169,7 +174,7 @@ jobs:
 
       - name: Build binaries
         env:
-          TAG_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
+          TAG_NAME: ${{ inputs.tag_name || (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
           SVM_TARGET_PLATFORM: ${{ matrix.svm_target_platform }}
           PLATFORM_NAME: ${{ matrix.platform }}
           TARGET: ${{ matrix.target }}
