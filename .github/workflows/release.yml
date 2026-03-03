@@ -4,10 +4,19 @@ permissions: {}
 
 on:
   workflow_dispatch:
+    inputs:
+      is_nightly:
+        description: 'Nightly release'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 env:
   CARGO_TERM_COLOR: always
-  IS_NIGHTLY: true
+  IS_NIGHTLY: ${{ inputs.is_nightly }}
 
   # Keep in sync with `docker-publish.yml`.
   RUST_PROFILE: dist
@@ -63,7 +72,7 @@ jobs:
         uses: mikepenz/release-changelog-builder-action@6faf020194b7c8853f9e55c4fd92e40b02122a04 # v6
         with:
           configuration: "./.github/changelog.json"
-          fromTag: ${{ env.IS_NIGHTLY == 'true' && 'nightly' || env.STABLE_VERSION }}
+          fromTag: ${{ env.IS_NIGHTLY == 'true' && 'nightly' || env.LAST_STABLE_VERSION }}
           toTag: ${{ steps.release_info.outputs.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
