@@ -58,7 +58,7 @@ jobs:
           github.event.inputs.network == 'devnet' ||
           github.event.inputs.network == 'all'
         env:
-          ETH_RPC_URL: ${{ secrets.DEVNET_RPC_URL }}
+          ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
           ./.github/scripts/tempo-deploy.sh
@@ -68,7 +68,7 @@ jobs:
           github.event.inputs.network == 'testnet' ||
           github.event.inputs.network == 'all'
         env:
-          ETH_RPC_URL: ${{ secrets.TESTNET_RPC_URL }}
+          ETH_RPC_URL: ${{ secrets.TEMPO_TESTNET_RPC_URL }}
           VERIFIER_URL: ${{ secrets.VERIFIER_URL }}
         run: |
           ./.github/scripts/tempo-check.sh
