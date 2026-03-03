@@ -64,6 +64,7 @@ pub mod tempo;
 pub mod base;
 pub(crate) mod debug;
 pub mod errors;
+pub mod iso4217;
 mod rlp_converter;
 pub mod tx;
 

@@ -1,11 +1,13 @@
 use std::{str::FromStr, time::Duration};
 
 use crate::{
+    iso4217::{is_valid_iso4217, iso4217_warning_message},
     tempo::sign_with_access_key,
     tx::{self, CastTxBuilder, CastTxSender, SendTxOpts},
 };
 use alloy_ens::NameOrAddress;
 use alloy_network::EthereumWallet;
+use alloy_primitives::{Address, address};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
@@ -16,6 +18,8 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
+
+const TIP20_FACTORY_ADDRESS: Address = address!("20Fc000000000000000000000000000000000000");
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
@@ -100,6 +104,31 @@ impl SendTxArgs {
         } else {
             None
         };
+
+        // Check if this is a createToken call to the TIP20Factory and validate the currency code
+        if let Some(ref to_addr) = to {
+            let is_factory = match to_addr {
+                NameOrAddress::Address(addr) => *addr == TIP20_FACTORY_ADDRESS,
+                NameOrAddress::Name(name) => {
+                    Address::from_str(name).ok() == Some(TIP20_FACTORY_ADDRESS)
+                }
+            };
+
+            if is_factory
+                && let Some(ref sig_str) = sig
+                && sig_str.starts_with("createToken")
+                && let Some(currency) = args.get(2)
+                && !is_valid_iso4217(currency)
+            {
+                sh_warn!("{}", iso4217_warning_message(currency))?;
+                let response: String =
+                    foundry_common::prompt!("\nContinue anyway? [y/N] ")?;
+                if !matches!(response.trim(), "y" | "Y") {
+                    sh_println!("Aborted.")?;
+                    return Ok(());
+                }
+            }
+        }
 
         let config = send_tx.eth.load_config()?;
         let provider = get_tempo_provider_with_curl(&config, send_tx.eth.rpc.curl)?;
