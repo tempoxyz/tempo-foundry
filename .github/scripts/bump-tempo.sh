@@ -73,15 +73,25 @@ update_cargo_toml() {
   echo "Updated Cargo.toml: $old_rev -> $new_rev"
 }
 
-# Regenerate Cargo.lock (may fail if dependencies don't build)
+# Update Cargo.lock for the tempo crates we changed.
+# Uses targeted `cargo update -p` instead of `cargo generate-lockfile` to avoid
+# re-resolving the entire dep tree, which can pull in incompatible transitive
+# dependency versions (e.g. revm-state 10.0.0 vs 9.0.0).
 regenerate_lockfile() {
   echo ""
-  echo "Regenerating Cargo.lock..."
-  if cargo generate-lockfile 2>&1; then
-    echo "Cargo.lock regenerated successfully"
+  echo "Updating Cargo.lock for tempo crates..."
+  if cargo update \
+    -p tempo-alloy \
+    -p tempo-contracts \
+    -p tempo-revm \
+    -p tempo-evm \
+    -p tempo-chainspec \
+    -p tempo-primitives \
+    -p tempo-precompiles 2>&1; then
+    echo "Cargo.lock updated successfully"
     set_output "lockfile_updated" "true"
   else
-    echo "WARNING: Failed to regenerate Cargo.lock (dependencies may not build)"
+    echo "WARNING: Failed to update Cargo.lock (dependencies may not build)"
     set_output "lockfile_updated" "false"
   fi
 }
