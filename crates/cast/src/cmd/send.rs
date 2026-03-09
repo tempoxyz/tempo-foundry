@@ -120,8 +120,7 @@ impl SendTxArgs {
                 && !is_valid_iso4217(currency)
             {
                 sh_warn!("{}", iso4217_warning_message(currency))?;
-                let response: String =
-                    foundry_common::prompt!("\nContinue anyway? [y/N] ")?;
+                let response: String = foundry_common::prompt!("\nContinue anyway? [y/N] ")?;
                 if !matches!(response.trim(), "y" | "Y") {
                     sh_println!("Aborted.")?;
                     return Ok(());
