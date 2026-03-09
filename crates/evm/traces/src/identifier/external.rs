@@ -137,15 +137,9 @@ impl ExternalIdentifier {
         address: Address,
         metadata: &Metadata,
     ) -> IdentifiedAddress<'static> {
-        let label = metadata.contract_name.clone();
+        let label = (!metadata.contract_name.is_empty()).then(|| metadata.contract_name.clone());
         let abi = metadata.abi().ok().map(Cow::Owned);
-        IdentifiedAddress {
-            address,
-            label: Some(label.clone()),
-            contract: Some(label),
-            abi,
-            artifact_id: None,
-        }
+        IdentifiedAddress { address, label: label.clone(), contract: label, abi, artifact_id: None }
     }
 }
 
