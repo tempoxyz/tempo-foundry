@@ -55,6 +55,10 @@ pub struct SendTxArgs {
     #[arg(long, requires = "from")]
     unlocked: bool,
 
+    /// Skip all confirmation prompts (i.e. non-ISO-4217 currency warnings)
+    #[arg(long)]
+    force: bool,
+
     #[command(flatten)]
     tx: TransactionOpts,
 }
@@ -78,7 +82,7 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
-        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, data } = self;
+        let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, force, data } = self;
         let fee_token = tx.tempo.fee_token;
 
         if let Some(data) = data {
@@ -115,7 +119,8 @@ impl SendTxArgs {
                 }
             };
 
-            if is_factory
+            if !force
+                && is_factory
                 && let Some(ref sig_str) = sig
                 && sig_str.starts_with("createToken")
                 && let Some(currency) = args.get(2)
