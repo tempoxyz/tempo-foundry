@@ -7,7 +7,7 @@ use crate::{
 };
 use alloy_ens::NameOrAddress;
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address, address};
+use alloy_primitives::Address;
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::Signer;
 use clap::Parser;
@@ -18,8 +18,7 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
-
-const TIP20_FACTORY_ADDRESS: Address = address!("20Fc000000000000000000000000000000000000");
+use tempo_precompiles::TIP20_FACTORY_ADDRESS;
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
