@@ -1,8 +1,10 @@
 use std::{str::FromStr, time::Duration};
 
 use crate::{
-    iso4217::{is_valid_iso4217, iso4217_warning_message},
-    tempo::sign_with_access_key,
+    tempo::{
+        iso4217::{is_iso4217_currency, iso4217_warning_message},
+        sign_with_access_key,
+    },
     tx::{self, CastTxBuilder, CastTxSender, SendTxOpts},
 };
 use alloy_ens::NameOrAddress;
@@ -18,7 +20,7 @@ use foundry_cli::{
 };
 use foundry_wallets::WalletSigner;
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
-use tempo_precompiles::TIP20_FACTORY_ADDRESS;
+use tempo_contracts::precompiles::TIP20_FACTORY_ADDRESS;
 
 /// CLI arguments for `cast send`.
 #[derive(Debug, Parser)]
@@ -117,7 +119,7 @@ impl SendTxArgs {
                 && let Some(ref sig_str) = sig
                 && sig_str.starts_with("createToken")
                 && let Some(currency) = args.get(2)
-                && !is_valid_iso4217(currency)
+                && !is_iso4217_currency(currency)
             {
                 sh_warn!("{}", iso4217_warning_message(currency))?;
                 let response: String = foundry_common::prompt!("\nContinue anyway? [y/N] ")?;

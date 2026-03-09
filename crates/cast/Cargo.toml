@@ -64,7 +64,7 @@ op-alloy-flz.workspace = true
 # tempo
 tempo-primitives.workspace = true
 tempo-alloy.workspace = true
-tempo-precompiles.workspace = true
+tempo-contracts.workspace = true
 
 chrono.workspace = true
 eyre.workspace = true
