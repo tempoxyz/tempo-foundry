@@ -1044,13 +1044,12 @@ dependencies = [
 
 [[package]]
 name = "alloy-trie"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d7fd448ab0a017de542de1dcca7a58e7019fe0e7a34ed3f9543ebddf6aceffa"
+checksum = "3f14b5d9b2c2173980202c6ff470d96e7c5e202c65a9f67884ad565226df7fbb"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
- "arrayvec",
  "derive_more",
  "nybbles",
  "serde",
@@ -3118,9 +3117,9 @@ checksum = "55b672471b4e9f9e95499ea597ff64941a309b2cdbffcc46f2cc5e2d971fd335"
 
 [[package]]
 name = "commonware-codec"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52f6cacfdaad565ab6565b7c896cdf9d6d58a528e162150c2697d4d925a9938e"
+checksum = "2af69c7b97ba7225a934e29fad444f35b5d365322efaaf724e1af66c99c8c6c3"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -3133,9 +3132,9 @@ dependencies = [
 
 [[package]]
 name = "commonware-cryptography"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea20d380b73eb74eb977c40b0ef3df88ad7a428a582c38ada2d64fd7a1ef909b"
+checksum = "ccf9bba8bf1ad51f54c57bee0824987bb397bedb60a09917d6a93509828a2dff"
 dependencies = [
  "anyhow",
  "aws-lc-rs",
@@ -3168,9 +3167,9 @@ dependencies = [
 
 [[package]]
 name = "commonware-macros"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "241d65be9575e6de767236514985c9906e8ef0f6f6a5ce8faa6719886bf23270"
+checksum = "1c8da60f9fe8357927327729fa7838b44555f4c578e4b07c12a2964664230a98"
 dependencies = [
  "commonware-macros-impl",
  "tokio",
@@ -3178,9 +3177,9 @@ dependencies = [
 
 [[package]]
 name = "commonware-macros-impl"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b7bdc304661c89e6d294c5581367db81a16cf161b27c036a9f855e317b21b8"
+checksum = "19c4e1e7a838cff536ffbe38f441c555eee99322d755aed3e06af9407c127fd3"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -3191,9 +3190,9 @@ dependencies = [
 
 [[package]]
 name = "commonware-math"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c6de52eb60c386ad2376d44ff247c41e2e7b03a436041e7065a2054799e31e"
+checksum = "21a44f73b02286843967888c7aa750a7a91a5cd3ac8b9bc48cd1d81331836bbb"
 dependencies = [
  "bytes",
  "commonware-codec",
@@ -3205,9 +3204,9 @@ dependencies = [
 
 [[package]]
 name = "commonware-parallel"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "757b851e79eef082156ab7e33e354bda406ba9abbbc614fe3c92145d23a102fc"
+checksum = "5a590a49ee5d5389a2b966008b3367275772da7f336719fdb0f046ad257f6849"
 dependencies = [
  "cfg-if",
  "commonware-macros",
@@ -3216,9 +3215,9 @@ dependencies = [
 
 [[package]]
 name = "commonware-utils"
-version = "2026.2.0"
+version = "2026.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d350ec4edcf243e8f746f8d6011956910c705325b295df3d686e77067b8b381b"
+checksum = "192eb390e3e0277770982e5e63de72f3c116c810873f3250318cae9ff0206560"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -3231,6 +3230,7 @@ dependencies = [
  "num-integer",
  "num-rational",
  "num-traits",
+ "parking_lot",
  "pin-project 1.1.11",
  "rand 0.8.5",
  "thiserror 2.0.18",
@@ -6695,7 +6695,7 @@ dependencies = [
  "cesu8",
  "cfg-if",
  "combine",
- "jni-sys",
+ "jni-sys 0.3.0",
  "log",
  "thiserror 1.0.69",
  "walkdir",
@@ -6703,10 +6703,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "jni"
+version = "0.22.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "295dc9997acda1562fdf8d299f56063c936443b60f078e63a5d8d3c34ef2642b"
+dependencies = [
+ "cfg-if",
+ "combine",
+ "jni-macros",
+ "jni-sys 0.4.1",
+ "log",
+ "simd_cesu8",
+ "thiserror 2.0.18",
+ "walkdir",
+ "windows-link",
+]
+
+[[package]]
+name = "jni-macros"
+version = "0.22.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c3d1da60c95c98847b26b9d45f4360fee718b31de746df016d9cd6de916a7ef"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustc_version 0.4.1",
+ "simd_cesu8",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "jni-sys"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
+
+[[package]]
+name = "jni-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6377a88cb3910bee9b0fa88d4f42e1d2da8e79915598f65fb0c7ee14c878af2"
+dependencies = [
+ "jni-sys-macros",
+]
+
+[[package]]
+name = "jni-sys-macros"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38c0b942f458fe50cdac086d2f946512305e5631e720728f2a61aabcd47a6264"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "jobserver"
@@ -8974,9 +9023,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.13"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1906b49b0c3bc04b5fe5d86a77925ae6524a19b816ae38ce1e426255f1d8a31"
+checksum = "434b42fec591c96ef50e21e886936e66d3cc3f737104fdb9b737c40ffb94c098"
 dependencies = [
  "aws-lc-rs",
  "bytes",
@@ -11312,7 +11361,7 @@ checksum = "1d99feebc72bae7ab76ba994bb5e121b8d83d910ca40b36e0921f53becc41784"
 dependencies = [
  "core-foundation 0.10.1",
  "core-foundation-sys",
- "jni",
+ "jni 0.21.1",
  "log",
  "once_cell",
  "rustls",
@@ -11900,6 +11949,22 @@ name = "simd-adler32"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
+
+[[package]]
+name = "simd_cesu8"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94f90157bb87cddf702797c5dadfa0be7d266cdf49e22da2fcaa32eff75b2c33"
+dependencies = [
+ "rustc_version 0.4.1",
+ "simdutf8",
+]
+
+[[package]]
+name = "simdutf8"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "similar"
@@ -12560,7 +12625,7 @@ dependencies = [
 [[package]]
 name = "tempo-alloy"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -12585,7 +12650,7 @@ dependencies = [
 [[package]]
 name = "tempo-chainspec"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-eips",
  "alloy-evm",
@@ -12593,6 +12658,7 @@ dependencies = [
  "alloy-hardforks",
  "alloy-primitives",
  "eyre",
+ "paste",
  "reth-chainspec",
  "reth-cli",
  "reth-network-peers",
@@ -12604,7 +12670,7 @@ dependencies = [
 [[package]]
 name = "tempo-consensus"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12620,7 +12686,7 @@ dependencies = [
 [[package]]
 name = "tempo-contracts"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -12630,7 +12696,7 @@ dependencies = [
 [[package]]
 name = "tempo-evm"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12660,7 +12726,7 @@ dependencies = [
 [[package]]
 name = "tempo-payload-types"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -12679,7 +12745,7 @@ dependencies = [
 [[package]]
 name = "tempo-precompiles"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -12698,7 +12764,7 @@ dependencies = [
 [[package]]
 name = "tempo-precompiles-macros"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -12709,7 +12775,7 @@ dependencies = [
 [[package]]
 name = "tempo-primitives"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12737,7 +12803,7 @@ dependencies = [
 [[package]]
 name = "tempo-revm"
 version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=083592c719d2aa8bdb9c78ec23f372cced67390d#083592c719d2aa8bdb9c78ec23f372cced67390d"
+source = "git+https://github.com/tempoxyz/tempo?rev=acc258e616afdd9aa07deac67029b4219cff671c#acc258e616afdd9aa07deac67029b4219cff671c"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -14186,9 +14252,9 @@ dependencies = [
 
 [[package]]
 name = "watchexec-supervisor"
-version = "5.1.0"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddb766a4282cd9e71a6011e800ed7f863bb7134435bf4c7abc6b55ca3afc78ec"
+checksum = "a710aaac2dfcfb8a2e117c2f5e926bf10c533345f468f2017160c5f0e9ee0c53"
 dependencies = [
  "futures",
  "process-wrap",
@@ -14232,12 +14298,12 @@ dependencies = [
 
 [[package]]
 name = "webbrowser"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f00bb839c1cf1e3036066614cbdcd035ecf215206691ea646aa3c60a24f68f2"
+checksum = "fe985f41e291eecef5e5c0770a18d28390addb03331c043964d9e916453d6f16"
 dependencies = [
  "core-foundation 0.10.1",
- "jni",
+ "jni 0.22.3",
  "log",
  "ndk-context",
  "objc2",
@@ -14960,18 +15026,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.40"
+version = "0.8.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a789c6e490b576db9f7e6b6d661bcc9799f7c0ac8352f56ea20193b2681532e5"
+checksum = "f2578b716f8a7a858b7f02d5bd870c14bf4ddbbcf3a4c05414ba6503640505e3"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.40"
+version = "0.8.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f65c489a7071a749c849713807783f70672b28094011623e200cb86dcb835953"
+checksum = "7e6cc098ea4d3bd6246687de65af3f920c430e236bee1e3bf2e441463f08a02f"
 dependencies = [
  "proc-macro2",
  "quote",
