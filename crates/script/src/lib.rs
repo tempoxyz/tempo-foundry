@@ -18,7 +18,7 @@ use alloy_primitives::{
     map::{AddressHashMap, HashMap},
 };
 use alloy_signer::Signer;
-use alloy_sol_types::sol;
+use alloy_sol_types::{SolInterface, sol};
 use broadcast::next_nonce;
 use build::PreprocessedState;
 use clap::{Parser, ValueHint};
@@ -58,6 +58,9 @@ use foundry_evm::{
 use foundry_wallets::MultiWalletOpts;
 use serde::Serialize;
 use std::{collections::BTreeSet, path::PathBuf};
+use tempo_contracts::precompiles::{
+    ITIP20Factory::ITIP20FactoryCalls, TIP20_FACTORY_ADDRESS, is_iso4217_currency,
+};
 
 mod broadcast;
 mod build;
@@ -772,14 +775,8 @@ impl ScriptConfig {
     }
 }
 
-/// Scans broadcastable transactions for `TIP20Factory.createToken()` calls with non-ISO 4217
-/// currency codes.
+/// Scans broadcastable txs for `TIP20Factory.createToken()` calls with non-ISO 4217 currency codes.
 fn find_invalid_tip20_currencies(result: &ScriptResult) -> BTreeSet<String> {
-    use alloy_sol_types::SolInterface;
-    use tempo_contracts::precompiles::{
-        ITIP20Factory::ITIP20FactoryCalls, TIP20_FACTORY_ADDRESS, is_iso4217_currency,
-    };
-
     let Some(txs) = &result.transactions else { return BTreeSet::new() };
 
     let mut invalid = BTreeSet::new();
@@ -1127,7 +1124,7 @@ mod tests {
         // Detects invalid currency code.
         let result =
             script_result_with_txs(vec![(TIP20_FACTORY_ADDRESS, create_token_calldata("FOO"))]);
-        assert!(find_invalid_tip20_currencies(&result).get("FOO").is_some());
+        assert!(find_invalid_tip20_currencies(&result).contains("FOO"));
 
         // Accepts valid ISO 4217 currency.
         let result =
