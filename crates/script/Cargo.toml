@@ -58,6 +58,7 @@ alloy-eips.workspace = true
 thiserror.workspace = true
 
 tempo-alloy.workspace = true
+tempo-contracts.workspace = true
 tempo-primitives.workspace = true
 
 [dev-dependencies]

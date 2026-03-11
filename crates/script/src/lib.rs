@@ -57,7 +57,7 @@ use foundry_evm::{
 };
 use foundry_wallets::MultiWalletOpts;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::{collections::BTreeSet, path::PathBuf};
 
 mod broadcast;
 mod build;
@@ -358,6 +358,8 @@ impl ScriptArgs {
                 create2_deployer,
             )?;
 
+            pre_simulation.args.check_tip20_currency_codes(&pre_simulation.execution_result)?;
+
             pre_simulation.fill_metadata().await?.bundle().await?
         };
 
@@ -536,6 +538,33 @@ impl ScriptArgs {
         if prompt_user
             && !self.non_interactive
             && !Confirm::new().with_prompt("Do you wish to continue?".to_string()).interact()?
+        {
+            eyre::bail!("User canceled the script.");
+        }
+
+        Ok(())
+    }
+
+    /// Checks if any collected transactions call `TIP20Factory.createToken()` with a currency
+    /// code that is not a recognized ISO 4217 code. Warns the user and prompts for confirmation
+    /// since the currency field is immutable after token creation.
+    fn check_tip20_currency_codes(&self, result: &ScriptResult) -> Result<()> {
+        let invalid_currencies = find_invalid_tip20_currencies(result);
+
+        if invalid_currencies.is_empty() {
+            return Ok(());
+        }
+
+        for currency in &invalid_currencies {
+            sh_warn!("{}", iso4217_warning_message(currency))?;
+        }
+
+        if self.should_broadcast()
+            && !self.non_interactive
+            && !Confirm::new()
+                .with_prompt("Continue anyway?".to_string())
+                .default(false)
+                .interact()?
         {
             eyre::bail!("User canceled the script.");
         }
@@ -741,6 +770,55 @@ impl ScriptConfig {
 
         Ok(ScriptRunner::new(builder.build(env, db), self.evm_opts.clone()))
     }
+}
+
+/// Scans broadcastable transactions for `TIP20Factory.createToken()` calls with non-ISO 4217
+/// currency codes.
+fn find_invalid_tip20_currencies(result: &ScriptResult) -> BTreeSet<String> {
+    use alloy_sol_types::SolInterface;
+    use tempo_contracts::precompiles::{
+        ITIP20Factory::ITIP20FactoryCalls, TIP20_FACTORY_ADDRESS, is_iso4217_currency,
+    };
+
+    let Some(txs) = &result.transactions else { return BTreeSet::new() };
+
+    let mut invalid = BTreeSet::new();
+    for tx in txs {
+        let Some(TxKind::Call(to)) = tx.transaction.to() else { continue };
+        if to != TIP20_FACTORY_ADDRESS {
+            continue;
+        }
+        let Some(input) = tx.transaction.input() else { continue };
+        if let Ok(ITIP20FactoryCalls::createToken(call)) = ITIP20FactoryCalls::abi_decode(input)
+            && !is_iso4217_currency(&call.currency)
+        {
+            invalid.insert(call.currency);
+        }
+    }
+    invalid
+}
+
+/// Returns a warning message for non-ISO 4217 currency codes used in TIP-20 token creation.
+fn iso4217_warning_message(currency: &str) -> String {
+    let hyperlink = |url: &str| format!("\x1b]8;;{url}\x1b\\{url}\x1b]8;;\x1b\\");
+    let tip20_docs = hyperlink("https://docs.tempo.xyz/protocol/tip20/overview");
+    let iso_docs = hyperlink("https://www.iso.org/iso-4217-currency-codes.html");
+
+    format!(
+        "\"{currency}\" is not a recognized ISO 4217 currency code.\n\
+         \n\
+         If the token you are trying to deploy is a fiat-backed stablecoin, Tempo strongly\n\
+         recommends that the currency code field be the ISO-4217 currency code of the fiat\n\
+         currency your token tracks (e.g. \"USD\", \"EUR\", \"GBP\").\n\
+         \n\
+         The currency field is IMMUTABLE after token creation and affects fee payment\n\
+         eligibility, DEX routing, and quote token pairing. Only \"USD\"-denominated tokens\n\
+         can be used to pay transaction fees on Tempo.\n\
+         \n\
+         Learn more:\n  \
+         - Tempo TIP-20 docs: {tip20_docs}\n  \
+         - ISO 4217 standard: {iso_docs}"
+    )
 }
 
 #[cfg(test)]
@@ -1002,6 +1080,76 @@ mod tests {
         assert_eq!(etherscan, Some("etherscan_api_key".to_string()));
         let etherscan = config.get_etherscan_api_key(None);
         assert_eq!(etherscan, Some("etherscan_api_key".to_string()));
+    }
+
+    fn create_token_calldata(currency: &str) -> Bytes {
+        use alloy_sol_types::SolCall;
+        use tempo_contracts::precompiles::ITIP20Factory;
+
+        ITIP20Factory::createTokenCall {
+            name: "T".to_string(),
+            symbol: "T".to_string(),
+            currency: currency.to_string(),
+            quoteToken: Address::ZERO,
+            admin: Address::ZERO,
+            salt: Default::default(),
+        }
+        .abi_encode()
+        .into()
+    }
+
+    fn script_result_with_txs(txs: Vec<(Address, Bytes)>) -> ScriptResult {
+        let broadcastable = txs
+            .into_iter()
+            .map(|(to, input)| {
+                use alloy_network::TransactionBuilder;
+                use alloy_serde::WithOtherFields;
+                use foundry_cheatcodes::BroadcastableTransaction;
+                use foundry_common::TransactionMaybeSigned;
+                use tempo_alloy::rpc::TempoTransactionRequest;
+
+                let mut inner = WithOtherFields::new(TempoTransactionRequest::default());
+                inner.set_to(to);
+                inner.set_input(input);
+                BroadcastableTransaction {
+                    rpc: None,
+                    transaction: TransactionMaybeSigned::new(inner),
+                }
+            })
+            .collect();
+        ScriptResult { transactions: Some(broadcastable), ..Default::default() }
+    }
+
+    #[test]
+    fn check_tip20_currency_validation() {
+        use tempo_contracts::precompiles::TIP20_FACTORY_ADDRESS;
+
+        // Detects invalid currency code.
+        let result =
+            script_result_with_txs(vec![(TIP20_FACTORY_ADDRESS, create_token_calldata("FOO"))]);
+        assert!(find_invalid_tip20_currencies(&result).get("FOO").is_some());
+
+        // Accepts valid ISO 4217 currency.
+        let result =
+            script_result_with_txs(vec![(TIP20_FACTORY_ADDRESS, create_token_calldata("USD"))]);
+        assert!(find_invalid_tip20_currencies(&result).is_empty());
+
+        // Ignores createToken to a non-factory address.
+        let result = script_result_with_txs(vec![(
+            Address::repeat_byte(0x42),
+            create_token_calldata("FOO"),
+        )]);
+        assert!(find_invalid_tip20_currencies(&result).is_empty());
+
+        // Ignores wrong selector to the factory.
+        let result = script_result_with_txs(vec![(
+            TIP20_FACTORY_ADDRESS,
+            Bytes::from(vec![0xde, 0xad, 0xbe, 0xef]),
+        )]);
+        assert!(find_invalid_tip20_currencies(&result).is_empty());
+
+        // Handles no transactions.
+        assert!(find_invalid_tip20_currencies(&ScriptResult::default()).is_empty());
     }
 
     // <https://github.com/foundry-rs/foundry/issues/5923>
