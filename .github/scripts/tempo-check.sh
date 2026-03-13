@@ -161,7 +161,7 @@ if [[ "$HARDFORK" == "T1" ]]; then
   # Test that eth_fillTransaction correctly handles expiring nonces (nonce must be 0)
   # This is a regression test for tempo#2491 - the node should NOT overwrite nonce=0
   BLOCK_TS=$(cast block latest --rpc-url "$ETH_RPC_URL" -f timestamp)
-  VALID_BEFORE_HEX=$(printf '0x%x' $((BLOCK_TS + 300)))
+  VALID_BEFORE_HEX=$(printf '0x%x' $((BLOCK_TS + 25)))
 
   FILL_RESULT=$(cast rpc eth_fillTransaction "{\"from\":\"$ADDR\",\"nonce\":\"0x0\",\"type\":\"0x76\",\"calls\":[{\"to\":\"0x0000000000000000000000000000000000000000\",\"value\":\"0x0\",\"data\":\"0x\"}],\"validBefore\":\"$VALID_BEFORE_HEX\",\"nonceKey\":\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}" --rpc-url "$ETH_RPC_URL" 2>&1) || true
 
