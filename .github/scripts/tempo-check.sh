@@ -160,15 +160,23 @@ if [[ "$HARDFORK" == "T1" ]]; then
   echo -e "\n=== ETH_FILLTRANSACTION WITH EXPIRING NONCE (TIP-1009) ==="
   # Test that eth_fillTransaction correctly handles expiring nonces (nonce must be 0)
   # This is a regression test for tempo#2491 - the node should NOT overwrite nonce=0
-  VALID_BEFORE=$(($(date +%s) + 300))
-  VALID_BEFORE_HEX=$(printf '0x%x' $VALID_BEFORE)
-  
-  FILL_RESULT=$(cast rpc eth_fillTransaction "{\"from\":\"$ADDR\",\"nonce\":\"0x0\",\"type\":\"0x76\",\"calls\":[{\"to\":\"0x0000000000000000000000000000000000000000\",\"value\":\"0x\",\"data\":\"0x\"}],\"validBefore\":\"$VALID_BEFORE_HEX\",\"nonceKey\":\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"keyType\":\"p256\"}" --rpc-url "$ETH_RPC_URL" 2>&1)
-  
+  BLOCK_TS=$(cast block latest --rpc-url "$ETH_RPC_URL" -f timestamp)
+  VALID_BEFORE_HEX=$(printf '0x%x' $((BLOCK_TS + 300)))
+
+  FILL_RESULT=$(cast rpc eth_fillTransaction "{\"from\":\"$ADDR\",\"nonce\":\"0x0\",\"type\":\"0x76\",\"calls\":[{\"to\":\"0x0000000000000000000000000000000000000000\",\"value\":\"0x0\",\"data\":\"0x\"}],\"validBefore\":\"$VALID_BEFORE_HEX\",\"nonceKey\":\"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}" --rpc-url "$ETH_RPC_URL" 2>&1) || true
+
   if echo "$FILL_RESULT" | grep -q "expiring nonce transaction must have nonce == 0"; then
     echo "ERROR: eth_fillTransaction rejected expiring nonce with nonce=0 (tempo#2491 bug)"
     exit 1
   fi
+
+  # If cast rpc failed for a reason other than the nonce bug, that's also an error
+  if echo "$FILL_RESULT" | grep -qi "error\|revert"; then
+    echo "ERROR: eth_fillTransaction failed unexpectedly:"
+    echo "$FILL_RESULT"
+    exit 1
+  fi
+
   echo "OK: eth_fillTransaction correctly handles expiring nonce with nonce=0"
   echo "Result: $FILL_RESULT"
 
