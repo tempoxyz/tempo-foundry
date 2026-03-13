@@ -119,7 +119,7 @@ use revm::{
     database::{CacheDB, DbAccount, WrapDatabaseRef},
     interpreter::InstructionResult,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{KECCAK_EMPTY, hardfork::SpecId},
+    primitives::{KECCAK_EMPTY, StorageKeyMap, hardfork::SpecId},
     state::AccountInfo,
 };
 use std::{
@@ -1266,15 +1266,15 @@ impl Backend {
         let mut evm = self.new_evm_with_inspector_ref(&**db, &env, &mut inspector);
         let ResultAndState { result, state } = evm.transact(env.tx)?;
         let (exit_reason, gas_used, out, logs) = match result {
-            ExecutionResult::Success { reason, gas_used, logs, output, .. } => {
-                (reason.into(), gas_used, Some(output), Some(logs))
+            ExecutionResult::Success { reason, gas, logs, output, .. } => {
+                (reason.into(), gas.used(), Some(output), Some(logs))
             }
-            ExecutionResult::Revert { gas_used, output } => {
-                (InstructionResult::Revert, gas_used, Some(Output::Call(output)), None)
+            ExecutionResult::Revert { gas, output, logs } => {
+                (InstructionResult::Revert, gas.used(), Some(Output::Call(output)), Some(logs))
             }
-            ExecutionResult::Halt { reason, gas_used } => {
+            ExecutionResult::Halt { reason, gas, logs } => {
                 let eth_reason = op_haltreason_to_instruction_result(reason);
-                (eth_reason, gas_used, None, None)
+                (eth_reason, gas.used(), None, Some(logs))
             }
         };
 
@@ -1919,14 +1919,14 @@ impl Backend {
         let mut evm = self.new_evm_with_inspector_ref(state, &env, &mut inspector);
         let ResultAndState { result, state } = evm.transact(env.tx)?;
         let (exit_reason, gas_used, out) = match result {
-            ExecutionResult::Success { reason, gas_used, output, .. } => {
-                (reason.into(), gas_used, Some(output))
+            ExecutionResult::Success { reason, gas, output, .. } => {
+                (reason.into(), gas.used(), Some(output))
             }
-            ExecutionResult::Revert { gas_used, output } => {
-                (InstructionResult::Revert, gas_used, Some(Output::Call(output)))
+            ExecutionResult::Revert { gas, output, logs: _ } => {
+                (InstructionResult::Revert, gas.used(), Some(Output::Call(output)))
             }
-            ExecutionResult::Halt { reason, gas_used } => {
-                (op_haltreason_to_instruction_result(reason), gas_used, None)
+            ExecutionResult::Halt { reason, gas, logs: _ } => {
+                (op_haltreason_to_instruction_result(reason), gas.used(), None)
             }
         };
         drop(evm);
@@ -2060,14 +2060,14 @@ impl Backend {
             let ResultAndState { result, state: _ } = evm.transact(env.tx)?;
 
             let (exit_reason, gas_used, out) = match result {
-                ExecutionResult::Success { reason, gas_used, output, .. } => {
-                    (reason.into(), gas_used, Some(output))
+                ExecutionResult::Success { reason, gas, output, .. } => {
+                    (reason.into(), gas.used(), Some(output))
                 }
-                ExecutionResult::Revert { gas_used, output } => {
-                    (InstructionResult::Revert, gas_used, Some(Output::Call(output)))
+                ExecutionResult::Revert { gas, output, logs: _ } => {
+                    (InstructionResult::Revert, gas.used(), Some(Output::Call(output)))
                 }
-                ExecutionResult::Halt { reason, gas_used } => {
-                    (op_haltreason_to_instruction_result(reason), gas_used, None)
+                ExecutionResult::Halt { reason, gas, logs: _ } => {
+                    (op_haltreason_to_instruction_result(reason), gas.used(), None)
                 }
             };
 
@@ -2101,14 +2101,14 @@ impl Backend {
         let mut evm = self.new_evm_with_inspector_ref(state, &env, &mut inspector);
         let ResultAndState { result, state: _ } = evm.transact(env.tx)?;
         let (exit_reason, gas_used, out) = match result {
-            ExecutionResult::Success { reason, gas_used, output, .. } => {
-                (reason.into(), gas_used, Some(output))
+            ExecutionResult::Success { reason, gas, output, .. } => {
+                (reason.into(), gas.used(), Some(output))
             }
-            ExecutionResult::Revert { gas_used, output } => {
-                (InstructionResult::Revert, gas_used, Some(Output::Call(output)))
+            ExecutionResult::Revert { gas, output, logs: _ } => {
+                (InstructionResult::Revert, gas.used(), Some(Output::Call(output)))
             }
-            ExecutionResult::Halt { reason, gas_used } => {
-                (op_haltreason_to_instruction_result(reason), gas_used, None)
+            ExecutionResult::Halt { reason, gas, logs: _ } => {
+                (op_haltreason_to_instruction_result(reason), gas.used(), None)
             }
         };
         drop(evm);
@@ -4184,7 +4184,7 @@ pub fn transaction_build(
 /// `storage_key` is the hash of the desired storage key, meaning
 /// this will only work correctly under a secure trie.
 /// `storage_key` == keccak(key)
-pub fn prove_storage(storage: &HashMap<U256, U256>, keys: &[B256]) -> (B256, Vec<Vec<Bytes>>) {
+pub fn prove_storage(storage: &StorageKeyMap<U256>, keys: &[B256]) -> (B256, Vec<Vec<Bytes>>) {
     let keys: Vec<_> = keys.iter().map(|key| Nibbles::unpack(keccak256(key))).collect();
 
     let mut builder = HashBuilder::default().with_proof_retainer(ProofRetainer::new(keys.clone()));

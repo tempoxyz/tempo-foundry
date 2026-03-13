@@ -185,7 +185,7 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
 
     fn checkpoint(&mut self) -> JournalCheckpoint {
         // Checkpoints are not used during test initialization
-        JournalCheckpoint { log_i: 0, journal_i: 0 }
+        JournalCheckpoint { log_i: 0, journal_i: 0, selfdestructed_i: 0 }
     }
 
     fn checkpoint_commit(&mut self) {}

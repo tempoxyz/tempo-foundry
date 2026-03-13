@@ -291,7 +291,7 @@ foundry-compilers = { version = "0.19.14", default-features = false, features = 
   "rustls",
   "svm-solc",
 ] }
-foundry-fork-db = "0.23"
+foundry-fork-db = "0.24.1"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
 svm = { package = "svm-rs", version = "0.5", default-features = false, features = [
@@ -346,18 +346,18 @@ alloy-rlp = "0.3"
 alloy-trie = "0.9"
 
 ## op-alloy
-op-alloy-consensus = "0.23.1"
-op-alloy-rpc-types = "0.23.1"
+op-alloy-consensus = "0.24.0"
+op-alloy-rpc-types = "0.24.0"
 op-alloy-flz = "0.13.1"
 
 ## alloy-evm
-alloy-evm = "0.27.3"
-alloy-op-evm = "0.27.3"
+alloy-evm = "0.29.2"
+alloy-op-evm = "0.28.0"
 
 # revm
-revm = { version = "34.0.0", default-features = false }
-revm-inspectors = { version = "0.34.2", features = ["serde"] }
-op-revm = { version = "15.0.0", default-features = false }
+revm = { version = "36.0.0", default-features = false }
+revm-inspectors = { version = "0.36.0", features = ["serde"] }
+op-revm = { version = "17.0.0", default-features = false }
 
 ## cli
 anstream = "0.6"
@@ -453,13 +453,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "484fe2bed7a71101921df8c1b06d142f882f5e5e" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", branch = "reth-main" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 

@@ -14,7 +14,7 @@ use revm::{
     Context, Journal,
     context::{
         ContextTr, CreateScheme, JournalTr, LocalContext, LocalContextTr,
-        result::{EVMError, ExecResultAndState, ExecutionResult, ResultAndState},
+        result::{EVMError, ExecResultAndState, ExecutionResult, ResultAndState, ResultGas},
     },
     handler::{EvmTr, FrameResult, FrameTr, Handler, ItemOrResult},
     inspector::{InspectorEvmTr, InspectorHandler},
@@ -305,8 +305,9 @@ impl<'db, I: InspectorExt> Handler for FoundryHandler<'db, I> {
         &mut self,
         evm: &mut Self::Evm,
         result: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+        result_gas: ResultGas,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        self.inner.execution_result(evm, result)
+        self.inner.execution_result(evm, result, result_gas)
     }
 
     #[inline]
