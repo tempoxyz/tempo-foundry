@@ -2061,9 +2061,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-types"
-version = "1.4.6"
+version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b1117b3b2bbe166d11199b540ceed0d0f7676e36e7b962b5a437a9971eac75"
+checksum = "9d73dbfbaa8e4bc57b9045137680b958d274823509a360abfd8e1d514d40c95c"
 dependencies = [
  "base64-simd",
  "bytes",
@@ -2813,9 +2813,9 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clearscreen"
-version = "4.0.5"
+version = "4.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5def4343d62f01f67ff1a49147e4a15112e936c6a6a3f8ff7a29394e76468244"
+checksum = "d669bb552908e336ad5681789752033b45566b7e591aeaac7a614e58e5d6d8f2"
 dependencies = [
  "nix 0.31.2",
  "terminfo",
@@ -3796,9 +3796,9 @@ dependencies = [
 
 [[package]]
 name = "doctest-file"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2a7a69847ba54777c79691b6e4c523fcfb669fe4a82f143dc6ccfb542ba9dd4"
+checksum = "c2db04e74f0a9a93103b50e90b96024c9b2bdca8bce6a632ec71b88736d3d359"
 
 [[package]]
 name = "document-features"
@@ -6128,9 +6128,9 @@ dependencies = [
 
 [[package]]
 name = "instability"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357b7205c6cd18dd2c86ed312d1e70add149aea98e7ef72b9fdf0270e555c11d"
+checksum = "5eb2d60ef19920a3a9193c3e371f726ec1dafc045dac788d0fb3704272458971"
 dependencies = [
  "darling 0.23.0",
  "indoc",
@@ -6284,9 +6284,9 @@ dependencies = [
 
 [[package]]
 name = "jni"
-version = "0.22.3"
+version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "295dc9997acda1562fdf8d299f56063c936443b60f078e63a5d8d3c34ef2642b"
+checksum = "5efd9a482cf3a427f00d6b35f14332adc7902ce91efb778580e180ff90fa3498"
 dependencies = [
  "cfg-if",
  "combine",
@@ -6301,9 +6301,9 @@ dependencies = [
 
 [[package]]
 name = "jni-macros"
-version = "0.22.2"
+version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c3d1da60c95c98847b26b9d45f4360fee718b31de746df016d9cd6de916a7ef"
+checksum = "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9136,9 +9136,9 @@ dependencies = [
 
 [[package]]
 name = "revm-inspectors"
-version = "0.36.0"
+version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfb0f462c8a3d9989d3dbc62d7cca4dfecd7072cfa5d563ab90ced60590ed1da"
+checksum = "9487362b728f80dd2033ef5f4d0688453435bbe7caa721fa7e3b8fa25d89242b"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth",
@@ -10653,8 +10653,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-alloy"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -10679,8 +10679,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-chainspec"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-eips",
  "alloy-evm",
@@ -10697,8 +10697,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-consensus"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -10713,8 +10713,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-contracts"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -10724,8 +10724,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-evm"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -10751,8 +10751,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -10770,8 +10770,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-precompiles-macros"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -10781,8 +10781,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-primitives"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -10805,8 +10805,8 @@ dependencies = [
 
 [[package]]
 name = "tempo-revm"
-version = "1.4.0"
-source = "git+https://github.com/tempoxyz/tempo?rev=93c4f2587ff73940179841f392c0d2207345b914#93c4f2587ff73940179841f392c0d2207345b914"
+version = "1.4.2"
+source = "git+https://github.com/tempoxyz/tempo?rev=42a44f309baf33bda54d5574cd71bbf0f445d8af#42a44f309baf33bda54d5574cd71bbf0f445d8af"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -12117,7 +12117,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe985f41e291eecef5e5c0770a18d28390addb03331c043964d9e916453d6f16"
 dependencies = [
  "core-foundation 0.10.1",
- "jni 0.22.3",
+ "jni 0.22.4",
  "log",
  "ndk-context",
  "objc2",
