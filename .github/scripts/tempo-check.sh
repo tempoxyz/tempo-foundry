@@ -409,9 +409,9 @@ GAS_USED_DEC=$((GAS_USED))
 echo "Gas used: $GAS_USED_DEC"
 
 echo -e "\n=== DEPLOY LARGE CONTRACT ==="
-# Deploy a large contract with ~14KB of deployed bytecode (bytes constant padding)
-# Full 24KB EIP-170 limit needs ~26M gas which exceeds the 16M per-tx gas limit
-PADDING=$(python3 -c "print('ff' * 14000)")
+# Deploy a contract at exactly the 24KB EIP-170 code size limit (24576 bytes deployed bytecode).
+# 24174 bytes of padding + contract overhead = exactly 24576 bytes deployed.
+PADDING=$(python3 -c "print('ff' * 24174)")
 cat > src/MaxSizeContract.sol <<SOLEOF
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
@@ -431,16 +431,16 @@ if [[ -z "$MAX_SIZE_ADDR" ]]; then
 fi
 echo "MaxSizeContract deployed at: $MAX_SIZE_ADDR"
 
-# Verify deployed code size is near the 24KB limit
+# Verify deployed code size hits the 24KB EIP-170 limit
 # cast code returns hex string with 0x prefix; subtract 2 for prefix, divide by 2 for bytes
 CODE_HEX=$(cast code --rpc-url "$ETH_RPC_URL" "$MAX_SIZE_ADDR")
 CODE_SIZE=$(( (${#CODE_HEX} - 2) / 2 ))
 echo "Deployed code size: $CODE_SIZE bytes (limit: 24576)"
-if [[ $CODE_SIZE -lt 14000 ]]; then
-  echo "ERROR: Deployed code size $CODE_SIZE is too small (expected ~14KB)"
+if [[ $CODE_SIZE -ne 24576 ]]; then
+  echo "ERROR: Deployed code size $CODE_SIZE != 24576 (expected exactly the EIP-170 limit)"
   exit 1
 fi
-echo "OK: Large contract deployed with $CODE_SIZE bytes of code"
+echo "OK: Large contract deployed at exactly the EIP-170 limit ($CODE_SIZE bytes)"
 
 # Verify the contract is callable
 PING_RESULT=$(cast call --rpc-url "$ETH_RPC_URL" "$MAX_SIZE_ADDR" 'ping()(uint256)')
