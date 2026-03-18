@@ -188,7 +188,7 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
         JournalCheckpoint { log_i: 0, journal_i: 0, selfdestructed_i: 0 }
     }
 
-    fn checkpoint_commit(&mut self) {}
+    fn checkpoint_commit(&mut self, _checkpoint: JournalCheckpoint) {}
 
     fn checkpoint_revert(&mut self, _checkpoint: JournalCheckpoint) {}
 }
