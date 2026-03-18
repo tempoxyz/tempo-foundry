@@ -27,7 +27,7 @@ env:
   RUST_PROFILE: dist
   RUST_FEATURES: aws-kms,gcp-kms,turnkey,cli,asm-keccak
 
-  LAST_STABLE_VERSION: "v1.5.1"
+  LAST_STABLE_VERSION: "v1.6.0-t1c"
 
 jobs:
   prepare:
