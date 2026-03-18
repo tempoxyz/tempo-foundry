@@ -22,6 +22,7 @@ pub mod find_block;
 pub mod interface;
 pub mod logs;
 pub mod mktx;
+pub mod mpp;
 pub mod rpc;
 pub mod run;
 pub mod send;

@@ -160,6 +160,37 @@ pub struct WalletOpts {
     pub browser_development: bool,
 }
 
+/// Parsed Tempo access key, supporting both raw hex and wallet export format.
+#[derive(Clone, Debug)]
+pub struct ParsedAccessKey {
+    /// The raw private key bytes.
+    pub private_key: alloy_primitives::B256,
+    /// Optional RLP-encoded key authorization (from export format `pk_...:ka_...`).
+    pub key_authorization_rlp: Option<Vec<u8>>,
+}
+
+impl ParsedAccessKey {
+    /// Parse an access key string. Accepts:
+    /// - Raw hex private key: `0xabcd...` or `abcd...`
+    /// - Wallet export format: `pk_0xabcd...:ka_0xef01...`
+    pub fn parse(input: &str) -> Result<Self> {
+        use alloy_primitives::hex;
+
+        if let Some((pk_part, ka_part)) = input.split_once(":ka_") {
+            // Wallet export format: pk_<hex>:ka_<rlp>
+            let pk_hex = pk_part.strip_prefix("pk_").unwrap_or(pk_part);
+            let private_key: alloy_primitives::B256 = hex::FromHex::from_hex(pk_hex)?;
+            let ka_hex = ka_part.strip_prefix("0x").unwrap_or(ka_part);
+            let key_authorization_rlp = hex::decode(ka_hex)?;
+            Ok(Self { private_key, key_authorization_rlp: Some(key_authorization_rlp) })
+        } else {
+            // Raw hex private key
+            let private_key: alloy_primitives::B256 = hex::FromHex::from_hex(input)?;
+            Ok(Self { private_key, key_authorization_rlp: None })
+        }
+    }
+}
+
 /// Access key configuration for signing on behalf of a root account.
 #[derive(Clone, Debug)]
 pub struct AccessKeyConfig {
@@ -167,6 +198,8 @@ pub struct AccessKeyConfig {
     pub root_account: Address,
     /// The access key's address (derived from its private key).
     pub key_id: Address,
+    /// Optional RLP-encoded key authorization from wallet export format.
+    pub key_authorization_rlp: Option<Vec<u8>>,
 }
 
 impl WalletOpts {
@@ -176,21 +209,19 @@ impl WalletOpts {
     /// - Transactions should use `root_account` as the sender (`from`)
     /// - The `key_id` should be set on the transaction for Keychain signature wrapping
     pub fn access_key_config(&self) -> Option<AccessKeyConfig> {
-        if let (Some(access_key), Some(root_account)) = (&self.access_key, self.root_account) {
-            // Derive the access key address from the private key
-            if let Ok(key_id) = self.derive_access_key_address(access_key) {
-                return Some(AccessKeyConfig { root_account, key_id });
-            }
+        if let (Some(access_key), Some(root_account)) = (&self.access_key, self.root_account)
+            && let Ok(parsed) = ParsedAccessKey::parse(access_key)
+        {
+            let signer =
+                alloy_signer_local::PrivateKeySigner::from_bytes(&parsed.private_key).ok()?;
+            let key_id = alloy_signer::Signer::address(&signer);
+            return Some(AccessKeyConfig {
+                root_account,
+                key_id,
+                key_authorization_rlp: parsed.key_authorization_rlp,
+            });
         }
         None
-    }
-
-    /// Derives the address from an access key private key.
-    fn derive_access_key_address(&self, private_key: &str) -> Result<Address> {
-        use alloy_primitives::hex;
-        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(private_key)?;
-        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
-        Ok(alloy_signer::Signer::address(&signer))
     }
 
     /// Returns true if an access key is being used.
@@ -208,10 +239,9 @@ impl WalletOpts {
 
         // Handle access key first - it uses a local signer with the access key private key
         let signer = if let Some(access_key) = &self.access_key {
-            use alloy_primitives::hex;
-            let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(access_key)
-                .map_err(|e| eyre::eyre!("Failed to decode access key: {e}"))?;
-            WalletSigner::from_private_key(&key_bytes)?
+            let parsed = ParsedAccessKey::parse(access_key)
+                .map_err(|e| eyre::eyre!("Failed to parse access key: {e}"))?;
+            WalletSigner::from_private_key(&parsed.private_key)?
         } else if self.ledger {
             utils::create_ledger_signer(self.raw.hd_path.as_deref(), self.raw.mnemonic_index)
                 .await?
@@ -410,5 +440,21 @@ mod tests {
 
         // Test is_access_key
         assert!(wallet.is_access_key());
+    }
+
+    #[test]
+    fn parse_access_key_raw_hex() {
+        let key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+        let parsed = ParsedAccessKey::parse(key).unwrap();
+        assert!(parsed.key_authorization_rlp.is_none());
+    }
+
+    #[test]
+    fn parse_access_key_export_format() {
+        let key =
+            "pk_0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80:ka_0xdeadbeef";
+        let parsed = ParsedAccessKey::parse(key).unwrap();
+        assert!(parsed.key_authorization_rlp.is_some());
+        assert_eq!(parsed.key_authorization_rlp.unwrap(), vec![0xde, 0xad, 0xbe, 0xef]);
     }
 }

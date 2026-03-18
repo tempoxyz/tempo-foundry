@@ -460,6 +460,7 @@ tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "b6e248ccc5ae2c67
 tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "b6e248ccc5ae2c67bd7491efddeaff942ea79d15", default-features = false }
 tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "b6e248ccc5ae2c67bd7491efddeaff942ea79d15", default-features = false }
 tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "b6e248ccc5ae2c67bd7491efddeaff942ea79d15" }
+mpp = { git = "https://github.com/tempoxyz/mpp-rs", default-features = false }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
@@ -525,6 +526,10 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 ## foundry
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
+
+# tempo (for mpp-rs transitive deps)
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "b6e248ccc5ae2c67bd7491efddeaff942ea79d15" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "b6e248ccc5ae2c67bd7491efddeaff942ea79d15" }
 
 # solar
 solar = { package = "solar-compiler", git = "https://github.com/paradigmxyz/solar", rev = "530f129" }
