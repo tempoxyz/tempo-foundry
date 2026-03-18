@@ -61,21 +61,21 @@ jobs:
           cargo install --path ./crates/anvil --profile dev --force --locked
           cargo install --path ./crates/chisel --profile dev --force --locked
 
-      # - name: Run Tempo check on devnet
-      #   if: |
-      #     github.event_name == 'pull_request' ||
-      #     github.event.inputs.network == 'devnet' ||
-      #     github.event.inputs.network == 'all'
-      #   env:
-      #     ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
-      #     SCRIPTS: ${{ github.event.inputs.scripts || 'both' }}
-      #   run: |
-      #     if [ "$SCRIPTS" = "check" ] || [ "$SCRIPTS" = "both" ]; then
-      #       ./.github/scripts/tempo-check.sh
-      #     fi
-      #     if [ "$SCRIPTS" = "deploy" ] || [ "$SCRIPTS" = "both" ]; then
-      #       ./.github/scripts/tempo-deploy.sh
-      #     fi
+      - name: Run Tempo check on devnet
+        if: |
+          github.event_name == 'pull_request' ||
+          github.event.inputs.network == 'devnet' ||
+          github.event.inputs.network == 'all'
+        env:
+          ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
+          SCRIPTS: ${{ github.event.inputs.scripts || 'both' }}
+        run: |
+          if [ "$SCRIPTS" = "check" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-check.sh
+          fi
+          if [ "$SCRIPTS" = "deploy" ] || [ "$SCRIPTS" = "both" ]; then
+            ./.github/scripts/tempo-deploy.sh
+          fi
 
       - name: Run Tempo check on testnet
         if: |
