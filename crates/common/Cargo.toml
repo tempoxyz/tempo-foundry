@@ -48,6 +48,7 @@ alloy-network.workspace = true
 # tempo
 tempo-alloy.workspace = true
 tempo-primitives.workspace = true
+mpp = { workspace = true, features = ["client", "tempo"] }
 
 revm.workspace = true
 

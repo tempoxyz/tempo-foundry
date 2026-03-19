@@ -44,7 +44,6 @@ pub fn try_get_tempo_http_provider(builder: impl AsRef<str>) -> eyre::Result<Tem
 }
 
 /// Helper type to construct a `RetryProvider`
-#[derive(Debug)]
 pub struct TempoProviderBuilder {
     // Note: this is a result, so we can easily chain builder calls
     url: Result<Url>,
@@ -64,6 +63,8 @@ pub struct TempoProviderBuilder {
     no_proxy: bool,
     /// Whether to output curl commands instead of making requests.
     curl_mode: bool,
+    /// Optional MPP payment provider for automatic 402 handling.
+    mpp_provider: Option<mpp::client::TempoProvider>,
 }
 
 impl TempoProviderBuilder {
@@ -116,6 +117,7 @@ impl TempoProviderBuilder {
             accept_invalid_certs: false,
             no_proxy: false,
             curl_mode: false,
+            mpp_provider: None,
         }
     }
 
@@ -237,6 +239,15 @@ impl TempoProviderBuilder {
         self
     }
 
+    /// Set an MPP payment provider for automatic 402 handling on RPC calls.
+    ///
+    /// When set, all HTTP RPC calls that return 402 Payment Required will
+    /// automatically sign a payment and retry with the credential.
+    pub fn with_mpp_provider(mut self, provider: mpp::client::TempoProvider) -> Self {
+        self.mpp_provider = Some(provider);
+        self
+    }
+
     /// Constructs the `RetryProvider` taking all configs into account.
     pub fn build(self) -> eyre::Result<TempoRetryProvider> {
         let Self {
@@ -252,6 +263,7 @@ impl TempoProviderBuilder {
             accept_invalid_certs,
             no_proxy,
             curl_mode,
+            mpp_provider,
         } = self;
         let url = url?;
 
@@ -269,13 +281,18 @@ impl TempoProviderBuilder {
             return Ok(provider);
         }
 
-        let transport = RuntimeTransportBuilder::new(url)
+        let mut transport_builder = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
-            .no_proxy(no_proxy)
-            .build();
+            .no_proxy(no_proxy);
+
+        if let Some(mpp) = mpp_provider {
+            transport_builder = transport_builder.with_mpp_provider(mpp);
+        }
+
+        let transport = transport_builder.build();
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 
         if !is_local {
@@ -314,6 +331,7 @@ impl TempoProviderBuilder {
             accept_invalid_certs,
             no_proxy,
             curl_mode,
+            mpp_provider,
         } = self;
         let url = url?;
 
@@ -333,13 +351,18 @@ impl TempoProviderBuilder {
             return Ok(provider);
         }
 
-        let transport = RuntimeTransportBuilder::new(url)
+        let mut transport_builder = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
-            .no_proxy(no_proxy)
-            .build();
+            .no_proxy(no_proxy);
+
+        if let Some(mpp) = mpp_provider {
+            transport_builder = transport_builder.with_mpp_provider(mpp);
+        }
+
+        let transport = transport_builder.build();
 
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 

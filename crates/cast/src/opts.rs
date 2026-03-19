@@ -4,7 +4,7 @@ use crate::cmd::{
     constructor_args::ConstructorArgsArgs, create2::Create2Args, creation_code::CreationCodeArgs,
     da_estimate::DAEstimateArgs, erc20::Erc20Subcommand, estimate::EstimateArgs,
     find_block::FindBlockArgs, interface::InterfaceArgs, logs::LogsArgs, mktx::MakeTxArgs,
-    mpp::MppArgs, rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
+    rpc::RpcArgs, run::RunArgs, send::SendTxArgs, storage::StorageArgs,
     trace::TraceArgs,
     txpool::TxPoolSubcommands, wallet::WalletSubcommands,
 };
@@ -559,14 +559,6 @@ pub enum CastSubcommand {
     /// Sign and publish a transaction.
     #[command(name = "send", visible_alias = "s")]
     SendTx(SendTxArgs),
-
-    /// Make an HTTP request with automatic MPP (Machine Payments Protocol) handling.
-    ///
-    /// If the endpoint returns 402 Payment Required, automatically signs a Tempo
-    /// payment transaction and retries with the credential. Supports access keys
-    /// from the Tempo wallet (export format: pk_...:ka_...).
-    #[command(name = "mpp")]
-    Mpp(MppArgs),
 
     /// Publish a raw transaction to the network.
     #[command(name = "publish", visible_alias = "p")]

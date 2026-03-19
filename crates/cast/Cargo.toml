@@ -65,7 +65,6 @@ op-alloy-flz.workspace = true
 tempo-primitives.workspace = true
 tempo-alloy.workspace = true
 tempo-contracts.workspace = true
-mpp = { workspace = true, features = ["client", "tempo"] }
 
 chrono.workspace = true
 eyre.workspace = true
@@ -96,7 +95,6 @@ tokio = { workspace = true, features = ["macros", "signal"] }
 tracing.workspace = true
 yansi.workspace = true
 evmole.workspace = true
-reqwest = { workspace = true, features = ["json"] }
 
 [dev-dependencies]
 alloy-hardforks.workspace = true
