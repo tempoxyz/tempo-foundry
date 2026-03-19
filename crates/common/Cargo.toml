@@ -49,6 +49,9 @@ alloy-network.workspace = true
 tempo-alloy.workspace = true
 tempo-primitives.workspace = true
 
+# mpp
+mpp = { workspace = true, optional = true }
+
 revm.workspace = true
 
 solar.workspace = true
@@ -80,6 +83,12 @@ anstyle.workspace = true
 ciborium.workspace = true
 
 flate2.workspace = true
+
+alloy-signer-local = { workspace = true, optional = true }
+
+[features]
+default = []
+mpp = ["dep:mpp", "dep:alloy-signer-local"]
 
 [build-dependencies]
 chrono.workspace = true

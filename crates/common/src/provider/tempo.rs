@@ -64,6 +64,9 @@ pub struct TempoProviderBuilder {
     no_proxy: bool,
     /// Whether to output curl commands instead of making requests.
     curl_mode: bool,
+    /// MPP private key for paying 402-gated RPC endpoints.
+    #[cfg(feature = "mpp")]
+    mpp_key: Option<String>,
 }
 
 impl TempoProviderBuilder {
@@ -116,6 +119,8 @@ impl TempoProviderBuilder {
             accept_invalid_certs: false,
             no_proxy: false,
             curl_mode: false,
+            #[cfg(feature = "mpp")]
+            mpp_key: None,
         }
     }
 
@@ -237,8 +242,18 @@ impl TempoProviderBuilder {
         self
     }
 
+    /// Sets the MPP private key for paying 402-gated RPC endpoints.
+    #[cfg(feature = "mpp")]
+    pub fn mpp_key(mut self, mpp_key: impl Into<String>) -> Self {
+        self.mpp_key = Some(mpp_key.into());
+        self
+    }
+
     /// Constructs the `RetryProvider` taking all configs into account.
     pub fn build(self) -> eyre::Result<TempoRetryProvider> {
+        #[cfg(feature = "mpp")]
+        let mpp_key = self.mpp_key;
+
         let Self {
             url,
             chain,
@@ -252,6 +267,7 @@ impl TempoProviderBuilder {
             accept_invalid_certs,
             no_proxy,
             curl_mode,
+            ..
         } = self;
         let url = url?;
 
@@ -269,13 +285,19 @@ impl TempoProviderBuilder {
             return Ok(provider);
         }
 
-        let transport = RuntimeTransportBuilder::new(url)
+        let mut transport_builder = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
-            .no_proxy(no_proxy)
-            .build();
+            .no_proxy(no_proxy);
+
+        #[cfg(feature = "mpp")]
+        {
+            transport_builder = transport_builder.with_mpp_key(mpp_key);
+        }
+
+        let transport = transport_builder.build();
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 
         if !is_local {
@@ -301,6 +323,9 @@ impl TempoProviderBuilder {
         self,
         wallet: EthereumWallet,
     ) -> eyre::Result<TempoRetryProviderWithSigner> {
+        #[cfg(feature = "mpp")]
+        let mpp_key = self.mpp_key;
+
         let Self {
             url,
             chain,
@@ -314,6 +339,7 @@ impl TempoProviderBuilder {
             accept_invalid_certs,
             no_proxy,
             curl_mode,
+            ..
         } = self;
         let url = url?;
 
@@ -333,13 +359,19 @@ impl TempoProviderBuilder {
             return Ok(provider);
         }
 
-        let transport = RuntimeTransportBuilder::new(url)
+        let mut transport_builder = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
-            .no_proxy(no_proxy)
-            .build();
+            .no_proxy(no_proxy);
+
+        #[cfg(feature = "mpp")]
+        {
+            transport_builder = transport_builder.with_mpp_key(mpp_key);
+        }
+
+        let transport = transport_builder.build();
 
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 
