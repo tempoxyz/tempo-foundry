@@ -420,26 +420,23 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
         &mut self,
         evm: &mut Self::Evm,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        let (tx_caller, call_depth) = {
-            let ctx = evm.ctx();
-            (ctx.tx.caller, ctx.journaled_state.depth())
-        };
+        let ctx = evm.ctx();
+        let tx_caller = ctx.tx.caller;
+        let call_depth = ctx.journaled_state.depth();
         let tx_origin = evm.inspector().tx_origin(tx_caller, call_depth);
 
-        {
-            let ctx = evm.ctx_mut();
-            tempo_precompiles::storage::StorageCtx::enter_evm(
-                &mut ctx.journaled_state,
-                &ctx.block,
-                &ctx.cfg,
-                &ctx.tx,
-                || {
-                    let mut keychain = tempo_precompiles::account_keychain::AccountKeychain::new();
-                    keychain.set_tx_origin(tx_origin)
-                },
-            )
-            .map_err(|e| EVMError::Custom(e.to_string()))?;
-        }
+        let ctx = evm.ctx_mut();
+        tempo_precompiles::storage::StorageCtx::enter_evm(
+            &mut ctx.journaled_state,
+            &ctx.block,
+            &ctx.cfg,
+            &ctx.tx,
+            || {
+                let mut keychain = tempo_precompiles::account_keychain::AccountKeychain::new();
+                keychain.set_tx_origin(tx_origin)
+            },
+        )
+        .map_err(|e| EVMError::Custom(e.to_string()))?;
 
         self.inner.load_fee_fields(evm)?;
 
