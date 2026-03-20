@@ -69,6 +69,16 @@ pub trait InspectorExt: for<'a> Inspector<TempoContext<&'a mut dyn DatabaseExt>>
         NetworkConfigs::default()
     }
 
+    /// Returns the effective transaction origin used by the inspector/runtime.
+    ///
+    /// By default, this is the transaction caller from the EVM context. Inspector
+    /// implementations that virtualize `tx.origin` (e.g. via prank/broadcast) should
+    /// override this to return their effective origin.
+    fn tx_origin(&mut self, tx_caller: Address, call_depth: usize) -> Address {
+        let _ = call_depth;
+        tx_caller
+    }
+
     /// Returns the CREATE2 deployer address.
     fn create2_deployer(&self) -> Address {
         DEFAULT_CREATE2_DEPLOYER
