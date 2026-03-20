@@ -1177,17 +1177,21 @@ impl InspectorExt for InspectorStackRefMut<'_> {
     }
 
     fn tx_origin(&mut self, tx_caller: Address, call_depth: usize) -> Address {
+        let default_origin = if self.in_inner_context && call_depth == 1 {
+            self.inner_context_data.as_ref().map(|inner| inner.original_origin).unwrap_or(tx_caller)
+        } else {
+            tx_caller
+        };
+
         self.cheatcodes
             .as_ref()
-            .and_then(|cheats| {
-                cheats.get_prank(call_depth).and_then(|prank| prank.new_origin)
-            })
+            .and_then(|cheats| cheats.get_prank(call_depth).and_then(|prank| prank.new_origin))
             .or_else(|| {
                 self.cheatcodes.as_ref().and_then(|cheats| {
                     cheats.broadcast.as_ref().map(|broadcast| broadcast.new_origin)
                 })
             })
-            .unwrap_or(tx_caller)
+            .unwrap_or(default_origin)
     }
 
     fn create2_deployer(&self) -> Address {
