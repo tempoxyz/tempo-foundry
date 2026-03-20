@@ -1176,6 +1176,20 @@ impl InspectorExt for InspectorStackRefMut<'_> {
         self.inner.networks
     }
 
+    fn tx_origin(&mut self, tx_caller: Address, call_depth: usize) -> Address {
+        self.cheatcodes
+            .as_ref()
+            .and_then(|cheats| {
+                cheats.get_prank(call_depth).and_then(|prank| prank.new_origin)
+            })
+            .or_else(|| {
+                self.cheatcodes.as_ref().and_then(|cheats| {
+                    cheats.broadcast.as_ref().map(|broadcast| broadcast.new_origin)
+                })
+            })
+            .unwrap_or(tx_caller)
+    }
+
     fn create2_deployer(&self) -> Address {
         self.inner.create2_deployer
     }
@@ -1269,6 +1283,10 @@ impl InspectorExt for InspectorStack {
 
     fn get_networks(&self) -> NetworkConfigs {
         self.networks
+    }
+
+    fn tx_origin(&mut self, tx_caller: Address, call_depth: usize) -> Address {
+        self.as_mut().tx_origin(tx_caller, call_depth)
     }
 
     fn create2_deployer(&self) -> Address {

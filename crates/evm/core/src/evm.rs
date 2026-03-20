@@ -413,6 +413,41 @@ fn handle_create2_override<I: InspectorExt>(
 impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
 
+    fn inspect_run_without_catch_error(
+        &mut self,
+        evm: &mut Self::Evm,
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        let (tx_caller, call_depth) = {
+            let ctx = evm.ctx();
+            (ctx.tx.caller, ctx.journaled_state.depth())
+        };
+        let tx_origin = evm.inspector().tx_origin(tx_caller, call_depth);
+
+        {
+            let ctx = evm.ctx_mut();
+            tempo_precompiles::storage::StorageCtx::enter_evm(
+                &mut ctx.journaled_state,
+                &ctx.block,
+                &ctx.cfg,
+                &ctx.tx,
+                || {
+                    let mut keychain = tempo_precompiles::account_keychain::AccountKeychain::new();
+                    keychain.set_tx_origin(tx_origin)
+                },
+            )
+            .map_err(|e| EVMError::Custom(e.to_string()))?;
+        }
+
+        self.inner.load_fee_fields(evm)?;
+
+        let init_and_floor_gas = self.validate(evm)?;
+        let eip7702_refund = self.pre_execution(evm)? as i64;
+        let mut frame_result = self.inspect_execution(evm, &init_and_floor_gas)?;
+        let result_gas =
+            self.post_execution(evm, &mut frame_result, init_and_floor_gas, eip7702_refund)?;
+        self.execution_result(evm, frame_result, result_gas)
+    }
+
     /// Overrides the `inspect_run` to first call Tempo's fee token loading `load_fee_fields`.
     /// Then, it chains to the default `inspect_run_without_catch_error` which flows through
     /// `self.inspect_execution()` --> `self.inspect_run_exec_loop()` for CREATE2 routing.
@@ -420,8 +455,6 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
         &mut self,
         evm: &mut Self::Evm,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        self.inner.load_fee_fields(evm)?;
-
         match self.inspect_run_without_catch_error(evm) {
             Ok(output) => Ok(output),
             Err(e) => self.catch_error(evm, e),
