@@ -413,7 +413,10 @@ fn handle_create2_override<I: InspectorExt>(
 impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
     type IT = EthInterpreter;
 
-    fn inspect_run_without_catch_error(
+    /// Overrides `inspect_run` to seed keychain `tx.origin` from the effective
+    /// (pranked/broadcast) caller context and load Tempo fee fields before delegating
+    /// to the default execution pipeline.
+    fn inspect_run(
         &mut self,
         evm: &mut Self::Evm,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
@@ -440,21 +443,6 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
 
         self.inner.load_fee_fields(evm)?;
 
-        let init_and_floor_gas = self.validate(evm)?;
-        let eip7702_refund = self.pre_execution(evm)? as i64;
-        let mut frame_result = self.inspect_execution(evm, &init_and_floor_gas)?;
-        let result_gas =
-            self.post_execution(evm, &mut frame_result, init_and_floor_gas, eip7702_refund)?;
-        self.execution_result(evm, frame_result, result_gas)
-    }
-
-    /// Overrides the `inspect_run` to first call Tempo's fee token loading `load_fee_fields`.
-    /// Then, it chains to the default `inspect_run_without_catch_error` which flows through
-    /// `self.inspect_execution()` --> `self.inspect_run_exec_loop()` for CREATE2 routing.
-    fn inspect_run(
-        &mut self,
-        evm: &mut Self::Evm,
-    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         match self.inspect_run_without_catch_error(evm) {
             Ok(output) => Ok(output),
             Err(e) => self.catch_error(evm, e),
