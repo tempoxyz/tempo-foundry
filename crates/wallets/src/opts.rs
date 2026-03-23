@@ -247,6 +247,10 @@ impl WalletOpts {
             .await?
         } else if let Some(raw_wallet) = self.raw.signer()? {
             raw_wallet
+        } else if let Some(signer) =
+            self.from.and_then(|addr| wallet_tempo::try_resolve_tempo_signer(addr).ok().flatten())
+        {
+            signer
         } else if let Some(path) = utils::maybe_get_keystore_path(
             self.keystore_path.as_deref(),
             self.keystore_account_name.as_deref(),
@@ -263,11 +267,6 @@ impl WalletOpts {
             } else {
                 unreachable!()
             }
-        } else if let Some(signer) =
-            self.from.and_then(|addr| wallet_tempo::try_resolve_tempo_signer(addr).ok().flatten())
-        {
-            // Resolved from the Tempo wallet keystore (~/.tempo/wallet/keys.toml)
-            signer
         } else {
             eyre::bail!(
                 "\

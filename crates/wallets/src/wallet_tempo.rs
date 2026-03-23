@@ -34,9 +34,13 @@ fn keystore_path() -> Option<PathBuf> {
     let base = env::var("TEMPO_HOME")
         .map(PathBuf::from)
         .ok()
-        .or_else(|| dirs::home_dir().map(|h| h.join(".tempo")))?;
+        .or_else(|| home_dir().map(|h| h.join(".tempo")))?;
     let path = base.join("wallet").join("keys.toml");
     path.is_file().then_some(path)
+}
+
+fn home_dir() -> Option<PathBuf> {
+    env::var("HOME").or_else(|_| env::var("USERPROFILE")).ok().map(PathBuf::from)
 }
 
 /// Try to resolve a signer from the Tempo wallet keystore for the given address.
@@ -96,15 +100,6 @@ fn resolve_from_toml(contents: &str, sender: Address) -> Result<Option<WalletSig
     }
 
     Ok(None)
-}
-
-/// Helper to resolve home directory.
-mod dirs {
-    use std::path::PathBuf;
-
-    pub fn home_dir() -> Option<PathBuf> {
-        std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).ok().map(PathBuf::from)
-    }
 }
 
 #[cfg(test)]
