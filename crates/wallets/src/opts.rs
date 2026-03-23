@@ -1,4 +1,4 @@
-use crate::{signer::WalletSigner, utils, wallet_raw::RawWalletOpts};
+use crate::{signer::WalletSigner, utils, wallet_raw::RawWalletOpts, wallet_tempo};
 use alloy_primitives::Address;
 use clap::Parser;
 use eyre::Result;
@@ -263,6 +263,11 @@ impl WalletOpts {
             } else {
                 unreachable!()
             }
+        } else if let Some(signer) =
+            self.from.and_then(|addr| wallet_tempo::try_resolve_tempo_signer(addr).ok().flatten())
+        {
+            // Resolved from the Tempo wallet keystore (~/.tempo/wallet/keys.toml)
+            signer
         } else {
             eyre::bail!(
                 "\
