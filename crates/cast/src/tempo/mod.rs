@@ -1,5 +1,7 @@
 pub mod iso4217;
 
+use tempo_alloy::provider::TempoProviderExt;
+
 use crate::tx::{CastTxBuilder, InitState, InputState, SenderKind, ToState};
 use alloy_consensus::{SidecarBuilder, SignableTransaction, SimpleCoder};
 use alloy_eips::eip2718::Encodable2718;
@@ -554,4 +556,20 @@ pub async fn sign_with_access_key<S: Signer>(
     let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
     let envelope = TempoTxEnvelope::from(signed_tx);
     Ok(envelope.encoded_2718())
+}
+
+/// Checks whether an access key is already provisioned on-chain.
+///
+/// Queries the AccountKeychain precompile's `getKey` function. A key is considered
+/// provisioned if the returned `keyId` is non-zero (i.e. the key exists and has not
+/// been revoked).
+pub async fn is_key_provisioned<P: Provider<TempoNetwork>>(
+    provider: &P,
+    wallet_address: Address,
+    key_address: Address,
+) -> bool {
+    match provider.get_keychain_key(wallet_address, key_address).await {
+        Ok(info) => info.keyId != Address::ZERO,
+        Err(_) => false,
+    }
 }

@@ -2,6 +2,7 @@ use std::{str::FromStr, time::Duration};
 
 use crate::{
     tempo::{
+        is_key_provisioned,
         iso4217::{is_iso4217_currency, iso4217_warning_message},
         sign_with_access_key,
     },
@@ -18,7 +19,7 @@ use foundry_cli::{
     opts::TransactionOpts,
     utils::{LoadConfig, get_tempo_provider_with_curl},
 };
-use foundry_wallets::WalletSigner;
+use foundry_wallets::{TempoAccessKeyConfig, WalletSigner};
 use tempo_alloy::{TempoNetwork, rpc::TempoTransactionRequest};
 use tempo_contracts::precompiles::TIP20_FACTORY_ADDRESS;
 
@@ -82,6 +83,136 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
+        // Resolve the signer early so we know if it's a Tempo access key from keys.toml.
+        let (pre_resolved_signer, tempo_access_key) =
+            self.send_tx.eth.wallet.maybe_signer().await?;
+
+        if let Some(tempo_access_key) = tempo_access_key {
+            // Tempo keychain mode from keys.toml: always uses TempoNetwork.
+            self.run_tempo_keychain(
+                pre_resolved_signer.expect("signer required for access key"),
+                tempo_access_key,
+            )
+            .await
+        } else {
+            self.run_normal(pre_resolved_signer).await
+        }
+    }
+
+    /// Handles Tempo access key (keychain mode) transactions resolved from `keys.toml`.
+    ///
+    /// Bypasses `EthereumWallet` and manually constructs a `KeychainSignature`,
+    /// then sends the raw transaction.
+    async fn run_tempo_keychain(
+        self,
+        signer: WalletSigner,
+        access_key: TempoAccessKeyConfig,
+    ) -> Result<()> {
+        let Self { to, mut sig, mut args, send_tx, tx, command, force, data, .. } = self;
+        let fee_token = tx.tempo.fee_token;
+
+        if let Some(data) = data {
+            sig = Some(data);
+        }
+
+        let code = if let Some(SendTxSubcommands::Create {
+            code,
+            sig: constructor_sig,
+            args: constructor_args,
+        }) = command
+        {
+            sig = constructor_sig;
+            args = constructor_args;
+            Some(code)
+        } else {
+            None
+        };
+
+        // Check currency code for TIP20Factory calls
+        if let Some(ref to_addr) = to {
+            let is_factory = match to_addr {
+                NameOrAddress::Address(addr) => *addr == TIP20_FACTORY_ADDRESS,
+                NameOrAddress::Name(name) => {
+                    Address::from_str(name).ok() == Some(TIP20_FACTORY_ADDRESS)
+                }
+            };
+
+            if !force
+                && is_factory
+                && let Some(ref sig_str) = sig
+                && sig_str.starts_with("createToken")
+                && let Some(currency) = args.get(2)
+                && !is_iso4217_currency(currency)
+            {
+                sh_warn!("{}", iso4217_warning_message(currency))?;
+                let response: String = foundry_common::prompt!("\nContinue anyway? [y/N] ")?;
+                if !matches!(response.trim(), "y" | "Y") {
+                    sh_println!("Aborted.")?;
+                    return Ok(());
+                }
+            }
+        }
+
+        let config = send_tx.eth.load_config()?;
+        let provider = get_tempo_provider_with_curl(&config, send_tx.eth.rpc.curl)?;
+
+        if let Some(interval) = send_tx.poll_interval {
+            provider.client().set_poll_interval(Duration::from_secs(interval))
+        }
+
+        // Set key_id before build() so gas estimation includes Keychain signature overhead.
+        let builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
+            .await?
+            .with_to(to)
+            .await?
+            .with_code_sig_and_args(code, sig, args)
+            .await?
+            .with_key_id(access_key.key_address);
+
+        let from = access_key.wallet_address;
+
+        // Build using wallet address for correct nonce/gas estimation.
+        let (mut tx_request, _) = builder.build(from, fee_token).await?;
+
+        // Only include key_authorization if the key is not yet provisioned on-chain.
+        if let Some(auth) = access_key.key_authorization
+            && !is_key_provisioned(&provider, from, access_key.key_address).await
+        {
+            tx_request.inner.key_authorization = Some(auth);
+        }
+
+        let raw_tx = sign_with_access_key(tx_request.inner, &signer, from).await?;
+
+        let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
+        let cast = CastTxSender::new(&provider);
+
+        if send_tx.sync {
+            let receipt = cast.send_raw_sync(&raw_tx).await?;
+            sh_println!("{receipt}")?;
+        } else {
+            let pending_tx = provider.send_raw_transaction(&raw_tx).await?;
+            let tx_hash = pending_tx.tx_hash();
+            if send_tx.cast_async {
+                sh_println!("{tx_hash:#x}")?;
+            } else {
+                let receipt = cast
+                    .receipt(
+                        format!("{tx_hash:#x}"),
+                        None,
+                        send_tx.confirmations,
+                        Some(timeout),
+                        false,
+                    )
+                    .await?;
+                sh_println!("{receipt}")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Normal transaction flow (explicit wallet flags or `--tempo.access-key`).
+    async fn run_normal(self, pre_resolved_signer: Option<WalletSigner>) -> Result<()> {
         let Self { to, mut sig, mut args, send_tx, tx, command, unlocked, force, data } = self;
         let fee_token = tx.tempo.fee_token;
 
@@ -219,8 +350,11 @@ impl SendTxArgs {
         // If we cannot successfully instantiate a local signer, then we will assume we don't have
         // enough information to sign and we must bail.
         } else {
-            // Retrieve the signer, and bail if it can't be constructed.
-            let signer = send_tx.eth.wallet.signer().await?;
+            // Retrieve the signer, using the pre-resolved one if available.
+            let signer = match pre_resolved_signer {
+                Some(s) => s,
+                None => send_tx.eth.wallet.signer().await?,
+            };
 
             // For access keys, `from` is the root account; otherwise it's the signer address
             let from = if let Some(ref config) = access_key_config {
