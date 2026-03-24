@@ -22,6 +22,7 @@ use foundry_common::shell;
 #[doc(hidden)]
 pub use foundry_config::{Chain, utils::*};
 use foundry_primitives::FoundryTransactionRequest;
+use foundry_wallets::{TempoAccessKeyConfig, WalletSigner};
 
 sol! {
     #[sol(rpc)]
@@ -101,7 +102,10 @@ fn apply_tx_opts(
     }
 }
 
-/// Send an ERC20 transaction, handling Tempo transactions specially if needed
+/// Send an ERC20 transaction, handling Tempo transactions specially if needed.
+///
+/// If `tempo_keychain` is `Some`, the transaction is signed with the access key and sent
+/// via `send_raw_transaction`, bypassing `EthereumWallet`.
 ///
 /// TODO: Remove this temporary helper when we migrate to FoundryNetwork/FoundryTransactionRequest.
 async fn send_erc20_tx<P: Provider<AnyNetwork>>(
@@ -109,11 +113,92 @@ async fn send_erc20_tx<P: Provider<AnyNetwork>>(
     tx: WithOtherFields<TransactionRequest>,
     send_tx: &SendTxOpts,
     timeout: u64,
+    pre_resolved_signer: Option<WalletSigner>,
+    tempo_keychain: Option<&TempoAccessKeyConfig>,
 ) -> eyre::Result<()> {
+    // Tempo keychain mode: sign with access key and send raw
+    if let Some(access_key) = tempo_keychain {
+        let signer = pre_resolved_signer.as_ref().expect("signer required for access key");
+
+        // Ensure feeToken is set so the RPC node treats this as a Tempo transaction.
+        let mut tx = tx;
+        if let Some(fee_token) = access_key.fee_token {
+            tx.other
+                .entry("feeToken".to_string())
+                .or_insert_with(|| serde_json::to_value(fee_token).unwrap());
+        }
+
+        // Fill nonce, fees, and gas from provider before converting to Tempo type.
+        tx.set_from(access_key.wallet_address);
+        if tx.nonce.is_none() {
+            tx.set_nonce(provider.get_transaction_count(access_key.wallet_address).await?);
+        }
+        if tx.max_fee_per_gas.is_none() || tx.max_priority_fee_per_gas.is_none() {
+            let estimate = provider.estimate_eip1559_fees().await?;
+            if tx.max_fee_per_gas.is_none() {
+                tx.set_max_fee_per_gas(estimate.max_fee_per_gas);
+            }
+            if tx.max_priority_fee_per_gas.is_none() {
+                tx.set_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas);
+            }
+        }
+        if tx.gas.is_none() {
+            let gas = provider.estimate_gas(tx.clone()).await?;
+            tx.set_gas_limit(gas);
+        }
+        if tx.chain_id.is_none() {
+            tx.set_chain_id(provider.get_chain_id().await?);
+        }
+
+        let mut ftx = FoundryTransactionRequest::new(tx);
+        let FoundryTransactionRequest::Tempo(ref mut tempo_tx) = ftx else {
+            eyre::bail!("expected Tempo transaction for keychain mode");
+        };
+
+        // Set access key fields
+        tempo_tx.key_id = Some(access_key.key_address);
+
+        // Only include key_authorization if the key is not yet provisioned on-chain.
+        if let Some(ref auth) = access_key.key_authorization
+            && !crate::tempo::is_key_provisioned(
+                &provider,
+                access_key.wallet_address,
+                access_key.key_address,
+            )
+            .await
+        {
+            tempo_tx.key_authorization = Some(auth.clone());
+        }
+
+        // Extract the inner TempoTransactionRequest for signing
+        let FoundryTransactionRequest::Tempo(tempo_tx) = ftx else { unreachable!() };
+        let raw_tx =
+            crate::tempo::sign_with_access_key(*tempo_tx, signer, access_key.wallet_address)
+                .await?;
+
+        let cast = CastTxSender::new(&provider);
+        let pending_tx = cast.send_raw(&raw_tx).await?;
+        let tx_hash = pending_tx.inner().tx_hash();
+
+        if send_tx.cast_async {
+            sh_println!("{tx_hash:#x}")?;
+        } else {
+            let receipt = cast
+                .receipt(format!("{tx_hash:#x}"), None, send_tx.confirmations, Some(timeout), false)
+                .await?;
+            sh_println!("{receipt}")?;
+        }
+
+        return Ok(());
+    }
+
     // Same as in SendTxArgs::run(), Tempo transactions need to be signed locally and sent as raw
     // transactions
     if tx.other.contains_key("feeToken") || tx.other.contains_key("nonceKey") {
-        let signer = send_tx.eth.wallet.signer().await?;
+        let signer = match pre_resolved_signer {
+            Some(s) => s,
+            None => send_tx.eth.wallet.signer().await?,
+        };
         let mut ftx = FoundryTransactionRequest::new(tx);
         if ftx.chain_id().is_none() {
             ftx.set_chain_id(provider.get_chain_id().await?);
@@ -132,7 +217,6 @@ async fn send_erc20_tx<P: Provider<AnyNetwork>>(
         if send_tx.cast_async {
             sh_println!("{tx_hash:#x}")?;
         } else {
-            // For sync mode, we already have the hash, just wait for receipt
             let receipt = cast
                 .receipt(format!("{tx_hash:#x}"), None, send_tx.confirmations, Some(timeout), false)
                 .await?;
@@ -350,6 +434,22 @@ impl Erc20Subcommand {
     pub async fn run(self) -> eyre::Result<()> {
         let config = self.rpc().load_config()?;
 
+        // Resolve the signer once for state-changing variants.
+        let (pre_resolved_signer, tempo_access_key) = match &self {
+            Self::Transfer { send_tx, .. }
+            | Self::Approve { send_tx, .. }
+            | Self::Mint { send_tx, .. }
+            | Self::Burn { send_tx, .. } => {
+                // Only attempt Tempo lookup if --from is set (avoids unnecessary I/O).
+                if send_tx.eth.wallet.from.is_some() {
+                    send_tx.eth.wallet.maybe_signer().await?
+                } else {
+                    (None, None)
+                }
+            }
+            _ => (None, None),
+        };
+
         match self {
             // Read-only
             Self::Allowance { token, owner, spender, block, .. } => {
@@ -457,7 +557,6 @@ impl Erc20Subcommand {
                     .transfer(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
 
-                // Apply transaction options using helper
                 apply_tx_opts(
                     &mut tx,
                     &tx_opts,
@@ -469,6 +568,8 @@ impl Erc20Subcommand {
                     tx,
                     &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
+                    pre_resolved_signer,
+                    tempo_access_key.as_ref(),
                 )
                 .await?
             }
@@ -478,7 +579,6 @@ impl Erc20Subcommand {
                     .approve(spender.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
 
-                // Apply transaction options using helper
                 apply_tx_opts(
                     &mut tx,
                     &tx_opts,
@@ -490,6 +590,8 @@ impl Erc20Subcommand {
                     tx,
                     &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
+                    pre_resolved_signer,
+                    tempo_access_key.as_ref(),
                 )
                 .await?
             }
@@ -499,7 +601,6 @@ impl Erc20Subcommand {
                     .mint(to.resolve(&provider).await?, U256::from_str(&amount)?)
                     .into_transaction_request();
 
-                // Apply transaction options using helper
                 apply_tx_opts(
                     &mut tx,
                     &tx_opts,
@@ -511,6 +612,8 @@ impl Erc20Subcommand {
                     tx,
                     &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
+                    pre_resolved_signer,
+                    tempo_access_key.as_ref(),
                 )
                 .await?
             }
@@ -520,7 +623,6 @@ impl Erc20Subcommand {
                     .burn(U256::from_str(&amount)?)
                     .into_transaction_request();
 
-                // Apply transaction options using helper
                 apply_tx_opts(
                     &mut tx,
                     &tx_opts,
@@ -532,6 +634,8 @@ impl Erc20Subcommand {
                     tx,
                     &send_tx,
                     send_tx.timeout.unwrap_or(config.transaction_timeout),
+                    pre_resolved_signer,
+                    tempo_access_key.as_ref(),
                 )
                 .await?
             }

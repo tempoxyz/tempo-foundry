@@ -13,7 +13,7 @@ use foundry_cli::{
     opts::TransactionOpts,
     utils::{LoadConfig, get_provider},
 };
-use foundry_wallets::WalletSigner;
+use foundry_wallets::{TempoAccessKeyConfig, WalletSigner};
 
 use crate::tx::{self, CastTxBuilder, CastTxSender, SendTxOpts};
 
@@ -83,6 +83,115 @@ pub enum SendTxSubcommands {
 
 impl SendTxArgs {
     pub async fn run(self) -> eyre::Result<()> {
+        // Resolve the signer early so we know if it's a Tempo access key.
+        let (pre_resolved_signer, tempo_access_key) =
+            self.send_tx.eth.wallet.maybe_signer().await?;
+
+        if let Some(tempo_access_key) = tempo_access_key {
+            // Tempo keychain mode: bypass EthereumWallet entirely.
+            self.run_tempo_keychain(
+                pre_resolved_signer.expect("signer required for access key"),
+                tempo_access_key,
+            )
+            .await
+        } else {
+            self.run_generic(pre_resolved_signer).await
+        }
+    }
+
+    /// Handles Tempo access key (keychain mode) transactions.
+    ///
+    /// Bypasses `EthereumWallet` and manually constructs a `KeychainSignature`,
+    /// then sends the raw transaction.
+    async fn run_tempo_keychain(
+        self,
+        signer: WalletSigner,
+        access_key: TempoAccessKeyConfig,
+    ) -> Result<()> {
+        let Self { to, mut sig, mut args, data, send_tx, mut tx, command, unlocked: _, path } =
+            self;
+
+        let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
+
+        if let Some(data) = data {
+            sig = Some(data);
+        }
+
+        let code = if let Some(SendTxSubcommands::Create {
+            code,
+            sig: constructor_sig,
+            args: constructor_args,
+        }) = command
+        {
+            sig = constructor_sig;
+            args = constructor_args;
+            Some(code)
+        } else {
+            None
+        };
+
+        // Ensure Tempo-specific fields are set so the RPC node treats this as a
+        // Tempo transaction during gas estimation.
+        if tx.tempo.fee_token.is_none() {
+            tx.tempo.fee_token = access_key.fee_token;
+        }
+
+        let config = send_tx.eth.load_config()?;
+        let provider = get_provider(&config)?;
+
+        if let Some(interval) = send_tx.poll_interval {
+            provider.client().set_poll_interval(Duration::from_secs(interval))
+        }
+
+        let builder = CastTxBuilder::new(&provider, tx, &config)
+            .await?
+            .with_to(to)
+            .await?
+            .with_code_sig_and_args(code, sig, args)
+            .await?
+            .with_blob_data(blob_data)?;
+
+        let from = access_key.wallet_address;
+
+        // Build using wallet address for correct nonce/gas estimation.
+        let (tx_request, _) = builder.build(from).await?;
+
+        let foundry_primitives::FoundryTransactionRequest::Tempo(mut tempo_tx) = tx_request else {
+            eyre::bail!("expected Tempo transaction for keychain mode");
+        };
+
+        // Set key_id on the transaction
+        tempo_tx.key_id = Some(access_key.key_address);
+
+        // Only include key_authorization if the key is not yet provisioned on-chain.
+        if let Some(auth) = access_key.key_authorization
+            && !crate::tempo::is_key_provisioned(&provider, from, access_key.key_address).await
+        {
+            tempo_tx.key_authorization = Some(auth);
+        }
+
+        // Sign and send
+        let raw_tx = crate::tempo::sign_with_access_key(*tempo_tx, &signer, from).await?;
+
+        let timeout = send_tx.timeout.unwrap_or(config.transaction_timeout);
+        let cast = CastTxSender::new(&provider);
+
+        let pending_tx = cast.send_raw(&raw_tx).await?;
+        let tx_hash = pending_tx.inner().tx_hash();
+
+        if send_tx.cast_async {
+            sh_println!("{tx_hash:#x}")?;
+        } else {
+            let receipt = cast
+                .receipt(format!("{tx_hash:#x}"), None, send_tx.confirmations, Some(timeout), false)
+                .await?;
+            sh_println!("{receipt}")?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn run_generic(self, pre_resolved_signer: Option<WalletSigner>) -> Result<()> {
         let Self { to, mut sig, mut args, data, send_tx, tx, command, unlocked, path } = self;
 
         let blob_data = if let Some(path) = path { Some(std::fs::read(path)?) } else { None };
@@ -184,8 +293,10 @@ impl SendTxArgs {
         // If we cannot successfully instantiate a local signer, then we will assume we don't have
         // enough information to sign and we must bail.
         } else {
-            // Retrieve the signer, and bail if it can't be constructed.
-            let signer = send_tx.eth.wallet.signer().await?;
+            let signer = match pre_resolved_signer {
+                Some(s) => s,
+                None => send_tx.eth.wallet.signer().await?,
+            };
             let from = signer.address();
 
             tx::validate_from_address(send_tx.eth.wallet.from, from)?;
