@@ -1,4 +1,4 @@
-use crate::{signer::WalletSigner, utils, wallet_raw::RawWalletOpts};
+use crate::{signer::WalletSigner, tempo::TempoAccessKeyConfig, utils, wallet_raw::RawWalletOpts};
 use alloy_primitives::Address;
 use clap::Parser;
 use eyre::Result;
@@ -196,6 +196,100 @@ impl WalletOpts {
     /// Returns true if an access key is being used.
     pub fn is_access_key(&self) -> bool {
         self.access_key.is_some() && self.root_account.is_some()
+    }
+
+    /// Attempts to resolve a signer from the configured wallet options.
+    ///
+    /// Returns the signer and, for Tempo keychain mode, a [`TempoAccessKeyConfig`] describing the
+    /// root wallet and provisioning data.
+    ///
+    /// Returns `Ok((None, None))` if no wallet option was configured and no Tempo fallback
+    /// matched.
+    pub async fn maybe_signer(
+        &self,
+    ) -> Result<(Option<WalletSigner>, Option<TempoAccessKeyConfig>)> {
+        trace!("start finding signer (maybe)");
+
+        let get_env = |key: &str| {
+            std::env::var(key)
+                .map_err(|_| eyre::eyre!("{key} environment variable is required for signer"))
+        };
+
+        let signer = if let Some(access_key) = &self.access_key {
+            use alloy_primitives::hex;
+            let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(access_key)
+                .map_err(|e| eyre::eyre!("Failed to decode access key: {e}"))?;
+            WalletSigner::from_private_key(&key_bytes)?
+        } else if self.ledger {
+            utils::create_ledger_signer(self.raw.hd_path.as_deref(), self.raw.mnemonic_index)
+                .await?
+        } else if self.trezor {
+            utils::create_trezor_signer(self.raw.hd_path.as_deref(), self.raw.mnemonic_index)
+                .await?
+        } else if self.aws {
+            let key_id = get_env("AWS_KMS_KEY_ID")?;
+            WalletSigner::from_aws(key_id).await?
+        } else if self.gcp {
+            let project_id = get_env("GCP_PROJECT_ID")?;
+            let location = get_env("GCP_LOCATION")?;
+            let keyring = get_env("GCP_KEY_RING")?;
+            let key_name = get_env("GCP_KEY_NAME")?;
+            let key_version = get_env("GCP_KEY_VERSION")?
+                .parse()
+                .map_err(|_| eyre::eyre!("GCP_KEY_VERSION could not be parsed into u64"))?;
+            WalletSigner::from_gcp(project_id, location, keyring, key_name, key_version).await?
+        } else if self.turnkey {
+            let api_private_key = get_env("TURNKEY_API_PRIVATE_KEY")?;
+            let organization_id = get_env("TURNKEY_ORGANIZATION_ID")?;
+            let address_str = get_env("TURNKEY_ADDRESS")?;
+            let address = address_str.parse().map_err(|_| {
+                eyre::eyre!("TURNKEY_ADDRESS could not be parsed as an Ethereum address")
+            })?;
+            WalletSigner::from_turnkey(api_private_key, organization_id, address)?
+        } else if self.browser {
+            WalletSigner::from_browser(
+                self.browser_port,
+                !self.browser_disable_open,
+                self.browser_development,
+            )
+            .await?
+        } else if let Some(raw_wallet) = self.raw.signer()? {
+            raw_wallet
+        } else if let Some(path) = utils::maybe_get_keystore_path(
+            self.keystore_path.as_deref(),
+            self.keystore_account_name.as_deref(),
+        )? {
+            let (maybe_signer, maybe_pending) = utils::create_keystore_signer(
+                &path,
+                self.keystore_password.as_deref(),
+                self.keystore_password_file.as_deref(),
+            )?;
+            if let Some(pending) = maybe_pending {
+                pending.unlock()?
+            } else if let Some(signer) = maybe_signer {
+                signer
+            } else {
+                unreachable!()
+            }
+        } else {
+            // No explicit wallet option was provided. Try Tempo wallet as a fallback
+            // if `--from` is set.
+            if let Some(from) = self.from {
+                match crate::tempo::lookup_signer(from)? {
+                    crate::tempo::TempoLookup::Direct(signer) => {
+                        return Ok((Some(signer), None));
+                    }
+                    crate::tempo::TempoLookup::Keychain(signer, config) => {
+                        return Ok((Some(signer), Some(*config)));
+                    }
+                    crate::tempo::TempoLookup::NotFound => {}
+                }
+            }
+
+            return Ok((None, None));
+        };
+
+        Ok((Some(signer), None))
     }
 
     pub async fn signer(&self) -> Result<WalletSigner> {
