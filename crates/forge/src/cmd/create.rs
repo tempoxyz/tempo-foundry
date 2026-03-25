@@ -352,13 +352,17 @@ impl CreateArgs {
             deployer.tx.set_value(value);
         }
 
-        // For keychain mode, set key_id and nonce_key before gas estimation.
-        // key_id ensures the estimate includes Keychain signature overhead.
-        // nonce_key forces the AA transaction type required for keychain signing.
-        // Also convert the CREATE input into an AA-compatible Call, since AA
-        // transactions use `calls` instead of `to`+`input`.
+        // For keychain mode, set key_id, key_authorization, and nonce_key before gas
+        // estimation. key_id ensures the estimate includes Keychain signature overhead.
+        // key_authorization allows the node to simulate inline key provisioning for
+        // unpublished access keys. nonce_key forces the AA transaction type required for
+        // keychain signing. Also convert the CREATE input into an AA-compatible Call,
+        // since AA transactions use `calls` instead of `to`+`input`.
         if let Some((_, ref access_key)) = tempo_keychain {
             deployer.tx.key_id = Some(access_key.key_address);
+            if let Some(ref auth) = access_key.key_authorization {
+                deployer.tx.inner.key_authorization = Some(auth.clone());
+            }
             if deployer.tx.inner.nonce_key.is_none() {
                 deployer.tx.inner.set_nonce_key(U256::ZERO);
             }
@@ -452,16 +456,17 @@ impl CreateArgs {
             // Tempo keychain mode: sign with access key and send raw
             let mut tx_request = deployer.tx.inner;
 
-            // Only include key_authorization if the key is not yet provisioned on-chain
-            if let Some(auth) = access_key.key_authorization
-                && !is_key_provisioned(
+            // Strip key_authorization if the key is already provisioned on-chain (saves gas).
+            // It was set before gas estimation to allow inline provisioning simulation.
+            if tx_request.key_authorization.is_some()
+                && is_key_provisioned(
                     provider.as_ref(),
                     access_key.wallet_address,
                     access_key.key_address,
                 )
                 .await
             {
-                tx_request.key_authorization = Some(auth);
+                tx_request.key_authorization = None;
             }
 
             let raw_tx =

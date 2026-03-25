@@ -639,16 +639,22 @@ async fn send_tempo_keychain<P: Provider<TempoNetwork>>(
     if tx.max_priority_fee_per_gas().is_none() {
         tx.set_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas);
     }
+    // Include key_authorization before gas estimation so the node can simulate
+    // inline key provisioning for unpublished access keys.
+    if let Some(ref auth) = access_key.key_authorization {
+        tx.key_authorization = Some(auth.clone());
+    }
+
     if tx.gas_limit().is_none() {
         let gas = provider.estimate_gas(tx.clone()).await?;
         tx.set_gas_limit(gas);
     }
 
-    // Only include key_authorization if the key is not yet provisioned on-chain.
-    if let Some(ref auth) = access_key.key_authorization
-        && !is_key_provisioned(provider, access_key.wallet_address, access_key.key_address).await
+    // Strip key_authorization if the key is already provisioned on-chain (saves gas).
+    if tx.key_authorization.is_some()
+        && is_key_provisioned(provider, access_key.wallet_address, access_key.key_address).await
     {
-        tx.key_authorization = Some(auth.clone());
+        tx.key_authorization = None;
     }
 
     let raw_tx = sign_with_access_key(tx, signer, access_key.wallet_address).await?;

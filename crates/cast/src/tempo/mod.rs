@@ -437,6 +437,17 @@ where
         self
     }
 
+    /// Sets the key_authorization for access key transactions.
+    /// This should be called before `build()` so gas estimation can simulate inline key
+    /// provisioning for unpublished access keys.
+    pub fn with_key_authorization(
+        mut self,
+        auth: tempo_primitives::transaction::SignedKeyAuthorization,
+    ) -> Self {
+        self.tx.key_authorization = Some(auth);
+        self
+    }
+
     /// Populates the blob sidecar for the transaction if any blob data was provided.
     pub fn with_blob_data(mut self, blob_data: Option<Vec<u8>>) -> Result<Self> {
         let Some(blob_data) = blob_data else { return Ok(self) };
