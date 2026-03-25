@@ -55,7 +55,7 @@ mkdir -p "${TEMPO_HOME:-$HOME/.tempo}/wallet"
 cat > "${TEMPO_HOME:-$HOME/.tempo}/wallet/keys.toml" <<TOML
 [[keys]]
 wallet_address = "$WALLET_ADDR"
-private_key = "$WALLET_PK"
+key = "$WALLET_PK"
 TOML
 echo "Written to ${TEMPO_HOME:-$HOME/.tempo}/wallet/keys.toml"
 
