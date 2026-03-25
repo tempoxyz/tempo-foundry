@@ -5,9 +5,9 @@ set -euo pipefail
 # Exercises --from / --sender resolving the signer from ~/.tempo/wallet/keys.toml
 # without requiring --private-key or --tempo.access-key.
 #
-# Prerequisites:
-#   - TEMPO_KEYS_TOML_B64 secret decoded into ~/.tempo/wallet/keys.toml
-#   - The wallet address must be funded on the target network
+# Creates a fresh direct-mode wallet (wallet_address == key_address) and writes
+# a keys.toml for it, so the test is self-contained and doesn't require a
+# pre-provisioned keychain entry.
 
 # Fee token address, defaults to native fee token
 FEE_TOKEN="${TEMPO_FEE_TOKEN:-0x20c0000000000000000000000000000000000000}"
@@ -17,46 +17,54 @@ if [[ "$FEE_TOKEN" != "0x20c0000000000000000000000000000000000000" ]]; then
   FEE_TOKEN_ARG=(--tempo.fee-token "$FEE_TOKEN")
 fi
 
-KEYS_FILE="${TEMPO_HOME:-$HOME/.tempo}/wallet/keys.toml"
-if [[ ! -f "$KEYS_FILE" ]]; then
-  echo "ERROR: keys.toml not found at $KEYS_FILE"
-  exit 1
-fi
+# Fund an address and wait for the fee token balance to be non-zero
+fund_and_wait() {
+  local addr="$1"
+  for i in {1..100}; do
+    OUT=$(cast rpc tempo_fundAddress "$addr" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+    if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+      echo "$OUT" | jq
+      break
+    fi
+    echo "[$i] $OUT"
+    sleep 0.2
+  done
+  echo "Waiting for $addr to be funded..."
+  for i in {1..30}; do
+    BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$addr" 2>/dev/null || echo "0")
+    if [[ "$BAL" != "0" && -n "$BAL" ]]; then
+      echo "Funded with $BAL fee tokens"
+      return 0
+    fi
+    if [[ $i -eq 30 ]]; then
+      echo "ERROR: Funding timed out for $addr"
+      exit 1
+    fi
+    sleep 1
+  done
+}
 
-WALLET_ADDR=$(grep -m1 'wallet_address' "$KEYS_FILE" | sed 's/.*= *"\(.*\)"/\1/')
-if [[ -z "$WALLET_ADDR" ]]; then
-  echo "ERROR: wallet_address not found in $KEYS_FILE"
-  exit 1
-fi
+echo -e "\n=== CREATE DIRECT-MODE WALLET ==="
+wallet_json="$(cast wallet new --json)"
+WALLET_ADDR="$(jq -r '.[0].address' <<<"$wallet_json")"
+WALLET_PK="$(jq -r '.[0].private_key' <<<"$wallet_json")"
+printf "address: %s\n" "$WALLET_ADDR"
+
+echo -e "\n=== WRITE keys.toml ==="
+mkdir -p "${TEMPO_HOME:-$HOME/.tempo}/wallet"
+cat > "${TEMPO_HOME:-$HOME/.tempo}/wallet/keys.toml" <<TOML
+[[keys]]
+wallet_address = "$WALLET_ADDR"
+private_key = "$WALLET_PK"
+TOML
+echo "Written to ${TEMPO_HOME:-$HOME/.tempo}/wallet/keys.toml"
 
 echo "=== Wallet: $WALLET_ADDR ==="
 echo "=== RPC:    $ETH_RPC_URL ==="
 echo "=== Fee:    $FEE_TOKEN ==="
 
-# Fund the wallet address and wait for the fee token balance to be non-zero
 echo -e "\n=== FUND WALLET ==="
-for i in {1..100}; do
-  OUT=$(cast rpc tempo_fundAddress "$WALLET_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
-  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
-    echo "$OUT" | jq
-    break
-  fi
-  echo "[$i] $OUT"
-  sleep 0.2
-done
-echo "Waiting for $WALLET_ADDR to be funded..."
-for i in {1..30}; do
-  BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$WALLET_ADDR" 2>/dev/null || echo "0")
-  if [[ "$BAL" != "0" && -n "$BAL" ]]; then
-    echo "Funded with $BAL fee tokens"
-    break
-  fi
-  if [[ $i -eq 30 ]]; then
-    echo "ERROR: Funding timed out for $WALLET_ADDR"
-    exit 1
-  fi
-  sleep 1
-done
+fund_and_wait "$WALLET_ADDR"
 
 echo -e "\n=== CAST SEND WITH --from (keys.toml fallback) ==="
 cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \

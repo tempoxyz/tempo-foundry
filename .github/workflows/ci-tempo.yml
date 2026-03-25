@@ -53,19 +53,6 @@ jobs:
       - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2
 
-      # Setup Tempo wallet from secret (for keys.toml fallback tests)
-      - name: Setup Tempo wallet
-        env:
-          TEMPO_KEYS_TOML_B64: ${{ secrets.TEMPO_KEYS_TOML_B64 }}
-        run: |
-          if [ -n "$TEMPO_KEYS_TOML_B64" ]; then
-            mkdir -p ~/.tempo/wallet
-            echo "$TEMPO_KEYS_TOML_B64" | tr -d '[:space:]' | base64 -d > ~/.tempo/wallet/keys.toml
-            echo "Tempo wallet configured"
-          else
-            echo "TEMPO_KEYS_TOML_B64 not set, wallet tests will be skipped"
-          fi
-
       # Build and install binaries
       - name: Build and install Foundry binaries
         run: |
@@ -97,13 +84,7 @@ jobs:
           github.event.inputs.network == 'all'
         env:
           ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
-          TEMPO_KEYS_TOML_B64: ${{ secrets.TEMPO_KEYS_TOML_B64 }}
-        run: |
-          if [ -z "$TEMPO_KEYS_TOML_B64" ]; then
-            echo "Skipped — TEMPO_KEYS_TOML_B64 not set"
-            exit 0
-          fi
-          ./.github/scripts/tempo-wallet.sh
+        run: ./.github/scripts/tempo-wallet.sh
 
       - name: Run Tempo check on testnet
         if: |
