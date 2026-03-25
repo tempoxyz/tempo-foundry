@@ -3,7 +3,7 @@ use alloy_chains::Chain;
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt, Specifier};
 use alloy_json_abi::{Constructor, JsonAbi};
 use alloy_network::{EthereumWallet, TransactionBuilder};
-use alloy_primitives::{Address, Bytes, hex};
+use alloy_primitives::{Address, Bytes, TxKind, U256, hex};
 use alloy_provider::{PendingTransactionError, Provider, ProviderBuilder};
 use alloy_rpc_types::TransactionRequest;
 use alloy_serde::WithOtherFields;
@@ -31,6 +31,9 @@ use foundry_config::{
         value::{Dict, Map},
     },
     merge_impl_figment_convert,
+};
+use foundry_wallets::{
+    TempoAccessKeyConfig, WalletSigner, is_key_provisioned, sign_with_access_key,
 };
 use serde_json::json;
 use std::{borrow::Borrow, marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
@@ -184,27 +187,54 @@ impl CreateArgs {
                 config.transaction_timeout,
                 id,
                 dry_run,
+                None,
             )
             .await
         } else {
-            // Deploy with signer
-            let signer = self.eth.wallet.signer().await?;
-            let deployer = signer.address();
-            let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
-                .wallet(EthereumWallet::new(signer))
-                .connect_provider(provider);
-            self.deploy(
-                abi,
-                bin,
-                params,
-                provider,
-                chain_id,
-                deployer,
-                config.transaction_timeout,
-                id,
-                dry_run,
-            )
-            .await
+            // Resolve signer early to detect Tempo keychain mode from keys.toml
+            let (pre_resolved_signer, tempo_access_key) = self.eth.wallet.maybe_signer().await?;
+
+            if let Some(tempo_access_key) = tempo_access_key {
+                // Tempo keychain mode: sign with access key and send raw
+                let signer = pre_resolved_signer.expect("signer required for access key");
+                let deployer_address = tempo_access_key.wallet_address;
+                self.deploy(
+                    abi,
+                    bin,
+                    params,
+                    provider,
+                    chain_id,
+                    deployer_address,
+                    config.transaction_timeout,
+                    id,
+                    dry_run,
+                    Some((signer, tempo_access_key)),
+                )
+                .await
+            } else {
+                // Normal signer flow
+                let signer = match pre_resolved_signer {
+                    Some(s) => s,
+                    None => self.eth.wallet.signer().await?,
+                };
+                let deployer = signer.address();
+                let provider = ProviderBuilder::<_, _, TempoNetwork>::default()
+                    .wallet(EthereumWallet::new(signer))
+                    .connect_provider(provider);
+                self.deploy(
+                    abi,
+                    bin,
+                    params,
+                    provider,
+                    chain_id,
+                    deployer,
+                    config.transaction_timeout,
+                    id,
+                    dry_run,
+                    None,
+                )
+                .await
+            }
         }
     }
 
@@ -283,6 +313,7 @@ impl CreateArgs {
         timeout: u64,
         id: ArtifactId,
         dry_run: bool,
+        tempo_keychain: Option<(WalletSigner, TempoAccessKeyConfig)>,
     ) -> Result<()> {
         let bin = bin.into_bytes().unwrap_or_default();
         if bin.is_empty() {
@@ -319,6 +350,30 @@ impl CreateArgs {
         // set tx value if specified
         if let Some(value) = self.tx.value {
             deployer.tx.set_value(value);
+        }
+
+        // For keychain mode, set key_id and nonce_key before gas estimation.
+        // key_id ensures the estimate includes Keychain signature overhead.
+        // nonce_key forces the AA transaction type required for keychain signing.
+        // Also convert the CREATE input into an AA-compatible Call, since AA
+        // transactions use `calls` instead of `to`+`input`.
+        if let Some((_, ref access_key)) = tempo_keychain {
+            deployer.tx.key_id = Some(access_key.key_address);
+            if deployer.tx.inner.nonce_key.is_none() {
+                deployer.tx.inner.set_nonce_key(U256::ZERO);
+            }
+            if deployer.tx.inner.calls.is_empty() {
+                let input = deployer.tx.inner.inner.input.input().cloned().unwrap_or_default();
+                let value = deployer.tx.inner.inner.value.unwrap_or(U256::ZERO);
+                deployer.tx.inner.calls.push(tempo_alloy::primitives::transaction::Call {
+                    to: TxKind::Create,
+                    value,
+                    input,
+                });
+                deployer.tx.inner.inner.input = Default::default();
+                deployer.tx.inner.inner.value = None;
+                deployer.tx.inner.inner.to = None;
+            }
         }
 
         let tempo_tx = deployer.tx.inner.clone();
@@ -393,7 +448,40 @@ impl CreateArgs {
         }
 
         // Deploy the actual contract
-        let (deployed_contract, receipt) = deployer.send_with_receipt().await?;
+        let (deployed_contract, receipt) = if let Some((signer, access_key)) = tempo_keychain {
+            // Tempo keychain mode: sign with access key and send raw
+            let mut tx_request = deployer.tx.inner;
+
+            // Only include key_authorization if the key is not yet provisioned on-chain
+            if let Some(auth) = access_key.key_authorization
+                && !is_key_provisioned(
+                    provider.as_ref(),
+                    access_key.wallet_address,
+                    access_key.key_address,
+                )
+                .await
+            {
+                tx_request.key_authorization = Some(auth);
+            }
+
+            let raw_tx =
+                sign_with_access_key(tx_request, &signer, access_key.wallet_address).await?;
+
+            let receipt = provider
+                .send_raw_transaction(&raw_tx)
+                .await?
+                .with_required_confirmations(1)
+                .with_timeout(Some(Duration::from_secs(timeout)))
+                .get_receipt()
+                .await?;
+
+            let address =
+                receipt.contract_address.ok_or_else(|| eyre::eyre!("contract was not deployed"))?;
+
+            (address, receipt)
+        } else {
+            deployer.send_with_receipt().await?
+        };
 
         let address = deployed_contract;
         if shell::is_json() {

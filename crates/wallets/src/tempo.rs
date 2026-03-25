@@ -1,8 +1,16 @@
+use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, hex};
+use alloy_provider::Provider;
 use alloy_rlp::Decodable;
-use eyre::Result;
+use alloy_signer::Signer;
+use eyre::{Result, eyre};
 use std::path::PathBuf;
-use tempo_primitives::transaction::SignedKeyAuthorization;
+use tempo_alloy::{TempoNetwork, provider::TempoProviderExt, rpc::TempoTransactionRequest};
+use tempo_primitives::transaction::{
+    SignedKeyAuthorization, TempoTxEnvelope,
+    tt_signature::{KeychainSignature, PrimitiveSignature, TempoSignature},
+    tt_signed::AASigned,
+};
 
 use crate::{WalletSigner, utils};
 
@@ -155,4 +163,51 @@ pub fn lookup_signer(from: Address) -> Result<TempoLookup> {
     }
 
     Ok(TempoLookup::NotFound)
+}
+
+/// Signs a transaction request with an access key, producing a type 0x76 AA transaction
+/// with a Keychain signature.
+///
+/// Returns the RLP-encoded signed transaction bytes.
+pub async fn sign_with_access_key<S: Signer>(
+    tx_request: TempoTransactionRequest,
+    signer: &S,
+    root_account: Address,
+) -> Result<Vec<u8>> {
+    // Build TempoTransaction from the request
+    let tempo_tx =
+        tx_request.build_aa().map_err(|e| eyre!("Failed to build AA transaction: {:?}", e))?;
+
+    // Compute the V2 signing hash: keccak256(0x04 || sig_hash || user_address)
+    let sig_hash = tempo_tx.signature_hash();
+    let signing_hash = KeychainSignature::signing_hash(sig_hash, root_account);
+
+    // Sign the V2 hash with the access key
+    let raw_sig = signer.sign_hash(&signing_hash).await?;
+
+    // Wrap in KeychainSignature with root account address
+    let primitive_sig = PrimitiveSignature::Secp256k1(raw_sig);
+    let keychain_sig = KeychainSignature::new(root_account, primitive_sig);
+    let tempo_sig = TempoSignature::Keychain(keychain_sig);
+
+    // Create signed AA transaction and encode
+    let signed_tx = AASigned::new_unhashed(tempo_tx, tempo_sig);
+    let envelope = TempoTxEnvelope::from(signed_tx);
+    Ok(envelope.encoded_2718())
+}
+
+/// Checks whether an access key is already provisioned on-chain.
+///
+/// Queries the AccountKeychain precompile's `getKey` function. A key is considered
+/// provisioned if the returned `keyId` is non-zero (i.e. the key exists and has not
+/// been revoked).
+pub async fn is_key_provisioned<P: Provider<TempoNetwork>>(
+    provider: &P,
+    wallet_address: Address,
+    key_address: Address,
+) -> bool {
+    match provider.get_keychain_key(wallet_address, key_address).await {
+        Ok(info) => info.keyId != Address::ZERO,
+        Err(_) => false,
+    }
 }
