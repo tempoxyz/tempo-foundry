@@ -416,9 +416,13 @@ impl Erc20Subcommand {
                         // Direct-mode keys.toml: re-resolve to get an owned signer
                         let (s, _) = $send_tx.eth.wallet.maybe_signer().await?;
                         let config = $send_tx.eth.load_config()?;
-                        let wallet = alloy_network::EthereumWallet::new(s.expect("signer was Some"));
-                        foundry_cli::utils::get_tempo_provider_builder(&config, $send_tx.eth.rpc.curl)?
-                            .build_with_wallet(wallet)?
+                        let wallet =
+                            alloy_network::EthereumWallet::new(s.expect("signer was Some"));
+                        foundry_cli::utils::get_tempo_provider_builder(
+                            &config,
+                            $send_tx.eth.rpc.curl,
+                        )?
+                        .build_with_wallet(wallet)?
                     } else {
                         get_provider_with_wallet(&$send_tx, $send_tx.eth.rpc.curl).await?
                     };
@@ -601,9 +605,13 @@ impl Erc20Subcommand {
                         // Direct-mode keys.toml: re-resolve to get an owned signer
                         let (s, _) = send_tx.eth.wallet.maybe_signer().await?;
                         let config2 = send_tx.eth.load_config()?;
-                        let wallet = alloy_network::EthereumWallet::new(s.expect("signer was Some"));
-                        foundry_cli::utils::get_tempo_provider_builder(&config2, send_tx.eth.rpc.curl)?
-                            .build_with_wallet(wallet)?
+                        let wallet =
+                            alloy_network::EthereumWallet::new(s.expect("signer was Some"));
+                        foundry_cli::utils::get_tempo_provider_builder(
+                            &config2,
+                            send_tx.eth.rpc.curl,
+                        )?
+                        .build_with_wallet(wallet)?
                     } else {
                         get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?
                     };
