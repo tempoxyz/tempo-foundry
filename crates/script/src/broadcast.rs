@@ -23,7 +23,10 @@ use foundry_common::{
     shell,
 };
 use foundry_config::Config;
-use foundry_wallets::{WalletSigner, wallet_browser::signer::BrowserSigner};
+use foundry_wallets::{
+    TempoAccessKeyConfig, WalletSigner, is_key_provisioned, sign_with_access_key,
+    wallet_browser::signer::BrowserSigner,
+};
 use futures::{FutureExt, StreamExt, future::join_all, stream::FuturesUnordered};
 use itertools::Itertools;
 use tempo_alloy::{TempoNetwork, primitives::TempoTxEnvelope, rpc::TempoTransactionRequest};
@@ -79,6 +82,11 @@ pub enum SendTransactionKind<'a> {
     Unlocked(WithOtherFields<TempoTransactionRequest>),
     Raw(WithOtherFields<TempoTransactionRequest>, &'a EthereumWallet),
     Browser(WithOtherFields<TempoTransactionRequest>, &'a BrowserSigner),
+    TempoKeychain(
+        WithOtherFields<TempoTransactionRequest>,
+        &'a WalletSigner,
+        &'a TempoAccessKeyConfig,
+    ),
     Signed(TempoTxEnvelope),
 }
 
@@ -97,7 +105,11 @@ impl<'a> SendTransactionKind<'a> {
         estimate_via_rpc: bool,
         estimate_multiplier: u64,
     ) -> Result<()> {
-        if let Self::Raw(tx, _) | Self::Unlocked(tx) | Self::Browser(tx, _) = self {
+        if let Self::Raw(tx, _)
+        | Self::Unlocked(tx)
+        | Self::Browser(tx, _)
+        | Self::TempoKeychain(tx, _, _) = self
+        {
             if sequential_broadcast {
                 let from = tx.from.expect("no sender");
 
@@ -162,6 +174,34 @@ impl<'a> SendTransactionKind<'a> {
                 let pending = provider.send_raw_transaction(signed.encoded_2718().as_ref()).await?;
                 Ok(*pending.tx_hash())
             }
+            Self::TempoKeychain(mut tx, signer, access_key) => {
+                debug!("sending tempo keychain transaction: {:?}", tx);
+
+                // Set key_id and nonce_key for AA transaction type
+                tx.key_id = Some(access_key.key_address);
+                if tx.inner.nonce_key.is_none() {
+                    tx.set_nonce_key(alloy_primitives::U256::ZERO);
+                }
+
+                // Only include key_authorization if the key is not yet provisioned on-chain
+                if let Some(ref auth) = access_key.key_authorization
+                    && !is_key_provisioned(
+                        provider.as_ref(),
+                        access_key.wallet_address,
+                        access_key.key_address,
+                    )
+                    .await
+                {
+                    tx.key_authorization = Some(auth.clone());
+                }
+
+                let raw_tx =
+                    sign_with_access_key(tx.into_inner(), signer, access_key.wallet_address)
+                        .await?;
+
+                let pending = provider.send_raw_transaction(&raw_tx).await?;
+                Ok(*pending.tx_hash())
+            }
             Self::Signed(tx) => {
                 debug!("sending transaction: {:?}", tx);
                 let pending = provider.send_raw_transaction(tx.encoded_2718().as_ref()).await?;
@@ -202,10 +242,12 @@ impl<'a> SendTransactionKind<'a> {
     }
 }
 
-/// Convenience enum to represent either an Ethereum wallet or a browser signer
+/// Convenience enum to represent either an Ethereum wallet, a browser signer,
+/// or a Tempo keychain access key.
 pub enum EitherSigner {
     Ethereum(EthereumWallet),
     Browser(BrowserSigner),
+    TempoKeychain(WalletSigner, Box<TempoAccessKeyConfig>),
 }
 
 impl From<EthereumWallet> for EitherSigner {
@@ -260,6 +302,9 @@ impl SendTransactionsKind {
                         EitherSigner::Ethereum(wallet) => Ok(SendTransactionKind::Raw(tx, wallet)),
                         EitherSigner::Browser(signer) => {
                             Ok(SendTransactionKind::Browser(tx, signer))
+                        }
+                        EitherSigner::TempoKeychain(signer, access_key) => {
+                            Ok(SendTransactionKind::TempoKeychain(tx, signer, access_key))
                         }
                     }
                 } else {
@@ -348,11 +393,30 @@ impl BundledState {
             SendTransactionsKind::Unlocked(required_addresses.clone())
         } else {
             let signers = self.script_wallets.into_multi_wallet().into_signers()?;
-            let mut missing_addresses = Vec::new();
+            let mut resolved: AddressHashMap<EitherSigner> =
+                signers.into_iter().map(|(addr, signer)| (addr, signer.into())).collect();
 
+            // For missing addresses, try Tempo keys.toml fallback
+            let mut missing_addresses = Vec::new();
             for addr in &required_addresses {
-                if !signers.contains_key(addr) {
-                    missing_addresses.push(addr);
+                if resolved.contains_key(addr) {
+                    continue;
+                }
+
+                match foundry_wallets::tempo::lookup_signer(*addr) {
+                    Ok(foundry_wallets::tempo::TempoLookup::Direct(signer)) => {
+                        resolved.insert(*addr, signer.into());
+                    }
+                    Ok(foundry_wallets::tempo::TempoLookup::Keychain(signer, config)) => {
+                        resolved.insert(*addr, EitherSigner::TempoKeychain(signer, config));
+                    }
+                    Ok(foundry_wallets::tempo::TempoLookup::NotFound) => {
+                        missing_addresses.push(addr);
+                    }
+                    Err(e) => {
+                        warn!("Failed to look up Tempo wallet for {addr}: {e}");
+                        missing_addresses.push(addr);
+                    }
                 }
             }
 
@@ -360,13 +424,11 @@ impl BundledState {
                 eyre::bail!(
                     "No associated wallet for addresses: {:?}. Unlocked wallets: {:?}",
                     missing_addresses,
-                    signers.keys().collect::<Vec<_>>()
+                    resolved.keys().collect::<Vec<_>>()
                 );
             }
 
-            let signers = signers.into_iter().map(|(addr, signer)| (addr, signer.into())).collect();
-
-            SendTransactionsKind::Raw(signers)
+            SendTransactionsKind::Raw(resolved)
         };
 
         let progress = ScriptProgress::default();
@@ -642,14 +704,32 @@ impl BundledState {
         }
 
         // Get wallet for signing
-        let wallet = if self.args.unlocked {
-            None
+        enum BatchSigner {
+            Unlocked,
+            Wallet(EthereumWallet),
+            TempoKeychain(WalletSigner, Box<TempoAccessKeyConfig>),
+        }
+
+        let batch_signer = if self.args.unlocked {
+            BatchSigner::Unlocked
         } else {
             let mut signers = self.script_wallets.into_multi_wallet().into_signers()?;
-            let signer = signers
-                .remove(&sender)
-                .ok_or_else(|| eyre::eyre!("No wallet found for sender {}", sender))?;
-            Some(EthereumWallet::new(signer))
+            if let Some(signer) = signers.remove(&sender) {
+                BatchSigner::Wallet(EthereumWallet::new(signer))
+            } else {
+                // Try Tempo keys.toml fallback
+                match foundry_wallets::tempo::lookup_signer(sender)? {
+                    foundry_wallets::tempo::TempoLookup::Direct(signer) => {
+                        BatchSigner::Wallet(EthereumWallet::new(signer))
+                    }
+                    foundry_wallets::tempo::TempoLookup::Keychain(signer, config) => {
+                        BatchSigner::TempoKeychain(signer, config)
+                    }
+                    foundry_wallets::tempo::TempoLookup::NotFound => {
+                        bail!("No wallet found for sender {}", sender);
+                    }
+                }
+            }
         };
 
         // Collect all transactions into Call structs
@@ -734,21 +814,44 @@ impl BundledState {
         sh_println!("Estimated gas: {}", batch_tx.inner.gas.unwrap_or(0))?;
 
         // Sign and send
-        let tx_hash = if let Some(wallet) = wallet {
-            use alloy_provider::ProviderBuilder;
+        let tx_hash = match batch_signer {
+            BatchSigner::Wallet(wallet) => {
+                use alloy_provider::ProviderBuilder;
 
-            let tx_with_fields = WithOtherFields::new(batch_tx);
-            let provider_with_wallet = ProviderBuilder::<_, _, TempoNetwork>::default()
-                .wallet(wallet)
-                .connect_provider(provider.as_ref());
+                let tx_with_fields = WithOtherFields::new(batch_tx);
+                let provider_with_wallet = ProviderBuilder::<_, _, TempoNetwork>::default()
+                    .wallet(wallet)
+                    .connect_provider(provider.as_ref());
 
-            let pending = provider_with_wallet.send_transaction(tx_with_fields.inner).await?;
-            *pending.tx_hash()
-        } else {
-            // Unlocked mode - send via eth_sendTransaction
-            let tx_with_fields = WithOtherFields::new(batch_tx);
-            let pending = provider.send_transaction(tx_with_fields.inner).await?;
-            *pending.tx_hash()
+                let pending = provider_with_wallet.send_transaction(tx_with_fields.inner).await?;
+                *pending.tx_hash()
+            }
+            BatchSigner::TempoKeychain(signer, access_key) => {
+                batch_tx.key_id = Some(access_key.key_address);
+
+                // Only include key_authorization if the key is not yet provisioned on-chain
+                if let Some(ref auth) = access_key.key_authorization
+                    && !is_key_provisioned(
+                        provider.as_ref(),
+                        access_key.wallet_address,
+                        access_key.key_address,
+                    )
+                    .await
+                {
+                    batch_tx.key_authorization = Some(auth.clone());
+                }
+
+                let raw_tx =
+                    sign_with_access_key(batch_tx, &signer, access_key.wallet_address).await?;
+
+                let pending = provider.send_raw_transaction(&raw_tx).await?;
+                *pending.tx_hash()
+            }
+            BatchSigner::Unlocked => {
+                let tx_with_fields = WithOtherFields::new(batch_tx);
+                let pending = provider.send_transaction(tx_with_fields.inner).await?;
+                *pending.tx_hash()
+            }
         };
 
         sh_println!("Batch transaction sent: {:#x}", tx_hash)?;

@@ -5285,8 +5285,10 @@ version = "1.6.0"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
+ "alloy-eips",
  "alloy-network",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-types",
  "alloy-signer",
@@ -5311,6 +5313,7 @@ dependencies = [
  "rpassword",
  "serde",
  "serde_json",
+ "tempo-alloy",
  "tempo-primitives",
  "thiserror 2.0.18",
  "tokio",
