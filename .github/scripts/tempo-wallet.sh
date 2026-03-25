@@ -33,6 +33,31 @@ echo "=== Wallet: $WALLET_ADDR ==="
 echo "=== RPC:    $ETH_RPC_URL ==="
 echo "=== Fee:    $FEE_TOKEN ==="
 
+# Fund the wallet address and wait for the fee token balance to be non-zero
+echo -e "\n=== FUND WALLET ==="
+for i in {1..100}; do
+  OUT=$(cast rpc tempo_fundAddress "$WALLET_ADDR" --rpc-url "$ETH_RPC_URL" 2>&1 || true)
+  if echo "$OUT" | jq -e 'arrays' >/dev/null 2>&1; then
+    echo "$OUT" | jq
+    break
+  fi
+  echo "[$i] $OUT"
+  sleep 0.2
+done
+echo "Waiting for $WALLET_ADDR to be funded..."
+for i in {1..30}; do
+  BAL=$(cast call --rpc-url "$ETH_RPC_URL" "$FEE_TOKEN" 'balanceOf(address)(uint256)' "$WALLET_ADDR" 2>/dev/null || echo "0")
+  if [[ "$BAL" != "0" && -n "$BAL" ]]; then
+    echo "Funded with $BAL fee tokens"
+    break
+  fi
+  if [[ $i -eq 30 ]]; then
+    echo "ERROR: Funding timed out for $WALLET_ADDR"
+    exit 1
+  fi
+  sleep 1
+done
+
 echo -e "\n=== CAST SEND WITH --from (keys.toml fallback) ==="
 cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' \
