@@ -83,11 +83,13 @@ cd "$tmp_dir"
 forge init -n tempo tempo-wallet-test --quiet
 cd tempo-wallet-test
 
-forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Counter.sol:Counter \
-  --from "$WALLET_ADDR" --rpc-url "$ETH_RPC_URL" --broadcast
+forge create ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} src/Mail.sol:Mail \
+  --from "$WALLET_ADDR" --rpc-url "$ETH_RPC_URL" --broadcast \
+  --constructor-args "$FEE_TOKEN"
 
 echo -e "\n=== FORGE SCRIPT WITH --sender (keys.toml fallback) ==="
-forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Counter.s.sol \
+forge script ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} script/Mail.s.sol \
+  --sig "run(string)" "$(date +%s%N)" \
   --sender "$WALLET_ADDR" --rpc-url "$ETH_RPC_URL" --broadcast
 
 echo -e "\n=== TEMPO WALLET TESTS COMPLETE ==="

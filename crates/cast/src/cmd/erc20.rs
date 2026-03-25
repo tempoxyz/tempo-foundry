@@ -412,8 +412,16 @@ impl Erc20Subcommand {
                     )
                     .await?
                 } else {
-                    let $provider =
-                        get_provider_with_wallet(&$send_tx, $send_tx.eth.rpc.curl).await?;
+                    let $provider = if signer.is_some() {
+                        // Direct-mode keys.toml: re-resolve to get an owned signer
+                        let (s, _) = $send_tx.eth.wallet.maybe_signer().await?;
+                        let config = $send_tx.eth.load_config()?;
+                        let wallet = alloy_network::EthereumWallet::new(s.expect("signer was Some"));
+                        foundry_cli::utils::get_tempo_provider_builder(&config, $send_tx.eth.rpc.curl)?
+                            .build_with_wallet(wallet)?
+                    } else {
+                        get_provider_with_wallet(&$send_tx, $send_tx.eth.rpc.curl).await?
+                    };
                     let $erc20 = IERC20::new($token.resolve(&$provider).await?, &$provider);
                     let mut tx = { $build_tx }.into_transaction_request();
                     apply_tempo_tx_opts(&mut tx, &$tx_opts, is_legacy);
@@ -589,7 +597,16 @@ impl Erc20Subcommand {
                     )
                     .await?
                 } else {
-                    let provider = get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?;
+                    let provider = if signer.is_some() {
+                        // Direct-mode keys.toml: re-resolve to get an owned signer
+                        let (s, _) = send_tx.eth.wallet.maybe_signer().await?;
+                        let config2 = send_tx.eth.load_config()?;
+                        let wallet = alloy_network::EthereumWallet::new(s.expect("signer was Some"));
+                        foundry_cli::utils::get_tempo_provider_builder(&config2, send_tx.eth.rpc.curl)?
+                            .build_with_wallet(wallet)?
+                    } else {
+                        get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?
+                    };
                     let quote_token_addr = quote_token.resolve(&provider).await?;
                     let admin_addr = admin.resolve(&provider).await?;
                     let mut tx = ITIP20Factory::new(TIP20_FACTORY_ADDRESS, &provider)
