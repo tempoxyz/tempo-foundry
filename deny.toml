@@ -9,6 +9,12 @@ ignore = [
     "RUSTSEC-2024-0436",
     # https://rustsec.org/advisories/RUSTSEC-2025-0141 bincode unmaintained. reth dep, v1.3.3 considered complete
     "RUSTSEC-2025-0141",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0044 aws-lc-sys X.509 name constraints bypass. Transitive dep via rustls.
+    "RUSTSEC-2026-0044",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0048 aws-lc-sys CRL distribution point scope check error. Transitive dep via rustls.
+    "RUSTSEC-2026-0048",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0049 rustls-webpki CRL distribution point matching logic error. Transitive dep via rustls.
+    "RUSTSEC-2026-0049",
 ]
 
 # This section is considered when running `cargo deny check bans`.
@@ -21,7 +27,7 @@ multiple-versions = "allow"
 wildcards = "allow"
 highlight = "all"
 # List of crates to deny
-deny = [{ name = "openssl" }]
+deny = []
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = []
 # Similarly to `skip` allows you to skip certain crates during duplicate
@@ -120,6 +126,8 @@ allow-git = [
     # Tempo
     "https://github.com/paradigmxyz/reth",
     "https://github.com/tempoxyz/tempo",
+    # MPP (Machine Payments Protocol)
+    "https://github.com/tempoxyz/mpp-rs",
     # Only for tests.
     "https://github.com/rust-cli/rexpect",
 ]

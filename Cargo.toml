@@ -454,6 +454,10 @@ ethereum_ssz = "0.10"
 
 # Tempo
 tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "fdd11a425d5aa4747557520d62d5c90e11d026ae" }
+mpp = { git = "https://github.com/tempoxyz/mpp-rs", default-features = false, features = [
+    "tempo",
+    "client",
+] }
 tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "fdd11a425d5aa4747557520d62d5c90e11d026ae" }
 tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "fdd11a425d5aa4747557520d62d5c90e11d026ae" }
 tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "fdd11a425d5aa4747557520d62d5c90e11d026ae", default-features = false }
