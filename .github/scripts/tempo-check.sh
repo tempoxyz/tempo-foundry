@@ -9,6 +9,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Hardfork version, defaults to T2 (latest features)
 HARDFORK="${TEMPO_HARDFORK:-T2}"
 
+# Map hardfork names to ordinals for >= comparisons
+hardfork_ord() {
+  case "$1" in
+    T0)  echo 0 ;;
+    T1)  echo 1 ;;
+    T1A) echo 2 ;;
+    T1B) echo 3 ;;
+    T1C) echo 4 ;;
+    T2)  echo 5 ;;
+    *)   echo 99 ;;
+  esac
+}
+
+# Returns 0 (true) if current $HARDFORK >= the given minimum
+hardfork_gte() {
+  [[ $(hardfork_ord "$HARDFORK") -ge $(hardfork_ord "$1") ]]
+}
+
 # Fee token address, defaults to native fee token
 FEE_TOKEN="${TEMPO_FEE_TOKEN:-0x20c0000000000000000000000000000000000000}"
 
@@ -129,8 +147,8 @@ fi
 echo -e "\n=== CAST MKTX WITH FEE TOKEN ==="
 cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK"
 
-# T1-only features: 2D nonces, expiring nonces, access keys
-if [[ "$HARDFORK" == "T1" ]]; then
+# T1+ features: 2D nonces, expiring nonces, access keys
+if hardfork_gte T1; then
   echo -e "\n=== CAST MKTX WITH NONCE-KEY (2D Nonce) ==="
   # Each nonce-key has its own nonce sequence starting at 0
   cast mktx ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$PK" --nonce 0 --tempo.nonce-key 1
@@ -194,6 +212,7 @@ else
   echo "  - SETUP ACCESS KEY"
   echo "  - CAST MKTX WITH ACCESS-KEY"
   echo "  - CAST SEND WITH ACCESS-KEY"
+  echo "(current hardfork: $HARDFORK, requires >= T1)"
 fi
 
 echo -e "\n=== SETUP SPONSOR ==="
@@ -545,7 +564,7 @@ cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 
 echo -e "\n=== ANVIL LOCAL: ERC20 TRANSFER ==="
 cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$ALICE_PK"
 
-if [[ "$HARDFORK" == "T1" ]]; then
+if hardfork_gte T1; then
   echo -e "\n=== ANVIL LOCAL: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
   cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$ALICE_PK" --nonce 0 --tempo.nonce-key 100
 
@@ -625,8 +644,8 @@ cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 
 echo -e "\n=== ANVIL FORK: ERC20 TRANSFER ==="
 cast erc20 transfer --tempo.fee-token "$FEE_TOKEN" 0x20c0000000000000000000000000000000000000 0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 123456 --rpc-url http://127.0.0.1:$ANVIL_PORT --private-key "$FORK_PK"
 
-# T1-only features on anvil fork
-if [[ "$HARDFORK" == "T1" ]]; then
+# T1+ features on anvil fork
+if hardfork_gte T1; then
   echo -e "\n=== ANVIL FORK: CAST SEND WITH NONCE-KEY (2D Nonce) ==="
   cast send --tempo.fee-token "$FEE_TOKEN" --rpc-url http://127.0.0.1:$ANVIL_PORT 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --private-key "$FORK_PK" --nonce 0 --tempo.nonce-key 100
 
