@@ -408,7 +408,12 @@ impl ExternalFetcherT for SourcifyFetcher {
 
     async fn fetch(&self, address: Address) -> Result<Option<Metadata>, EtherscanError> {
         let url = format!("{url}/{address}?fields=abi,compilation", url = self.url);
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| EtherscanError::Unknown(e.to_string()))?;
         let code = response.status();
         match code.as_u16() {
             // Not verified.
@@ -417,7 +422,8 @@ impl ExternalFetcherT for SourcifyFetcher {
             429 => return Err(EtherscanError::RateLimitExceeded),
             _ => {}
         }
-        let response: SourcifyResponse = response.json().await?;
+        let response: SourcifyResponse =
+            response.json().await.map_err(|e| EtherscanError::Unknown(e.to_string()))?;
         trace!(target: "evm::traces::external", "Sourcify response for {address}: {response:#?}");
         match response {
             SourcifyResponse::Success(metadata) => Ok(Some(metadata.into())),
