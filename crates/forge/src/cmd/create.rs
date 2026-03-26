@@ -352,15 +352,23 @@ impl CreateArgs {
             deployer.tx.set_value(value);
         }
 
-        // For keychain mode, set key_id, key_authorization, and nonce_key before gas
-        // estimation. key_id ensures the estimate includes Keychain signature overhead.
-        // key_authorization allows the node to simulate inline key provisioning for
-        // unpublished access keys. nonce_key forces the AA transaction type required for
-        // keychain signing. Also convert the CREATE input into an AA-compatible Call,
-        // since AA transactions use `calls` instead of `to`+`input`.
+        // For keychain mode, set key_id and nonce_key before gas estimation.
+        // key_id ensures the estimate includes Keychain signature overhead.
+        // nonce_key forces the AA transaction type required for keychain signing.
+        // Only include key_authorization if the key is NOT already provisioned on-chain,
+        // to avoid KeyAlreadyExists errors during gas estimation.
+        // Also convert the CREATE input into an AA-compatible Call, since AA transactions
+        // use `calls` instead of `to`+`input`.
         if let Some((_, ref access_key)) = tempo_keychain {
             deployer.tx.key_id = Some(access_key.key_address);
-            if let Some(ref auth) = access_key.key_authorization {
+            if !is_key_provisioned(
+                provider.as_ref(),
+                access_key.wallet_address,
+                access_key.key_address,
+            )
+            .await
+                && let Some(ref auth) = access_key.key_authorization
+            {
                 deployer.tx.inner.key_authorization = Some(auth.clone());
             }
             if deployer.tx.inner.nonce_key.is_none() {
@@ -454,20 +462,7 @@ impl CreateArgs {
         // Deploy the actual contract
         let (deployed_contract, receipt) = if let Some((signer, access_key)) = tempo_keychain {
             // Tempo keychain mode: sign with access key and send raw
-            let mut tx_request = deployer.tx.inner;
-
-            // Strip key_authorization if the key is already provisioned on-chain (saves gas).
-            // It was set before gas estimation to allow inline provisioning simulation.
-            if tx_request.key_authorization.is_some()
-                && is_key_provisioned(
-                    provider.as_ref(),
-                    access_key.wallet_address,
-                    access_key.key_address,
-                )
-                .await
-            {
-                tx_request.key_authorization = None;
-            }
+            let tx_request = deployer.tx.inner;
 
             let raw_tx =
                 sign_with_access_key(tx_request, &signer, access_key.wallet_address).await?;
