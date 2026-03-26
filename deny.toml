@@ -7,6 +7,12 @@ yanked = "warn"
 ignore = [
     # https://rustsec.org/advisories/RUSTSEC-2024-0436 paste! is unmaintained
     "RUSTSEC-2024-0436",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0044 aws-lc-rs: X.509 Name Constraints Bypass
+    "RUSTSEC-2026-0044",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0048 aws-lc-rs: CRL Distribution Point Scope Check Logic Error
+    "RUSTSEC-2026-0048",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0049 aws-lc-rs: CRLs not considered authoritative by Distribution Point
+    "RUSTSEC-2026-0049",
 ]
 
 # This section is considered when running `cargo deny check bans`.
