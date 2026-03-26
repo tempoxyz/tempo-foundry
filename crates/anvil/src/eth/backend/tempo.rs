@@ -235,6 +235,9 @@ pub fn initialize_tempo_precompiles(
         // The key ID is the account address itself (standard for secp256k1 keys).
         let mut keychain = AccountKeychain::new();
         for &account in test_accounts {
+            // Seed tx_origin so ensure_admin_caller passes on T2+ (requires
+            // tx_origin != zero && tx_origin == msg_sender).
+            keychain.set_tx_origin(account)?;
             keychain.authorize_key(
                 account, // msg_sender (root account authorizes its own key)
                 authorizeKeyCall {
