@@ -713,7 +713,7 @@ impl BundledState {
         enum BatchSigner {
             Unlocked,
             Wallet(EthereumWallet),
-            TempoKeychain(WalletSigner, Box<TempoAccessKeyConfig>),
+            TempoKeychain(Box<WalletSigner>, Box<TempoAccessKeyConfig>),
         }
 
         let batch_signer = if self.args.unlocked {
@@ -729,7 +729,7 @@ impl BundledState {
                         BatchSigner::Wallet(EthereumWallet::new(signer))
                     }
                     foundry_wallets::tempo::TempoLookup::Keychain(signer, config) => {
-                        BatchSigner::TempoKeychain(signer, config)
+                        BatchSigner::TempoKeychain(Box::new(signer), config)
                     }
                     foundry_wallets::tempo::TempoLookup::NotFound => {
                         bail!("No wallet found for sender {}", sender);
