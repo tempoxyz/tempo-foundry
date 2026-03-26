@@ -413,7 +413,8 @@ impl BundledState {
                         resolved.insert(*addr, signer.into());
                     }
                     Ok(foundry_wallets::tempo::TempoLookup::Keychain(signer, config)) => {
-                        resolved.insert(*addr, EitherSigner::TempoKeychain(Box::new(signer), config));
+                        resolved
+                            .insert(*addr, EitherSigner::TempoKeychain(Box::new(signer), config));
                     }
                     Ok(foundry_wallets::tempo::TempoLookup::NotFound) => {
                         missing_addresses.push(addr);
