@@ -32,7 +32,7 @@ foundry-common.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 uuid.workspace = true
-webbrowser = "1.0.6"
+webbrowser = "1.2.0"
 
 # aws-kms
 alloy-signer-aws = { workspace = true, features = ["eip712"], optional = true }
