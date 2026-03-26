@@ -1,10 +1,9 @@
 use alloy_eips::eip2718::Encodable2718;
-use alloy_primitives::{Address, hex};
+use alloy_primitives::Address;
 use alloy_provider::Provider;
-use alloy_rlp::Decodable;
 use alloy_signer::Signer;
 use eyre::{Result, eyre};
-use std::path::PathBuf;
+use foundry_common::tempo;
 use tempo_alloy::{TempoNetwork, provider::TempoProviderExt, rpc::TempoTransactionRequest};
 use tempo_primitives::transaction::{
     SignedKeyAuthorization, TempoTxEnvelope,
@@ -13,64 +12,6 @@ use tempo_primitives::transaction::{
 };
 
 use crate::{WalletSigner, utils};
-
-/// Wallet type: how this wallet was created.
-#[derive(Clone, Copy, Default, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum WalletType {
-    #[default]
-    Local,
-    Passkey,
-}
-
-/// Cryptographic key type.
-#[derive(Clone, Copy, Default, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum KeyType {
-    #[default]
-    Secp256k1,
-    P256,
-    WebAuthn,
-}
-
-/// A single entry from Tempo's `keys.toml`.
-#[derive(serde::Deserialize)]
-#[allow(dead_code)]
-struct KeyEntry {
-    #[serde(default)]
-    wallet_type: WalletType,
-    #[serde(default)]
-    wallet_address: Address,
-    #[serde(default)]
-    chain_id: u64,
-    #[serde(default)]
-    key_type: KeyType,
-    #[serde(default)]
-    key_address: Option<Address>,
-    #[serde(default)]
-    key: Option<String>,
-    #[serde(default)]
-    key_authorization: Option<String>,
-    #[serde(default)]
-    expiry: Option<u64>,
-    #[serde(default)]
-    limits: Vec<StoredTokenLimit>,
-}
-
-/// Per-token spending limit stored in `keys.toml`.
-#[derive(serde::Deserialize)]
-#[allow(dead_code)]
-struct StoredTokenLimit {
-    currency: Address,
-    limit: String,
-}
-
-/// The top-level structure of `~/.tempo/wallet/keys.toml`.
-#[derive(serde::Deserialize)]
-struct KeysFile {
-    #[serde(default)]
-    keys: Vec<KeyEntry>,
-}
 
 /// Configuration for a Tempo access key resolved from `keys.toml`.
 ///
@@ -99,36 +40,16 @@ pub enum TempoLookup {
     NotFound,
 }
 
-/// Returns the path to Tempo's keys file.
-///
-/// Respects `TEMPO_HOME` env var, defaulting to `~/.tempo`.
-fn keys_path() -> Option<PathBuf> {
-    let base = std::env::var_os("TEMPO_HOME")
-        .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|h| h.join(".tempo")))?;
-    Some(base.join("wallet").join("keys.toml"))
-}
-
-/// Decodes a hex-encoded, RLP-encoded [`SignedKeyAuthorization`].
-fn decode_key_authorization(hex_str: &str) -> Result<SignedKeyAuthorization> {
-    let bytes = hex::decode(hex_str)?;
-    let auth = SignedKeyAuthorization::decode(&mut bytes.as_slice())?;
-    Ok(auth)
-}
-
 /// Looks up a signer for the given address in Tempo's `keys.toml`.
 ///
 /// Returns [`TempoLookup::Direct`] if a direct-mode (EOA) key is found,
 /// [`TempoLookup::Keychain`] if a keychain-mode access key is found,
 /// or [`TempoLookup::NotFound`] if no entry matches.
 pub fn lookup_signer(from: Address) -> Result<TempoLookup> {
-    let path = match keys_path() {
-        Some(p) if p.is_file() => p,
-        _ => return Ok(TempoLookup::NotFound),
+    let file = match tempo::read_tempo_keys_file() {
+        Some(f) => f,
+        None => return Ok(TempoLookup::NotFound),
     };
-
-    let contents = std::fs::read_to_string(&path)?;
-    let file: KeysFile = toml::from_str(&contents)?;
 
     for entry in &file.keys {
         if entry.wallet_address != from {
@@ -150,8 +71,11 @@ pub fn lookup_signer(from: Address) -> Result<TempoLookup> {
         }
 
         // Keychain mode: the key is an access key signing on behalf of wallet_address.
-        let key_authorization =
-            entry.key_authorization.as_deref().map(decode_key_authorization).transpose()?;
+        let key_authorization = entry
+            .key_authorization
+            .as_deref()
+            .map(tempo::decode_key_authorization::<SignedKeyAuthorization>)
+            .transpose()?;
 
         let config = TempoAccessKeyConfig {
             wallet_address: entry.wallet_address,
