@@ -252,7 +252,7 @@ impl<'a> SendTransactionKind<'a> {
 pub enum EitherSigner {
     Ethereum(EthereumWallet),
     Browser(BrowserSigner),
-    TempoKeychain(WalletSigner, Box<TempoAccessKeyConfig>),
+    TempoKeychain(Box<WalletSigner>, Box<TempoAccessKeyConfig>),
 }
 
 impl From<EthereumWallet> for EitherSigner {
@@ -413,7 +413,7 @@ impl BundledState {
                         resolved.insert(*addr, signer.into());
                     }
                     Ok(foundry_wallets::tempo::TempoLookup::Keychain(signer, config)) => {
-                        resolved.insert(*addr, EitherSigner::TempoKeychain(signer, config));
+                        resolved.insert(*addr, EitherSigner::TempoKeychain(Box::new(signer), config));
                     }
                     Ok(foundry_wallets::tempo::TempoLookup::NotFound) => {
                         missing_addresses.push(addr);
