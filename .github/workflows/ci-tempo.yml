@@ -77,6 +77,15 @@ jobs:
             ./.github/scripts/tempo-deploy.sh
           fi
 
+      - name: Run Tempo wallet tests on devnet
+        if: |
+          github.event_name == 'pull_request' ||
+          github.event.inputs.network == 'devnet' ||
+          github.event.inputs.network == 'all'
+        env:
+          ETH_RPC_URL: ${{ secrets.TEMPO_DEVNET_RPC_URL }}
+        run: ./.github/scripts/tempo-wallet.sh
+
       - name: Run Tempo check on testnet
         if: |
           github.event.inputs.network == 'testnet' ||

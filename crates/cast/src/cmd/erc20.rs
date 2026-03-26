@@ -412,8 +412,20 @@ impl Erc20Subcommand {
                     )
                     .await?
                 } else {
-                    let $provider =
-                        get_provider_with_wallet(&$send_tx, $send_tx.eth.rpc.curl).await?;
+                    let $provider = if signer.is_some() {
+                        // Direct-mode keys.toml: re-resolve to get an owned signer
+                        let (s, _) = $send_tx.eth.wallet.maybe_signer().await?;
+                        let config = $send_tx.eth.load_config()?;
+                        let wallet =
+                            alloy_network::EthereumWallet::new(s.expect("signer was Some"));
+                        foundry_cli::utils::get_tempo_provider_builder(
+                            &config,
+                            $send_tx.eth.rpc.curl,
+                        )?
+                        .build_with_wallet(wallet)?
+                    } else {
+                        get_provider_with_wallet(&$send_tx, $send_tx.eth.rpc.curl).await?
+                    };
                     let $erc20 = IERC20::new($token.resolve(&$provider).await?, &$provider);
                     let mut tx = { $build_tx }.into_transaction_request();
                     apply_tempo_tx_opts(&mut tx, &$tx_opts, is_legacy);
@@ -589,7 +601,20 @@ impl Erc20Subcommand {
                     )
                     .await?
                 } else {
-                    let provider = get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?;
+                    let provider = if signer.is_some() {
+                        // Direct-mode keys.toml: re-resolve to get an owned signer
+                        let (s, _) = send_tx.eth.wallet.maybe_signer().await?;
+                        let config2 = send_tx.eth.load_config()?;
+                        let wallet =
+                            alloy_network::EthereumWallet::new(s.expect("signer was Some"));
+                        foundry_cli::utils::get_tempo_provider_builder(
+                            &config2,
+                            send_tx.eth.rpc.curl,
+                        )?
+                        .build_with_wallet(wallet)?
+                    } else {
+                        get_provider_with_wallet(&send_tx, send_tx.eth.rpc.curl).await?
+                    };
                     let quote_token_addr = quote_token.resolve(&provider).await?;
                     let admin_addr = admin.resolve(&provider).await?;
                     let mut tx = ITIP20Factory::new(TIP20_FACTORY_ADDRESS, &provider)
@@ -639,16 +664,22 @@ async fn send_tempo_keychain<P: Provider<TempoNetwork>>(
     if tx.max_priority_fee_per_gas().is_none() {
         tx.set_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas);
     }
+    // Include key_authorization before gas estimation so the node can simulate
+    // inline key provisioning for unpublished access keys.
+    if let Some(ref auth) = access_key.key_authorization {
+        tx.key_authorization = Some(auth.clone());
+    }
+
     if tx.gas_limit().is_none() {
         let gas = provider.estimate_gas(tx.clone()).await?;
         tx.set_gas_limit(gas);
     }
 
-    // Only include key_authorization if the key is not yet provisioned on-chain.
-    if let Some(ref auth) = access_key.key_authorization
-        && !is_key_provisioned(provider, access_key.wallet_address, access_key.key_address).await
+    // Strip key_authorization if the key is already provisioned on-chain (saves gas).
+    if tx.key_authorization.is_some()
+        && is_key_provisioned(provider, access_key.wallet_address, access_key.key_address).await
     {
-        tx.key_authorization = Some(auth.clone());
+        tx.key_authorization = None;
     }
 
     let raw_tx = sign_with_access_key(tx, signer, access_key.wallet_address).await?;

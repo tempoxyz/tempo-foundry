@@ -177,22 +177,27 @@ impl<'a> SendTransactionKind<'a> {
             Self::TempoKeychain(mut tx, signer, access_key) => {
                 debug!("sending tempo keychain transaction: {:?}", tx);
 
-                // Set key_id and nonce_key for AA transaction type
+                // Set key_id, key_authorization, and nonce_key for AA transaction type.
+                // key_authorization is included so gas estimation (in prepare()) can
+                // simulate inline key provisioning for unpublished access keys.
                 tx.key_id = Some(access_key.key_address);
+                if let Some(ref auth) = access_key.key_authorization {
+                    tx.key_authorization = Some(auth.clone());
+                }
                 if tx.inner.nonce_key.is_none() {
                     tx.set_nonce_key(alloy_primitives::U256::ZERO);
                 }
 
-                // Only include key_authorization if the key is not yet provisioned on-chain
-                if let Some(ref auth) = access_key.key_authorization
-                    && !is_key_provisioned(
+                // Strip key_authorization if the key is already provisioned (saves gas).
+                if tx.key_authorization.is_some()
+                    && is_key_provisioned(
                         provider.as_ref(),
                         access_key.wallet_address,
                         access_key.key_address,
                     )
                     .await
                 {
-                    tx.key_authorization = Some(auth.clone());
+                    tx.key_authorization = None;
                 }
 
                 let raw_tx =
@@ -829,16 +834,22 @@ impl BundledState {
             BatchSigner::TempoKeychain(signer, access_key) => {
                 batch_tx.key_id = Some(access_key.key_address);
 
-                // Only include key_authorization if the key is not yet provisioned on-chain
-                if let Some(ref auth) = access_key.key_authorization
-                    && !is_key_provisioned(
+                // Include key_authorization before sending so inline key provisioning
+                // works for unpublished access keys.
+                if let Some(ref auth) = access_key.key_authorization {
+                    batch_tx.key_authorization = Some(auth.clone());
+                }
+
+                // Strip key_authorization if the key is already provisioned (saves gas).
+                if batch_tx.key_authorization.is_some()
+                    && is_key_provisioned(
                         provider.as_ref(),
                         access_key.wallet_address,
                         access_key.key_address,
                     )
                     .await
                 {
-                    batch_tx.key_authorization = Some(auth.clone());
+                    batch_tx.key_authorization = None;
                 }
 
                 let raw_tx =

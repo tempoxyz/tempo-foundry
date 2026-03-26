@@ -160,25 +160,31 @@ impl SendTxArgs {
             provider.client().set_poll_interval(Duration::from_secs(interval))
         }
 
-        // Set key_id before build() so gas estimation includes Keychain signature overhead.
-        let builder = CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
-            .await?
-            .with_to(to)
-            .await?
-            .with_code_sig_and_args(code, sig, args)
-            .await?
-            .with_key_id(access_key.key_address);
+        // Set key_id and key_authorization before build() so gas estimation includes
+        // Keychain signature overhead and can simulate inline key provisioning.
+        let mut builder =
+            CastTxBuilder::<_, _, TempoTransactionRequest>::new(&provider, tx, &config)
+                .await?
+                .with_to(to)
+                .await?
+                .with_code_sig_and_args(code, sig, args)
+                .await?
+                .with_key_id(access_key.key_address);
+
+        if let Some(auth) = access_key.key_authorization {
+            builder = builder.with_key_authorization(auth);
+        }
 
         let from = access_key.wallet_address;
 
         // Build using wallet address for correct nonce/gas estimation.
         let (mut tx_request, _) = builder.build(from, fee_token).await?;
 
-        // Only include key_authorization if the key is not yet provisioned on-chain.
-        if let Some(auth) = access_key.key_authorization
-            && !is_key_provisioned(&provider, from, access_key.key_address).await
+        // Strip key_authorization if the key is already provisioned on-chain (saves gas).
+        if tx_request.inner.key_authorization.is_some()
+            && is_key_provisioned(&provider, from, access_key.key_address).await
         {
-            tx_request.inner.key_authorization = Some(auth);
+            tx_request.inner.key_authorization = None;
         }
 
         let raw_tx = sign_with_access_key(tx_request.inner, &signer, from).await?;
