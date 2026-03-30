@@ -14,17 +14,14 @@ use tempo_contracts::{
 };
 use tempo_precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_DEX_ADDRESS,
-    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS,
-    VALIDATOR_CONFIG_ADDRESS, VALIDATOR_CONFIG_V2_ADDRESS,
+    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REGISTRY_ADDRESS,
+    TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS, VALIDATOR_CONFIG_V2_ADDRESS,
     error::TempoPrecompileError,
     storage::{PrecompileStorageProvider, StorageCtx},
     tip20::{ISSUER_ROLE, ITIP20, TIP20Token},
     tip20_factory::TIP20Factory,
     validator_config,
 };
-
-/// TIP20Registry (TIP-1022 virtual address registry) precompile address.
-pub const TIP20_REGISTRY_ADDRESS: Address = address!("0xfDC0000000000000000000000000000000000000");
 
 use crate::backend::Backend;
 

@@ -11143,7 +11143,7 @@ dependencies = [
 [[package]]
 name = "tempo-alloy"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -11175,7 +11175,7 @@ dependencies = [
 [[package]]
 name = "tempo-chainspec"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-eips",
  "alloy-evm",
@@ -11194,7 +11194,7 @@ dependencies = [
 [[package]]
 name = "tempo-consensus"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -11222,7 +11222,7 @@ dependencies = [
 [[package]]
 name = "tempo-contracts"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -11233,7 +11233,7 @@ dependencies = [
 [[package]]
 name = "tempo-evm"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -11260,7 +11260,7 @@ dependencies = [
 [[package]]
 name = "tempo-precompiles"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy",
  "alloy-evm",
@@ -11279,7 +11279,7 @@ dependencies = [
 [[package]]
 name = "tempo-precompiles-macros"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy",
  "proc-macro2",
@@ -11312,7 +11312,7 @@ dependencies = [
 [[package]]
 name = "tempo-primitives"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11339,7 +11339,7 @@ dependencies = [
 [[package]]
 name = "tempo-revm"
 version = "1.5.1"
-source = "git+https://github.com/tempoxyz/tempo?rev=342aa219ebe8831979fd9cd7bd7a3a05c7646f5a#342aa219ebe8831979fd9cd7bd7a3a05c7646f5a"
+source = "git+https://github.com/tempoxyz/tempo?rev=9bae2bb216f87c3f7317c9b68218617ed887b8ab#9bae2bb216f87c3f7317c9b68218617ed887b8ab"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -11662,7 +11662,7 @@ dependencies = [
  "toml_datetime 1.1.0+spec-1.1.0",
  "toml_parser",
  "toml_writer",
- "winnow 1.0.0",
+ "winnow 1.0.1",
 ]
 
 [[package]]
@@ -11708,7 +11708,7 @@ dependencies = [
  "toml_datetime 1.1.0+spec-1.1.0",
  "toml_parser",
  "toml_writer",
- "winnow 1.0.0",
+ "winnow 1.0.1",
 ]
 
 [[package]]
@@ -11717,7 +11717,7 @@ version = "1.1.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2334f11ee363607eb04df9b8fc8a13ca1715a72ba8662a26ac285c98aabb4011"
 dependencies = [
- "winnow 1.0.0",
+ "winnow 1.0.1",
 ]
 
 [[package]]
@@ -13190,9 +13190,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a90e88e4667264a994d34e6d1ab2d26d398dcdca8b7f52bec8668957517fc7d8"
+checksum = "09dac053f1cd375980747450bfc7250c264eaae0583872e845c0c7cd578872b5"
 dependencies = [
  "memchr",
 ]

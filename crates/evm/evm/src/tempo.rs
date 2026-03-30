@@ -2,18 +2,16 @@ use alloy_primitives::{Address, Bytes, U256};
 use foundry_evm_core::{
     backend::DatabaseError,
     constants::{CALLER, TEST_CONTRACT_ADDRESS},
-    tempo::{
-        FoundryStorageProvider, TEMPO_TIP20_TOKENS, TIP20_REGISTRY_ADDRESS,
-        initialize_tempo_genesis,
-    },
+    tempo::{FoundryStorageProvider, TEMPO_TIP20_TOKENS, initialize_tempo_genesis},
 };
 use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_networks::NetworkConfigs;
 use revm::state::{AccountInfo, Bytecode};
 use tempo_precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, STABLECOIN_DEX_ADDRESS,
-    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP403_REGISTRY_ADDRESS,
-    VALIDATOR_CONFIG_ADDRESS, VALIDATOR_CONFIG_V2_ADDRESS, error::TempoPrecompileError,
+    TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS, TIP20_REGISTRY_ADDRESS,
+    TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS, VALIDATOR_CONFIG_V2_ADDRESS,
+    error::TempoPrecompileError,
 };
 
 use crate::executors::Executor;
