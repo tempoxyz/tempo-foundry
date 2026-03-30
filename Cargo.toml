@@ -294,13 +294,13 @@ op-alloy-rpc-types = "0.23.1"
 op-alloy-flz = "0.13.1"
 
 ## alloy-evm
-alloy-evm = "0.27.0"
-alloy-op-evm = "0.27.0"
+alloy-evm = "0.29.2"
+alloy-op-evm = "0.27.0"  # not used by forge
 
 # revm
-revm = { version = "34.0.0", default-features = false }
-revm-inspectors = { version = "0.34.0", features = ["serde"] }
-op-revm = { version = "15.0.0", default-features = false }
+revm = { version = "36.0.0", default-features = false }
+revm-inspectors = { version = "0.36.1", features = ["serde"] }
+op-revm = { version = "17.0.0", default-features = false }
 
 ## cli
 anstream = "0.6"
