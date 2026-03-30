@@ -474,7 +474,7 @@ op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
 revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "ecc5bc7" }
 
 ## foundry
-foundry-fork-db = { git = "https://github.com/rakita/foundry-fork-db", branch = "staging-revm" }
+foundry-fork-db = { git = "https://github.com/rakita/foundry-fork-db", branch = "main" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
 
@@ -484,18 +484,3 @@ solar-interface = { package = "solar-interface", git = "https://github.com/parad
 solar-ast = { package = "solar-ast", git = "https://github.com/paradigmxyz/solar.git", rev = "1f28069" }
 solar-sema = { package = "solar-sema", git = "https://github.com/paradigmxyz/solar.git", rev = "1f28069" }
 
-# Override git deps from foundry-fork-db (staging-revm) to use matching revm rev
-[patch."https://github.com/bluealloy/revm.git"]
-revm = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-bytecode = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-context = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-context-interface = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-database = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-database-interface = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-handler = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-inspector = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-interpreter = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-precompile = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
