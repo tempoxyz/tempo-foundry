@@ -23,6 +23,9 @@ use tempo_precompiles::{
     validator_config,
 };
 
+/// TIP20Registry (TIP-1022 virtual address registry) precompile address.
+pub const TIP20_REGISTRY_ADDRESS: Address = address!("0xfDC0000000000000000000000000000000000000");
+
 use crate::backend::Backend;
 
 /// PathUSD token address.
@@ -227,6 +230,7 @@ pub fn initialize_tempo_genesis(
             VALIDATOR_CONFIG_ADDRESS,
             VALIDATOR_CONFIG_V2_ADDRESS,
             ACCOUNT_KEYCHAIN_ADDRESS,
+            TIP20_REGISTRY_ADDRESS,
         ] {
             ctx.set_code(precompile, sentinel.clone())?;
         }
