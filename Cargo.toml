@@ -474,7 +474,7 @@ op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
 revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "ecc5bc7" }
 
 ## foundry
-# foundry-fork-db: use crates.io version, patched revm via [patch.crates-io]
+foundry-fork-db = { git = "https://github.com/decofe/foundry-fork-db", branch = "tip1016-revm-deps" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
 
