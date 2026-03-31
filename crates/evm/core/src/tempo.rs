@@ -26,8 +26,7 @@ use tempo_precompiles::{
 use crate::backend::Backend;
 
 /// TIP-1022 virtual address registry precompile address.
-pub const ADDRESS_REGISTRY_ADDRESS: Address =
-    address!("FDC0000000000000000000000000000000000000");
+pub const ADDRESS_REGISTRY_ADDRESS: Address = address!("FDC0000000000000000000000000000000000000");
 /// PathUSD token address.
 pub const PATH_USD_ADDRESS: Address = address!("20C0000000000000000000000000000000000000");
 /// AlphaUSD token address.
