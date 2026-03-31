@@ -335,12 +335,32 @@ impl SessionProvider {
     }
 }
 
+impl SessionProvider {
+    /// Handle a charge intent by building and signing a TIP-20 transfer transaction.
+    async fn pay_charge(
+        &self,
+        challenge: &PaymentChallenge,
+    ) -> Result<PaymentCredential, MppError> {
+        use mpp::client::tempo::charge::{SignOptions, TempoCharge};
+
+        let charge = TempoCharge::from_challenge(challenge)?;
+        let options =
+            SignOptions { signing_mode: Some(self.signing_mode.clone()), ..Default::default() };
+        let signed = charge.sign_with_options(&self.signer, options).await?;
+        Ok(signed.into_credential())
+    }
+}
+
 impl PaymentProvider for SessionProvider {
     fn supports(&self, method: &str, intent: &str) -> bool {
-        method == "tempo" && intent == "session"
+        method == "tempo" && (intent == "session" || intent == "charge")
     }
 
     async fn pay(&self, challenge: &PaymentChallenge) -> Result<PaymentCredential, MppError> {
+        if challenge.intent.as_str() == "charge" {
+            return self.pay_charge(challenge).await;
+        }
+
         let chain_id = resolve_chain_id(challenge);
         let escrow_contract = resolve_escrow(challenge, chain_id, None)?;
 

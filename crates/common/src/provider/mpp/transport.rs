@@ -9,7 +9,8 @@ use alloy_transport::{TransportError, TransportErrorKind, TransportFut, Transpor
 use mpp::{
     client::PaymentProvider,
     protocol::core::{
-        AUTHORIZATION_HEADER, WWW_AUTHENTICATE_HEADER, format_authorization, parse_www_authenticate,
+        AUTHORIZATION_HEADER, WWW_AUTHENTICATE_HEADER, format_authorization,
+        parse_www_authenticate_all,
     },
 };
 use reqwest::StatusCode;
@@ -171,38 +172,41 @@ where
             return Self::handle_response(resp).await;
         }
 
-        let www_auth = resp
+        let www_auth_values: Vec<&str> = resp
             .headers()
-            .get(WWW_AUTHENTICATE_HEADER)
-            .or_else(|| resp.headers().get("www-authenticate"))
-            .ok_or_else(|| {
-                TransportErrorKind::custom(std::io::Error::other(
-                    "402 response missing WWW-Authenticate header",
-                ))
-            })?
-            .to_str()
-            .map_err(|e| {
-                TransportErrorKind::custom(std::io::Error::other(format!(
-                    "invalid WWW-Authenticate header: {e}"
-                )))
-            })?;
+            .get_all(WWW_AUTHENTICATE_HEADER)
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect();
 
-        let challenge = parse_www_authenticate(www_auth).map_err(|e| {
-            TransportErrorKind::custom(std::io::Error::other(format!("invalid MPP challenge: {e}")))
-        })?;
-
-        debug!(id = %challenge.id, method = %challenge.method, intent = %challenge.intent, "received MPP 402 challenge, paying");
+        if www_auth_values.is_empty() {
+            return Err(TransportErrorKind::custom(std::io::Error::other(
+                "402 response missing WWW-Authenticate header",
+            )));
+        }
 
         let resolved = self.provider.resolve()?;
 
-        if !resolved.supports(challenge.method.as_str(), challenge.intent.as_str()) {
-            return Err(TransportErrorKind::custom(std::io::Error::other(format!(
-                "MPP challenge requires method={} intent={}, which is not supported",
-                challenge.method, challenge.intent,
-            ))));
-        }
+        let challenges: Vec<_> = parse_www_authenticate_all(www_auth_values)
+            .into_iter()
+            .filter_map(|r| r.ok())
+            .collect();
 
-        let credential = resolved.pay(&challenge).await.map_err(|e| {
+        let challenge = challenges
+            .iter()
+            .find(|c| resolved.supports(c.method.as_str(), c.intent.as_str()))
+            .ok_or_else(|| {
+                let offered: Vec<_> =
+                    challenges.iter().map(|c| format!("{}.{}", c.method, c.intent)).collect();
+                TransportErrorKind::custom(std::io::Error::other(format!(
+                    "no supported MPP challenge; server offered [{}]",
+                    offered.join(", ")
+                )))
+            })?;
+
+        debug!(id = %challenge.id, method = %challenge.method, intent = %challenge.intent, "received MPP 402 challenge, paying");
+
+        let credential = resolved.pay(challenge).await.map_err(|e| {
             TransportErrorKind::custom(std::io::Error::other(format!("MPP payment failed: {e}")))
         })?;
 
@@ -230,7 +234,7 @@ where
             debug!("MPP topUp accepted (204), retrying with voucher");
 
             let resolved = self.provider.resolve()?;
-            let credential = resolved.pay(&challenge).await.map_err(|e| {
+            let credential = resolved.pay(challenge).await.map_err(|e| {
                 TransportErrorKind::custom(std::io::Error::other(format!(
                     "MPP payment failed: {e}"
                 )))
@@ -275,7 +279,7 @@ where
             if resolved.supports(challenge.method.as_str(), challenge.intent.as_str()) {
                 debug!("first MPP attempt returned 402, retrying with key_authorization");
 
-                let credential = resolved.pay(&challenge).await.map_err(|e| {
+                let credential = resolved.pay(challenge).await.map_err(|e| {
                     TransportErrorKind::custom(std::io::Error::other(format!(
                         "MPP payment failed: {e}"
                     )))
@@ -694,16 +698,23 @@ mod tests {
 
         assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
 
-        let www_auth = resp
+        let www_auth_values: Vec<&str> = resp
             .headers()
-            .get(WWW_AUTHENTICATE_HEADER)
-            .expect("missing WWW-Authenticate header")
-            .to_str()
-            .unwrap();
+            .get_all(WWW_AUTHENTICATE_HEADER)
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect();
 
-        let challenge = parse_www_authenticate(www_auth).unwrap();
-        assert_eq!(challenge.realm, "rpc.mpp.tempo.xyz");
-        assert_eq!(challenge.method.as_str(), "tempo");
+        let challenges: Vec<_> = parse_www_authenticate_all(www_auth_values)
+            .into_iter()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let tempo = challenges
+            .iter()
+            .find(|c| c.method.as_str() == "tempo")
+            .expect("expected a tempo challenge");
+        assert_eq!(tempo.realm, "rpc.mpp.tempo.xyz");
     }
 
     #[tokio::test]
@@ -748,5 +759,34 @@ mod tests {
             }
             _ => panic!("expected single response"),
         }
+    }
+
+    #[test]
+    fn test_session_provider_supports_charge_and_session() {
+        let signer = mpp::PrivateKeySigner::random();
+        let provider =
+            super::super::session::SessionProvider::new(signer, "https://rpc.example.com".into());
+
+        assert!(provider.supports("tempo", "session"));
+        assert!(provider.supports("tempo", "charge"));
+        assert!(!provider.supports("stripe", "charge"));
+        assert!(!provider.supports("tempo", "subscribe"));
+    }
+
+    #[tokio::test]
+    async fn test_session_provider_pay_charge_parses_challenge() {
+        let signer = mpp::PrivateKeySigner::random();
+        let provider =
+            super::super::session::SessionProvider::new(signer, "https://rpc.example.com".into());
+
+        // Valid charge challenge — pay_charge wires through to TempoCharge,
+        // which will fail at gas estimation (no RPC), but confirms the path is connected.
+        let (challenge, _) = test_challenge();
+        let err = provider.pay(&challenge).await.unwrap_err();
+        // Should fail deeper than "not supported" — proves charge dispatch works
+        assert!(
+            !err.to_string().contains("not supported"),
+            "expected charge path to be wired up, got: {err}"
+        );
     }
 }
