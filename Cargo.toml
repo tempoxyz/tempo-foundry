@@ -451,7 +451,7 @@ ethereum_ssz = "0.10"
 
 # Tempo
 tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "943c4314234bb6b3b9eff02a1c8a41414660b1fa" }
-mpp = { git = "https://github.com/tempoxyz/mpp-rs", branch = "fix/multi-challenge-www-authenticate", default-features = false, features = [
+mpp = { git = "https://github.com/tempoxyz/mpp-rs", default-features = false, features = [
   "tempo",
   "client",
   "reqwest-rustls-tls",
