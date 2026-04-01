@@ -8,7 +8,7 @@ use foundry_evm_hardforks::FoundryHardfork;
 use foundry_evm_networks::NetworkConfigs;
 use revm::state::{AccountInfo, Bytecode};
 use tempo_precompiles::{
-    ACCOUNT_KEYCHAIN_ADDRESS, ADDRESS_REGISTRY_ADDRESS, NONCE_PRECOMPILE_ADDRESS,
+    ACCOUNT_KEYCHAIN_ADDRESS, NONCE_PRECOMPILE_ADDRESS, SIGNATURE_VERIFIER_ADDRESS,
     STABLECOIN_DEX_ADDRESS, TIP_FEE_MANAGER_ADDRESS, TIP20_FACTORY_ADDRESS,
     TIP403_REGISTRY_ADDRESS, VALIDATOR_CONFIG_ADDRESS, VALIDATOR_CONFIG_V2_ADDRESS,
     error::TempoPrecompileError,
@@ -77,7 +77,7 @@ pub fn warm_tempo_precompile_accounts(executor: &mut Executor) -> Result<(), Dat
         VALIDATOR_CONFIG_ADDRESS,
         VALIDATOR_CONFIG_V2_ADDRESS,
         ACCOUNT_KEYCHAIN_ADDRESS,
-        ADDRESS_REGISTRY_ADDRESS,
+        SIGNATURE_VERIFIER_ADDRESS,
     ];
 
     for addr in precompile_addresses.iter().chain(TEMPO_TIP20_TOKENS.iter()) {
