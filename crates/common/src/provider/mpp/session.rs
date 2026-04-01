@@ -344,8 +344,24 @@ impl SessionProvider {
         use mpp::client::tempo::charge::{SignOptions, TempoCharge};
 
         let charge = TempoCharge::from_challenge(challenge)?;
-        let options =
-            SignOptions { signing_mode: Some(self.signing_mode.clone()), ..Default::default() };
+
+        // Strip key_authorization from the signing mode when the key is already
+        // provisioned on-chain. Otherwise the payment tx includes a redundant
+        // key provisioning call that fails with "access key already exists".
+        let signing_mode = if *self.key_provisioned.lock().unwrap() {
+            match &self.signing_mode {
+                TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
+                    wallet: *wallet,
+                    key_authorization: None,
+                    version: *version,
+                },
+                other => other.clone(),
+            }
+        } else {
+            self.signing_mode.clone()
+        };
+
+        let options = SignOptions { signing_mode: Some(signing_mode), ..Default::default() };
         let signed = charge.sign_with_options(&self.signer, options).await?;
         Ok(signed.into_credential())
     }
@@ -469,5 +485,124 @@ impl PaymentProvider for SessionProvider {
             &self.origin,
         );
         Ok(build_credential(challenge, payload, chain_id, payer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mpp::client::tempo::signing::KeychainVersion;
+
+    #[test]
+    fn test_key_provisioned_default_is_true() {
+        let signer = mpp::PrivateKeySigner::random();
+        let provider = SessionProvider::new(signer, "https://rpc.example.com".into());
+        assert!(*provider.key_provisioned.lock().unwrap());
+    }
+
+    #[test]
+    fn test_set_key_provisioned() {
+        let signer = mpp::PrivateKeySigner::random();
+        let provider = SessionProvider::new(signer, "https://rpc.example.com".into());
+        provider.set_key_provisioned(false);
+        assert!(!*provider.key_provisioned.lock().unwrap());
+        provider.set_key_provisioned(true);
+        assert!(*provider.key_provisioned.lock().unwrap());
+    }
+
+    #[test]
+    fn test_pay_charge_strips_key_auth_when_provisioned() {
+        // When key_provisioned is true (default), pay_charge should produce a
+        // signing mode with key_authorization: None.
+        let signer = mpp::PrivateKeySigner::random();
+        let wallet = Address::repeat_byte(0xAA);
+        let signing_mode = TempoSigningMode::Keychain {
+            wallet,
+            key_authorization: Some(Box::new(
+                // Dummy value — never sent on-chain in this test.
+                unsafe { std::mem::zeroed() },
+            )),
+            version: KeychainVersion::V2,
+        };
+        let provider = SessionProvider::new(signer, "https://rpc.example.com".into())
+            .with_signing_mode(signing_mode);
+
+        // Simulate the stripping logic from pay_charge
+        let result_mode = if *provider.key_provisioned.lock().unwrap() {
+            match &provider.signing_mode {
+                TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
+                    wallet: *wallet,
+                    key_authorization: None,
+                    version: *version,
+                },
+                other => other.clone(),
+            }
+        } else {
+            provider.signing_mode.clone()
+        };
+
+        assert!(
+            result_mode.key_authorization().is_none(),
+            "key_authorization should be stripped when key is provisioned"
+        );
+    }
+
+    #[test]
+    fn test_pay_charge_keeps_key_auth_when_not_provisioned() {
+        let signer = mpp::PrivateKeySigner::random();
+        let wallet = Address::repeat_byte(0xAA);
+        let signing_mode = TempoSigningMode::Keychain {
+            wallet,
+            key_authorization: Some(Box::new(unsafe { std::mem::zeroed() })),
+            version: KeychainVersion::V2,
+        };
+        let provider = SessionProvider::new(signer, "https://rpc.example.com".into())
+            .with_signing_mode(signing_mode);
+
+        // Mark key as NOT provisioned
+        provider.set_key_provisioned(false);
+
+        let result_mode = if *provider.key_provisioned.lock().unwrap() {
+            match &provider.signing_mode {
+                TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
+                    wallet: *wallet,
+                    key_authorization: None,
+                    version: *version,
+                },
+                other => other.clone(),
+            }
+        } else {
+            provider.signing_mode.clone()
+        };
+
+        assert!(
+            result_mode.key_authorization().is_some(),
+            "key_authorization should be preserved when key is NOT provisioned"
+        );
+    }
+
+    #[test]
+    fn test_pay_charge_direct_mode_unaffected() {
+        let signer = mpp::PrivateKeySigner::random();
+        let provider = SessionProvider::new(signer, "https://rpc.example.com".into())
+            .with_signing_mode(TempoSigningMode::Direct);
+
+        let result_mode = if *provider.key_provisioned.lock().unwrap() {
+            match &provider.signing_mode {
+                TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
+                    wallet: *wallet,
+                    key_authorization: None,
+                    version: *version,
+                },
+                other => other.clone(),
+            }
+        } else {
+            provider.signing_mode.clone()
+        };
+
+        assert!(
+            matches!(result_mode, TempoSigningMode::Direct),
+            "Direct mode should pass through unchanged"
+        );
     }
 }

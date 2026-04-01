@@ -284,38 +284,55 @@ where
             )));
         }
 
-        // Retry 402 → try with key_authorization
+        // Retry 402 → only retry with key_authorization if the error indicates
+        // the access key is not provisioned on-chain. Unconditionally retrying
+        // caused "access key already exists" when the 402 was for a different
+        // reason (e.g. wrong currency, insufficient balance).
         if retry_resp.status() == StatusCode::PAYMENT_REQUIRED {
-            self.provider.mark_key_not_provisioned();
-            let resolved = self.provider.resolve()?;
+            let retry_body = retry_resp.bytes().await.map_err(TransportErrorKind::custom)?;
+            let retry_text = String::from_utf8_lossy(&retry_body);
 
-            if resolved.supports(challenge.method.as_str(), challenge.intent.as_str()) {
-                debug!("first MPP attempt returned 402, retrying with key_authorization");
+            if retry_text.contains("access key does not exist")
+                || retry_text.contains("key is not provisioned")
+            {
+                self.provider.mark_key_not_provisioned();
+                let resolved = self.provider.resolve()?;
 
-                let credential = resolved.pay(challenge).await.map_err(|e| {
-                    TransportErrorKind::custom(std::io::Error::other(format!(
-                        "MPP payment failed: {e}"
-                    )))
-                })?;
-                let auth_header = format_authorization(&credential).map_err(|e| {
-                    TransportErrorKind::custom(std::io::Error::other(format!(
-                        "failed to format MPP credential: {e}"
-                    )))
-                })?;
+                if resolved.supports(challenge.method.as_str(), challenge.intent.as_str()) {
+                    debug!(
+                        "MPP 402 indicates key not provisioned, retrying with key_authorization"
+                    );
 
-                let final_resp = self
-                    .client
-                    .post(self.url.clone())
-                    .headers(headers)
-                    .header("content-type", "application/json")
-                    .header(AUTHORIZATION_HEADER, auth_header)
-                    .body(body)
-                    .send()
-                    .await
-                    .map_err(TransportErrorKind::custom)?;
+                    let credential = resolved.pay(challenge).await.map_err(|e| {
+                        TransportErrorKind::custom(std::io::Error::other(format!(
+                            "MPP payment failed: {e}"
+                        )))
+                    })?;
+                    let auth_header = format_authorization(&credential).map_err(|e| {
+                        TransportErrorKind::custom(std::io::Error::other(format!(
+                            "failed to format MPP credential: {e}"
+                        )))
+                    })?;
 
-                return Self::handle_response(final_resp).await;
+                    let final_resp = self
+                        .client
+                        .post(self.url.clone())
+                        .headers(headers)
+                        .header("content-type", "application/json")
+                        .header(AUTHORIZATION_HEADER, auth_header)
+                        .body(body)
+                        .send()
+                        .await
+                        .map_err(TransportErrorKind::custom)?;
+
+                    return Self::handle_response(final_resp).await;
+                }
             }
+
+            return Err(TransportErrorKind::http_error(
+                StatusCode::PAYMENT_REQUIRED.as_u16(),
+                retry_text.into_owned(),
+            ));
         }
 
         Self::handle_response(retry_resp).await
