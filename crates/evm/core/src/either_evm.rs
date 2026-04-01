@@ -1,5 +1,5 @@
 use alloy_evm::{Database, EthEvm, Evm, EvmEnv, eth::EthEvmContext, precompiles::PrecompilesMap};
-use alloy_op_evm::OpEvm;
+use alloy_op_evm::{OpEvm, OpTxError};
 use alloy_primitives::{Address, Bytes};
 use op_revm::{OpContext, OpHaltReason, OpSpecId, OpTransactionError};
 use revm::{
@@ -62,7 +62,7 @@ where
     fn map_eth_result(
         &self,
         result: Result<ExecResultAndState<ExecutionResult>, EVMError<DB::Error>>,
-    ) -> EitherEvmResult<DB::Error, OpHaltReason, OpTransactionError> {
+    ) -> EitherEvmResult<DB::Error, OpHaltReason, OpTxError> {
         match result {
             Ok(result) => Ok(ResultAndState {
                 result: result.result.map_haltreason(OpHaltReason::Base),
@@ -76,7 +76,7 @@ where
     fn map_exec_result(
         &self,
         result: Result<ExecutionResult, EVMError<DB::Error>>,
-    ) -> EitherExecResult<DB::Error, OpHaltReason, OpTransactionError> {
+    ) -> EitherExecResult<DB::Error, OpHaltReason, OpTxError> {
         match result {
             Ok(result) => {
                 // Map the halt reason
@@ -86,11 +86,11 @@ where
         }
     }
 
-    /// Maps [`EVMError<DBError>`] to [`EVMError<DBError, OpTransactionError>`].
-    fn map_eth_err(&self, err: EVMError<DB::Error>) -> EVMError<DB::Error, OpTransactionError> {
+    /// Maps [`EVMError<DBError>`] to [`EVMError<DBError, OpTxError>`].
+    fn map_eth_err(&self, err: EVMError<DB::Error>) -> EVMError<DB::Error, OpTxError> {
         match err {
             EVMError::Transaction(invalid_tx) => {
-                EVMError::Transaction(OpTransactionError::Base(invalid_tx))
+                EVMError::Transaction(OpTxError(OpTransactionError::Base(invalid_tx)))
             }
             EVMError::Database(e) => EVMError::Database(e),
             EVMError::Header(e) => EVMError::Header(e),
@@ -105,7 +105,7 @@ where
             ResultAndState<TempoHaltReason>,
             EVMError<DB::Error, TempoInvalidTransaction>,
         >,
-    ) -> EitherEvmResult<DB::Error, OpHaltReason, OpTransactionError> {
+    ) -> EitherEvmResult<DB::Error, OpHaltReason, OpTxError> {
         match result {
             Ok(result) => Ok(ResultAndState {
                 result: result.result.map_haltreason(map_tempo_halt_to_op),
@@ -122,7 +122,7 @@ where
             ExecutionResult<TempoHaltReason>,
             EVMError<DB::Error, TempoInvalidTransaction>,
         >,
-    ) -> EitherExecResult<DB::Error, OpHaltReason, OpTransactionError> {
+    ) -> EitherExecResult<DB::Error, OpHaltReason, OpTxError> {
         match result {
             Ok(result) => Ok(result.map_haltreason(map_tempo_halt_to_op)),
             Err(e) => Err(map_tempo_err_to_op(e)),
@@ -146,11 +146,11 @@ fn map_tempo_halt_to_op(halt: TempoHaltReason) -> OpHaltReason {
 /// OpTransactionError>`].
 fn map_tempo_err_to_op<DBError>(
     err: EVMError<DBError, TempoInvalidTransaction>,
-) -> EVMError<DBError, OpTransactionError> {
+) -> EVMError<DBError, OpTxError> {
     match err {
         EVMError::Transaction(tempo_err) => match tempo_err {
             TempoInvalidTransaction::EthInvalidTransaction(eth_err) => {
-                EVMError::Transaction(OpTransactionError::Base(eth_err))
+                EVMError::Transaction(OpTxError(OpTransactionError::Base(eth_err)))
             }
             other => EVMError::Custom(other.to_string()),
         },
@@ -169,7 +169,7 @@ where
         + From<PrecompilesMap>,
 {
     type DB = DB;
-    type Error = EVMError<DB::Error, OpTransactionError>;
+    type Error = EVMError<DB::Error, OpTxError>;
     type HaltReason = OpHaltReason;
     type Tx = EitherTx;
     type Inspector = I;
@@ -362,7 +362,7 @@ where
         let tx_env = tx.into_tx_env();
         match self {
             Self::Eth(evm) => {
-                let eth = evm.transact(tx_env.base.base);
+                let eth = evm.transact(tx_env.base.0.base);
                 self.map_eth_result(eth)
             }
             Self::Op(evm) => evm.transact(tx_env.base),
@@ -370,7 +370,7 @@ where
                 use revm::ExecuteEvm;
                 // Use tempo_tx if present (Tempo AA transactions), otherwise convert from base
                 let tempo_tx =
-                    tx_env.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx_env.base.base));
+                    tx_env.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx_env.base.0.base));
                 let result = evm.transact(tempo_tx);
                 self.map_tempo_result(result)
             }
@@ -387,7 +387,7 @@ where
         let tx_env = tx.into_tx_env();
         match self {
             Self::Eth(evm) => {
-                let eth = evm.transact_commit(tx_env.base.base);
+                let eth = evm.transact_commit(tx_env.base.0.base);
                 self.map_exec_result(eth)
             }
             Self::Op(evm) => evm.transact_commit(tx_env.base),
@@ -395,7 +395,7 @@ where
                 use revm::ExecuteCommitEvm;
                 // Use tempo_tx if present (Tempo AA transactions), otherwise convert from base
                 let tempo_tx =
-                    tx_env.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx_env.base.base));
+                    tx_env.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx_env.base.0.base));
                 tracing::warn!(target: "backend", has_tempo_tx_env = tempo_tx.tempo_tx_env.is_some(), "transact_commit tempo tx");
                 let result = evm.transact_commit(tempo_tx);
                 self.map_tempo_exec_result(result)
@@ -409,14 +409,14 @@ where
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         match self {
             Self::Eth(evm) => {
-                let res = evm.transact_raw(tx.base.base);
+                let res = evm.transact_raw(tx.base.0.base);
                 self.map_eth_result(res)
             }
             Self::Op(evm) => evm.transact_raw(tx.base),
             Self::Tempo(evm) => {
                 use revm::ExecuteEvm;
                 // Use tempo_tx if present (Tempo AA transactions), otherwise convert from base
-                let tempo_tx = tx.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx.base.base));
+                let tempo_tx = tx.tempo_tx.unwrap_or_else(|| TempoTxEnv::from(tx.base.0.base));
                 let result = evm.transact(tempo_tx);
                 self.map_tempo_result(result)
             }

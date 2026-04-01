@@ -4,9 +4,9 @@
 //! with existing Foundry/OP-stack infrastructure.
 
 use alloy_evm::{FromRecoveredTx, IntoTxEnv};
+use alloy_op_evm::OpTx;
 use alloy_primitives::{Address, Bytes};
 use op_revm::{OpTransaction, transaction::deposit::DepositTransactionParts};
-use revm::context::TxEnv;
 use std::ops::{Deref, DerefMut};
 use tempo_revm::TempoTxEnv;
 
@@ -19,7 +19,7 @@ use crate::FoundryTxEnvelope;
 #[derive(Clone, Debug, Default)]
 pub struct EitherTx {
     /// Base OP transaction (used for Eth and Op EVM variants).
-    pub base: OpTransaction<TxEnv>,
+    pub base: OpTx,
     /// Tempo transaction environment (used for Tempo EVM variant).
     /// When present, the Tempo EVM uses this directly instead of converting from `base`.
     pub tempo_tx: Option<TempoTxEnv>,
@@ -31,7 +31,7 @@ impl IntoTxEnv<Self> for EitherTx {
     }
 }
 
-impl IntoTxEnv<EitherTx> for OpTransaction<TxEnv> {
+impl IntoTxEnv<EitherTx> for OpTx {
     fn into_tx_env(self) -> EitherTx {
         EitherTx { base: self, tempo_tx: None }
     }
@@ -105,11 +105,11 @@ impl DerefMut for FoundryTempoTxEnv {
 impl IntoTxEnv<EitherTx> for FoundryTempoTxEnv {
     fn into_tx_env(self) -> EitherTx {
         EitherTx {
-            base: OpTransaction {
+            base: OpTx(OpTransaction {
                 base: self.inner.inner.clone(),
                 enveloped_tx: self.enveloped_tx,
                 deposit: self.deposit,
-            },
+            }),
             // Preserve the full TempoTxEnv for Tempo EVM
             tempo_tx: Some(self.inner),
         }
@@ -131,11 +131,11 @@ impl FromRecoveredTx<FoundryTxEnvelope> for FoundryTempoTxEnv {
             },
             // For all other transaction types, convert through OpTransaction<TxEnv>
             _ => {
-                let op_tx: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(tx, caller);
+                let op_tx: OpTx = FromRecoveredTx::from_recovered_tx(tx, caller);
                 Self {
-                    inner: TempoTxEnv { inner: op_tx.base, ..Default::default() },
-                    enveloped_tx: op_tx.enveloped_tx,
-                    deposit: op_tx.deposit,
+                    inner: TempoTxEnv { inner: op_tx.0.base, ..Default::default() },
+                    enveloped_tx: op_tx.0.enveloped_tx,
+                    deposit: op_tx.0.deposit,
                 }
             }
         }

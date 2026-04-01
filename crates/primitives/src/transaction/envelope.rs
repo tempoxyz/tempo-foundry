@@ -9,12 +9,12 @@ use alloy_consensus::{
 };
 use alloy_evm::FromRecoveredTx;
 use alloy_network::{AnyRpcTransaction, AnyTxEnvelope};
+use alloy_op_evm::OpTx;
 use alloy_primitives::{Address, B256};
 use alloy_rlp::Encodable;
 use alloy_rpc_types::ConversionError;
 use alloy_serde::WithOtherFields;
 use op_alloy_consensus::{DEPOSIT_TX_TYPE_ID, OpTransaction as OpTransactionTrait, TxDeposit};
-use op_revm::OpTransaction;
 use revm::context::TxEnv;
 use tempo_primitives::{AASigned, TempoTransaction};
 
@@ -196,14 +196,14 @@ impl FromRecoveredTx<FoundryTxEnvelope> for TxEnv {
             FoundryTxEnvelope::Eip4844(signed_tx) => Self::from_recovered_tx(signed_tx, caller),
             FoundryTxEnvelope::Eip7702(signed_tx) => Self::from_recovered_tx(signed_tx, caller),
             FoundryTxEnvelope::Deposit(sealed_tx) => {
-                Self::from_recovered_tx(sealed_tx.inner(), caller)
+                OpTx::from_recovered_tx(sealed_tx.inner(), caller).0.base
             }
             FoundryTxEnvelope::Tempo(_) => panic!("unsupported tx type on ethereum"),
         }
     }
 }
 
-impl FromRecoveredTx<FoundryTxEnvelope> for OpTransaction<TxEnv> {
+impl FromRecoveredTx<FoundryTxEnvelope> for OpTx {
     fn from_recovered_tx(tx: &FoundryTxEnvelope, caller: Address) -> Self {
         match tx {
             FoundryTxEnvelope::Legacy(signed_tx) => Self::from_recovered_tx(signed_tx, caller),
@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(tx_env.gas_price, 1);
 
         // Test OpTransaction<TxEnv> conversion via FromRecoveredTx trait
-        let op_tx = OpTransaction::<TxEnv>::from_recovered_tx(&typed_tx, sender);
+        let op_tx = OpTx::from_recovered_tx(&typed_tx, sender);
         assert_eq!(op_tx.base.caller, sender);
         assert_eq!(op_tx.base.gas_limit, 0x5208);
     }

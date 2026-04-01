@@ -23,7 +23,7 @@ use alloy_evm::{
     eth::EthEvmContext,
     precompiles::{DynPrecompile, Precompile, PrecompilesMap},
 };
-use alloy_op_evm::OpEvmFactory;
+use alloy_op_evm::{OpEvmFactory, OpTxError};
 use alloy_primitives::{B256, Bloom, BloomInput, Log};
 use anvil_core::eth::{
     block::{BlockInfo, create_block},
@@ -402,7 +402,7 @@ impl<DB: Db + ?Sized, V: TransactionValidator> Iterator for &mut TransactionExec
                                 err,
                             ));
                         }
-                        EVMError::Transaction(err) => {
+                        EVMError::Transaction(OpTxError(err)) => {
                             return Some(TransactionExecutionOutcome::Invalid(
                                 transaction,
                                 err.into(),

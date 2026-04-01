@@ -3,6 +3,7 @@
 use crate::eth::pool::transactions::PoolTransaction;
 use alloy_consensus::crypto::RecoveryError;
 use alloy_evm::overrides::StateOverrideError;
+use alloy_op_evm::OpTxError;
 use alloy_primitives::{B256, Bytes, SignatureError, U256};
 use alloy_rpc_types::BlockNumberOrTag;
 use alloy_signer::Error as SignerError;
@@ -160,13 +161,13 @@ where
     }
 }
 
-impl<T> From<EVMError<T, OpTransactionError>> for BlockchainError
+impl<T> From<EVMError<T, OpTxError>> for BlockchainError
 where
     T: Into<Self>,
 {
-    fn from(err: EVMError<T, OpTransactionError>) -> Self {
+    fn from(err: EVMError<T, OpTxError>) -> Self {
         match err {
-            EVMError::Transaction(err) => match err {
+            EVMError::Transaction(OpTxError(err)) => match err {
                 OpTransactionError::Base(err) => InvalidTransactionError::from(err).into(),
                 OpTransactionError::DepositSystemTxPostRegolith => {
                     Self::DepositTransactionUnsupported

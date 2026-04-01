@@ -56,6 +56,7 @@ use alloy_network::{
     AnyHeader, AnyRpcBlock, AnyRpcHeader, AnyRpcTransaction, AnyTxEnvelope, AnyTxType,
     ReceiptResponse, TransactionBuilder, UnknownTxEnvelope, UnknownTypedTransaction,
 };
+use alloy_op_evm::OpTx;
 use alloy_primitives::{
     Address, B256, Bytes, TxHash, TxKind, U64, U256, address, hex, keccak256, logs_bloom,
     map::{AddressMap, HashMap, HashSet},
@@ -107,7 +108,7 @@ use foundry_primitives::{
 };
 use futures::channel::mpsc::{UnboundedSender, unbounded};
 use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
-use op_revm::{OpContext, OpHaltReason, OpTransaction};
+use op_revm::{OpContext, OpHaltReason};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
     DatabaseCommit, Inspector,
@@ -2870,7 +2871,7 @@ impl Backend {
 
             let target_tx = block.body.transactions[index].clone();
             let target_tx = PendingTransaction::from_maybe_impersonated(target_tx)?;
-            let mut tx_env: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(
+            let mut tx_env: OpTx = FromRecoveredTx::from_recovered_tx(
                 target_tx.transaction.as_ref(),
                 *target_tx.sender(),
             );
@@ -2884,7 +2885,7 @@ impl Backend {
                 .transact(tx_env.clone())
                 .map_err(|err| BlockchainError::Message(err.to_string()))?;
 
-            Ok(f(result, cache_db, inspector, tx_env.base, env))
+            Ok(f(result, cache_db, inspector, tx_env.0.base, env))
         };
 
         let read_guard = self.states.upgradable_read();
@@ -3179,7 +3180,7 @@ impl Backend {
             // Prepare transaction environment
             let pending_tx =
                 PendingTransaction::from_maybe_impersonated(tx_envelope.clone()).ok()?;
-            let mut tx_env: OpTransaction<TxEnv> = FromRecoveredTx::from_recovered_tx(
+            let mut tx_env: OpTx = FromRecoveredTx::from_recovered_tx(
                 pending_tx.transaction.as_ref(),
                 *pending_tx.sender(),
             );

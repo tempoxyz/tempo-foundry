@@ -346,13 +346,13 @@ alloy-rlp = "0.3"
 alloy-trie = "0.9"
 
 ## op-alloy
-op-alloy-consensus = "0.24.0"
-op-alloy-rpc-types = "0.24.0"
+op-alloy-consensus = "0.23.0"
+op-alloy-rpc-types = "0.23.0"
 op-alloy-flz = "0.13.1"
 
 ## alloy-evm
-alloy-evm = "0.29"
-alloy-op-evm = "0.28"
+alloy-evm = "0.30"
+alloy-op-evm = "0.30"
 
 # revm
 revm = { version = "36.0.0", default-features = false }
@@ -450,18 +450,18 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b" }
 mpp = { git = "https://github.com/tempoxyz/mpp-rs", default-features = false, features = [
   "tempo",
   "client",
   "reqwest-rustls-tls",
 ] }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a", default-features = false }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a", default-features = false }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a", default-features = false }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "ac8075725b25bce310444a4ed800d64194f9557a" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b", default-features = false }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b", default-features = false }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b", default-features = false }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "99a748b" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
