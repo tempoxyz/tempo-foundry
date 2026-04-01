@@ -3025,7 +3025,7 @@ contract ContractTest {
 ...
 Failing tests:
 Encountered 1 failing test in test/Foo.t.sol:ContractTest
-[FAIL: EVM error; transaction validation error: insufficient gas for intrinsic cost: gas_limit 100 < intrinsic_gas [..]] setUp() ([GAS])
+[FAIL: EVM error; transaction validation error: call [..] exceeds the [..]] setUp() ([GAS])
 
 Encountered a total of 1 failing tests, 0 tests succeeded
 
