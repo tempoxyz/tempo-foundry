@@ -403,57 +403,76 @@ impl PaymentProvider for SessionProvider {
         let key = Self::channel_key(&payee, &currency, &escrow_contract);
 
         // Check for existing open channel → sign a voucher
-        let existing = self.channels.lock().unwrap().get(&key).cloned();
-        if let Some(mut entry) = existing
-            && entry.opened
-        {
-            let deposit = self
-                .persisted
-                .lock()
-                .unwrap()
-                .get(&key)
-                .and_then(|p| p.deposit.parse::<u128>().ok())
-                .unwrap_or(u128::MAX);
+        //
+        // The cumulative_amount must be incremented atomically under the lock
+        // to prevent concurrent requests from reading the same value and
+        // producing duplicate vouchers (the server rejects vouchers whose
+        // cumulativeAmount is not strictly greater than the last accepted one).
+        let voucher_info = {
+            let mut channels = self.channels.lock().unwrap();
+            if let Some(entry) = channels.get_mut(&key)
+                && entry.opened
+            {
+                let deposit = self
+                    .persisted
+                    .lock()
+                    .unwrap()
+                    .get(&key)
+                    .and_then(|p| p.deposit.parse::<u128>().ok())
+                    .unwrap_or(u128::MAX);
 
-            if entry.cumulative_amount + amount > deposit {
-                let additional = self.resolve_deposit(session_req.suggested_deposit.as_deref())?;
-                debug!(
-                    cumulative = entry.cumulative_amount,
-                    amount, deposit, additional, "channel deposit exhausted, topping up"
-                );
+                if entry.cumulative_amount + amount > deposit {
+                    Some(Err((entry.clone(), deposit)))
+                } else {
+                    entry.cumulative_amount += amount;
+                    Some(Ok(entry.clone()))
+                }
+            } else {
+                None
+            }
+        };
 
-                let payload = self
-                    .create_topup_tx(&entry, additional, currency, session_req.fee_payer())
+        if let Some(result) = voucher_info {
+            match result {
+                Err((entry, deposit)) => {
+                    let additional =
+                        self.resolve_deposit(session_req.suggested_deposit.as_deref())?;
+                    debug!(
+                        cumulative = entry.cumulative_amount,
+                        amount, deposit, additional, "channel deposit exhausted, topping up"
+                    );
+
+                    let payload = self
+                        .create_topup_tx(&entry, additional, currency, session_req.fee_payer())
+                        .await?;
+
+                    if let Some(p) = self.persisted.lock().unwrap().get_mut(&key) {
+                        let old_deposit: u128 = p.deposit.parse().unwrap_or(0);
+                        p.deposit = (old_deposit + additional).to_string();
+                    }
+                    persist::save_channels(&self.persisted.lock().unwrap());
+
+                    return Ok(build_credential(challenge, payload, chain_id, payer));
+                }
+                Ok(entry) => {
+                    let payload = create_voucher_payload(
+                        &self.signer,
+                        entry.channel_id,
+                        entry.cumulative_amount,
+                        escrow_contract,
+                        chain_id,
+                    )
                     .await?;
 
-                if let Some(p) = self.persisted.lock().unwrap().get_mut(&key) {
-                    let old_deposit: u128 = p.deposit.parse().unwrap_or(0);
-                    p.deposit = (old_deposit + additional).to_string();
+                    persist::upsert_channel(
+                        &mut self.persisted.lock().unwrap(),
+                        &key,
+                        &entry,
+                        0,
+                        &self.origin,
+                    );
+                    return Ok(build_credential(challenge, payload, chain_id, payer));
                 }
-                persist::save_channels(&self.persisted.lock().unwrap());
-
-                return Ok(build_credential(challenge, payload, chain_id, payer));
-            } else {
-                entry.cumulative_amount += amount;
-
-                let payload = create_voucher_payload(
-                    &self.signer,
-                    entry.channel_id,
-                    entry.cumulative_amount,
-                    escrow_contract,
-                    chain_id,
-                )
-                .await?;
-
-                self.channels.lock().unwrap().insert(key.clone(), entry.clone());
-                persist::upsert_channel(
-                    &mut self.persisted.lock().unwrap(),
-                    &key,
-                    &entry,
-                    0,
-                    &self.origin,
-                );
-                return Ok(build_credential(challenge, payload, chain_id, payer));
             }
         }
 
