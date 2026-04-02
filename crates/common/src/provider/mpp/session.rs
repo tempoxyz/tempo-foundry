@@ -26,10 +26,22 @@ use mpp::{
 };
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use super::persist::{self, PersistedChannel};
+
+/// Shared per-origin channel state: (channels, persisted).
+type SharedChannelState = (
+    Arc<Mutex<HashMap<String, ChannelEntry>>>,
+    Arc<Mutex<HashMap<String, PersistedChannel>>>,
+);
+
+/// Process-wide channel state registry, keyed by origin URL.
+///
+/// Ensures all [`SessionProvider`] instances for the same origin share a single
+/// in-memory channel map, preventing stale `cumulative_amount` reads from disk.
+static GLOBAL_CHANNELS: OnceLock<Mutex<HashMap<String, SharedChannelState>>> = OnceLock::new();
 
 /// Expiring nonce key (U256::MAX) — matches the charge flow.
 const EXPIRING_NONCE_KEY: U256 = U256::MAX;
@@ -82,15 +94,6 @@ impl SessionProvider {
     /// same URL) from reading stale `cumulative_amount` values from disk and
     /// producing duplicate vouchers.
     pub fn new(signer: mpp::PrivateKeySigner, origin: String) -> Self {
-        use std::sync::OnceLock;
-
-        type SharedState = (
-            Arc<Mutex<HashMap<String, ChannelEntry>>>,
-            Arc<Mutex<HashMap<String, PersistedChannel>>>,
-        );
-
-        static GLOBAL_CHANNELS: OnceLock<Mutex<HashMap<String, SharedState>>> = OnceLock::new();
-
         let global = GLOBAL_CHANNELS.get_or_init(|| Mutex::new(HashMap::new()));
         let (channels, persisted) = {
             let mut map = global.lock().unwrap();
