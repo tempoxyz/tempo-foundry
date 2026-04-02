@@ -32,10 +32,8 @@ use std::{
 use super::persist::{self, PersistedChannel};
 
 /// Shared per-origin channel state: (channels, persisted).
-type SharedChannelState = (
-    Arc<Mutex<HashMap<String, ChannelEntry>>>,
-    Arc<Mutex<HashMap<String, PersistedChannel>>>,
-);
+type SharedChannelState =
+    (Arc<Mutex<HashMap<String, ChannelEntry>>>, Arc<Mutex<HashMap<String, PersistedChannel>>>);
 
 /// Process-wide channel state registry, keyed by origin URL.
 ///
