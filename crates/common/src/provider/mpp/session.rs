@@ -528,18 +528,8 @@ mod tests {
             .with_signing_mode(signing_mode);
 
         // Simulate the stripping logic from pay_charge
-        let result_mode = if *provider.key_provisioned.lock().unwrap() {
-            match &provider.signing_mode {
-                TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
-                    wallet: *wallet,
-                    key_authorization: None,
-                    version: *version,
-                },
-                other => other.clone(),
-            }
-        } else {
-            provider.signing_mode.clone()
-        };
+        let provisioned = *provider.key_provisioned.lock().unwrap();
+        let result_mode = strip_key_auth_if_provisioned(&provider.signing_mode, provisioned);
 
         assert!(
             result_mode.key_authorization().is_none(),
@@ -562,18 +552,8 @@ mod tests {
         // Mark key as NOT provisioned
         provider.set_key_provisioned(false);
 
-        let result_mode = if *provider.key_provisioned.lock().unwrap() {
-            match &provider.signing_mode {
-                TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
-                    wallet: *wallet,
-                    key_authorization: None,
-                    version: *version,
-                },
-                other => other.clone(),
-            }
-        } else {
-            provider.signing_mode.clone()
-        };
+        let provisioned = *provider.key_provisioned.lock().unwrap();
+        let result_mode = strip_key_auth_if_provisioned(&provider.signing_mode, provisioned);
 
         assert!(
             result_mode.key_authorization().is_some(),
@@ -587,8 +567,21 @@ mod tests {
         let provider = SessionProvider::new(signer, "https://rpc.example.com".into())
             .with_signing_mode(TempoSigningMode::Direct);
 
-        let result_mode = if *provider.key_provisioned.lock().unwrap() {
-            match &provider.signing_mode {
+        let provisioned = *provider.key_provisioned.lock().unwrap();
+        let result_mode = strip_key_auth_if_provisioned(&provider.signing_mode, provisioned);
+
+        assert!(
+            matches!(result_mode, TempoSigningMode::Direct),
+            "Direct mode should pass through unchanged"
+        );
+    }
+
+    fn strip_key_auth_if_provisioned(
+        mode: &TempoSigningMode,
+        provisioned: bool,
+    ) -> TempoSigningMode {
+        if provisioned {
+            match mode {
                 TempoSigningMode::Keychain { wallet, version, .. } => TempoSigningMode::Keychain {
                     wallet: *wallet,
                     key_authorization: None,
@@ -597,12 +590,7 @@ mod tests {
                 other => other.clone(),
             }
         } else {
-            provider.signing_mode.clone()
-        };
-
-        assert!(
-            matches!(result_mode, TempoSigningMode::Direct),
-            "Direct mode should pass through unchanged"
-        );
+            mode.clone()
+        }
     }
 }
