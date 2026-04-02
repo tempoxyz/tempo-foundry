@@ -46,9 +46,9 @@ impl LazySessionProvider {
         Self { inner: std::sync::Arc::new(Mutex::new(None)), origin }
     }
 
-    fn mark_key_not_provisioned(&self) {
+    fn set_key_provisioned(&self, provisioned: bool) {
         if let Some(p) = self.inner.lock().unwrap().as_ref() {
-            p.set_key_provisioned(false);
+            p.set_key_provisioned(provisioned);
         }
     }
 
@@ -269,6 +269,7 @@ where
                 .await
                 .map_err(TransportErrorKind::custom)?;
 
+            self.provider.set_key_provisioned(true);
             return Self::handle_response(voucher_resp).await;
         }
 
@@ -291,11 +292,13 @@ where
         if retry_resp.status() == StatusCode::PAYMENT_REQUIRED {
             let retry_body = retry_resp.bytes().await.map_err(TransportErrorKind::custom)?;
             let retry_text = String::from_utf8_lossy(&retry_body);
+            // Retry with key_authorization when the error explicitly indicates
+            // the access key is not provisioned on-chain.
+            let needs_key_provisioning = retry_text.contains("access key does not exist")
+                || retry_text.contains("key is not provisioned");
 
-            if retry_text.contains("access key does not exist")
-                || retry_text.contains("key is not provisioned")
-            {
-                self.provider.mark_key_not_provisioned();
+            if needs_key_provisioning {
+                self.provider.set_key_provisioned(false);
                 let resolved = self.provider.resolve()?;
 
                 if resolved.supports(challenge.method.as_str(), challenge.intent.as_str()) {
@@ -325,6 +328,7 @@ where
                         .await
                         .map_err(TransportErrorKind::custom)?;
 
+                    self.provider.set_key_provisioned(true);
                     return Self::handle_response(final_resp).await;
                 }
             }
@@ -335,6 +339,7 @@ where
             ));
         }
 
+        self.provider.set_key_provisioned(true);
         Self::handle_response(retry_resp).await
     }
 
@@ -369,7 +374,7 @@ pub(crate) trait ResolveProvider {
         self.resolve_for_chain(None)
     }
     fn resolve_for_chain(&self, _chain_id: Option<u64>) -> TransportResult<Self::Provider>;
-    fn mark_key_not_provisioned(&self) {}
+    fn set_key_provisioned(&self, _provisioned: bool) {}
     fn clear_channels(&self) {}
 }
 
@@ -385,8 +390,8 @@ impl ResolveProvider for LazySessionProvider {
     fn resolve_for_chain(&self, chain_id: Option<u64>) -> TransportResult<SessionProvider> {
         self.get_or_init(chain_id)
     }
-    fn mark_key_not_provisioned(&self) {
-        Self::mark_key_not_provisioned(self)
+    fn set_key_provisioned(&self, provisioned: bool) {
+        Self::set_key_provisioned(self, provisioned)
     }
     fn clear_channels(&self) {
         Self::clear_channels(self)
