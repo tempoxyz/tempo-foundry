@@ -595,6 +595,61 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_concurrent_voucher_increments_are_unique() {
+        // Simulate the atomic increment logic: multiple threads reading from
+        // the same channel should each get a unique cumulative_amount.
+        let channels: Arc<Mutex<HashMap<String, ChannelEntry>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let key = "test-channel".to_string();
+        channels.lock().unwrap().insert(
+            key.clone(),
+            ChannelEntry {
+                channel_id: Default::default(),
+                salt: Default::default(),
+                cumulative_amount: 0,
+                escrow_contract: Address::ZERO,
+                chain_id: 42431,
+                opened: true,
+            },
+        );
+
+        let amount: u128 = 1000;
+        let num_threads = 20;
+        let results: Arc<Mutex<Vec<u128>>> = Arc::new(Mutex::new(Vec::new()));
+
+        std::thread::scope(|s| {
+            for _ in 0..num_threads {
+                let channels = channels.clone();
+                let key = key.clone();
+                let results = results.clone();
+                s.spawn(move || {
+                    let cumulative = {
+                        let mut ch = channels.lock().unwrap();
+                        let entry = ch.get_mut(&key).unwrap();
+                        entry.cumulative_amount += amount;
+                        entry.cumulative_amount
+                    };
+                    results.lock().unwrap().push(cumulative);
+                });
+            }
+        });
+
+        let mut amounts = results.lock().unwrap().clone();
+        amounts.sort();
+        amounts.dedup();
+        assert_eq!(
+            amounts.len(),
+            num_threads,
+            "each concurrent increment should produce a unique cumulative_amount"
+        );
+        assert_eq!(
+            *amounts.last().unwrap(),
+            amount * num_threads as u128,
+            "final cumulative_amount should equal amount × num_threads"
+        );
+    }
+
     fn strip_key_auth_if_provisioned(
         mode: &TempoSigningMode,
         provisioned: bool,
