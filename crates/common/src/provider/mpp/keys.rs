@@ -38,6 +38,15 @@ pub fn discover_mpp_key() -> Option<String> {
 /// Returns the private key along with optional wallet/key addresses needed for
 /// keychain signing mode. Never fails — discovery errors are silently ignored.
 pub fn discover_mpp_config() -> Option<MppKeyConfig> {
+    discover_mpp_config_for_chain(None)
+}
+
+/// Like [`discover_mpp_config`] but filters keys by `chain_id` when provided.
+///
+/// When `chain_id` is `Some`, only keys.toml entries whose `chain_id` matches
+/// are considered. This allows correct key selection when multiple keys
+/// (e.g. mainnet + testnet) are present.
+pub fn discover_mpp_config_for_chain(chain_id: Option<u64>) -> Option<MppKeyConfig> {
     // 1. Check TEMPO_PRIVATE_KEY env var (no keychain metadata available)
     if let Ok(key) = std::env::var(TEMPO_PRIVATE_KEY_ENV) {
         let key = key.trim().to_string();
@@ -59,12 +68,16 @@ pub fn discover_mpp_config() -> Option<MppKeyConfig> {
     // `Keystore::primary_key()` in tempo-common:
     //   passkey > first entry with inline key > first entry
     // Only entries with a usable inline key can provide a signing key.
-    let primary = keys_file
-        .keys
+    // When a chain_id filter is provided, only consider matching entries.
+    let candidates: Vec<_> =
+        keys_file.keys.iter().filter(|k| chain_id.is_none_or(|cid| k.chain_id == cid)).collect();
+
+    let primary = candidates
         .iter()
         .find(|k| k.wallet_type == WalletType::Passkey)
-        .or_else(|| keys_file.keys.iter().find(|k| k.has_inline_key()))
-        .or(keys_file.keys.first());
+        .or_else(|| candidates.iter().find(|k| k.has_inline_key()))
+        .or(candidates.first())
+        .copied();
 
     if let Some(entry) = primary
         && let Some(key) = &entry.key
@@ -309,6 +322,76 @@ key = "0xthe_key"
             .or_else(|| keys_file.keys.iter().find(|k| k.has_inline_key()))
             .or(keys_file.keys.first());
         assert_eq!(primary.unwrap().key.as_deref(), Some("0xthe_key"));
+    }
+
+    #[test]
+    fn discover_filters_by_chain_id() {
+        let mainnet_key = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let testnet_key = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        let toml_content = format!(
+            r#"
+[[keys]]
+wallet_type = "passkey"
+wallet_address = "0x0000000000000000000000000000000000000001"
+key = "{mainnet_key}"
+chain_id = 4217
+
+[[keys]]
+wallet_type = "passkey"
+wallet_address = "0x0000000000000000000000000000000000000002"
+key = "{testnet_key}"
+chain_id = 42431
+"#
+        );
+        let (dir, _) = setup_keys_toml(&toml_content);
+        unsafe {
+            std::env::set_var("TEMPO_HOME", dir.path());
+            std::env::remove_var("TEMPO_PRIVATE_KEY");
+        }
+
+        // Filter by testnet chain_id → returns testnet key (even though mainnet is first)
+        let config = discover_mpp_config_for_chain(Some(42431));
+        assert_eq!(config.as_ref().unwrap().key, testnet_key);
+
+        // Filter by mainnet chain_id → returns mainnet key
+        let config = discover_mpp_config_for_chain(Some(4217));
+        assert_eq!(config.as_ref().unwrap().key, mainnet_key);
+
+        // No filter → returns first key (mainnet)
+        let config = discover_mpp_config_for_chain(None);
+        assert_eq!(config.as_ref().unwrap().key, mainnet_key);
+
+        // Filter by unknown chain_id → None
+        let config = discover_mpp_config_for_chain(Some(9999));
+        assert!(config.is_none());
+
+        // Passkey priority within filtered set
+        let toml_mixed = format!(
+            r#"
+[[keys]]
+wallet_type = "local"
+wallet_address = "0x0000000000000000000000000000000000000001"
+key = "{mainnet_key}"
+chain_id = 4217
+
+[[keys]]
+wallet_type = "passkey"
+wallet_address = "0x0000000000000000000000000000000000000002"
+key = "{testnet_key}"
+chain_id = 4217
+"#
+        );
+        let (dir2, _) = setup_keys_toml(&toml_mixed);
+        unsafe { std::env::set_var("TEMPO_HOME", dir2.path()) };
+
+        let config = discover_mpp_config_for_chain(Some(4217));
+        assert_eq!(
+            config.as_ref().unwrap().key,
+            testnet_key,
+            "passkey should win over local within the same chain_id"
+        );
+
+        unsafe { std::env::remove_var("TEMPO_HOME") };
     }
 
     #[test]
