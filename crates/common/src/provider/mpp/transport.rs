@@ -285,15 +285,49 @@ where
             )));
         }
 
-        // Retry 402 → only retry with key_authorization if the error indicates
-        // the access key is not provisioned on-chain. Unconditionally retrying
-        // caused "access key already exists" when the 402 was for a different
-        // reason (e.g. wrong currency, insufficient balance).
+        // Retry 402 → handle specific recoverable errors before giving up.
         if retry_resp.status() == StatusCode::PAYMENT_REQUIRED {
             let retry_body = retry_resp.bytes().await.map_err(TransportErrorKind::custom)?;
             let retry_text = String::from_utf8_lossy(&retry_body);
+
+            // Stale voucher: another provider instance (or a previous process)
+            // already used a higher cumulative_amount. Re-pay with a fresh
+            // voucher whose amount will be strictly greater.
+            let is_stale_voucher = retry_text.contains("cumulativeAmount must be strictly greater");
+            if is_stale_voucher {
+                debug!("MPP voucher stale, retrying with fresh voucher");
+                let resolved = self.provider.resolve()?;
+                if resolved.supports(challenge.method.as_str(), challenge.intent.as_str()) {
+                    let credential = resolved.pay(challenge).await.map_err(|e| {
+                        TransportErrorKind::custom(std::io::Error::other(format!(
+                            "MPP payment failed: {e}"
+                        )))
+                    })?;
+                    let auth_header = format_authorization(&credential).map_err(|e| {
+                        TransportErrorKind::custom(std::io::Error::other(format!(
+                            "failed to format MPP credential: {e}"
+                        )))
+                    })?;
+
+                    let final_resp = self
+                        .client
+                        .post(self.url.clone())
+                        .headers(headers.clone())
+                        .header("content-type", "application/json")
+                        .header(AUTHORIZATION_HEADER, auth_header)
+                        .body(body.clone())
+                        .send()
+                        .await
+                        .map_err(TransportErrorKind::custom)?;
+
+                    return Self::handle_response(final_resp).await;
+                }
+            }
+
             // Retry with key_authorization when the error explicitly indicates
-            // the access key is not provisioned on-chain.
+            // the access key is not provisioned on-chain. Unconditionally
+            // retrying caused "access key already exists" when the 402 was for
+            // a different reason (e.g. wrong currency, insufficient balance).
             let needs_key_provisioning = retry_text.contains("access key does not exist")
                 || retry_text.contains("key is not provisioned");
 

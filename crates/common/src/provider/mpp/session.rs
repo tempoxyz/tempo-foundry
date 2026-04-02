@@ -75,24 +75,50 @@ impl std::fmt::Debug for SessionProvider {
 
 impl SessionProvider {
     /// Create a new session provider with the given signer and RPC origin URL.
+    ///
+    /// Channel state is shared process-wide: all `SessionProvider` instances
+    /// share the same in-memory channels and persisted state. This prevents
+    /// concurrent providers (e.g. multiple `forge script` providers for the
+    /// same URL) from reading stale `cumulative_amount` values from disk and
+    /// producing duplicate vouchers.
     pub fn new(signer: mpp::PrivateKeySigner, origin: String) -> Self {
-        let persisted = persist::load_channels();
+        use std::sync::OnceLock;
 
-        let mut channels = HashMap::new();
-        for (key, ch) in &persisted {
-            if let Some(entry) = ch.to_channel_entry() {
-                channels.insert(key.clone(), entry);
-            }
-        }
+        type SharedState = (
+            Arc<Mutex<HashMap<String, ChannelEntry>>>,
+            Arc<Mutex<HashMap<String, PersistedChannel>>>,
+        );
+
+        static GLOBAL_CHANNELS: OnceLock<Mutex<HashMap<String, SharedState>>> = OnceLock::new();
+
+        let global = GLOBAL_CHANNELS.get_or_init(|| Mutex::new(HashMap::new()));
+        let (channels, persisted) = {
+            let mut map = global.lock().unwrap();
+            map.entry(origin.clone())
+                .or_insert_with(|| {
+                    let persisted = persist::load_channels();
+                    let mut channels = HashMap::new();
+                    for (key, ch) in &persisted {
+                        if let Some(entry) = ch.to_channel_entry() {
+                            channels.insert(key.clone(), entry);
+                        }
+                    }
+                    (
+                        Arc::new(Mutex::new(channels)),
+                        Arc::new(Mutex::new(persisted)),
+                    )
+                })
+                .clone()
+        };
 
         Self {
             signer,
             signing_mode: TempoSigningMode::Direct,
             authorized_signer: None,
             default_deposit: None,
-            channels: Arc::new(Mutex::new(channels)),
+            channels,
             key_provisioned: Arc::new(Mutex::new(true)),
-            persisted: Arc::new(Mutex::new(persisted)),
+            persisted,
             origin,
         }
     }
