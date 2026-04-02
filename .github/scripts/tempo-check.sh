@@ -165,7 +165,7 @@ printf "Access key address: %s\n" "$ACCESS_KEY_ADDR"
 # Authorize the access key on-chain first (required for gas estimation)
 # Account Keychain precompile: 0xAAAAAAAA00000000000000000000000000000000
 # SignatureType: 0 = Secp256k1, Expiry: 1893456000 (year 2030), enforceLimits: false, limits: []
-if [[ "$HARDFORK" == "T1" || "$HARDFORK" == "T2" ]]; then
+if [[ "$HARDFORK" == "T2" ]]; then
   # Legacy: authorizeKey with flat params (pre-T3)
   cast send --rpc-url "$ETH_RPC_URL" 0xAAAAAAAA00000000000000000000000000000000 \
     'authorizeKey(address,uint8,uint64,bool,(address,uint256)[])' \
