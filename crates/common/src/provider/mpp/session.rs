@@ -103,10 +103,7 @@ impl SessionProvider {
                             channels.insert(key.clone(), entry);
                         }
                     }
-                    (
-                        Arc::new(Mutex::new(channels)),
-                        Arc::new(Mutex::new(persisted)),
-                    )
+                    (Arc::new(Mutex::new(channels)), Arc::new(Mutex::new(persisted)))
                 })
                 .clone()
         };
