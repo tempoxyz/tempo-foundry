@@ -9,6 +9,15 @@ use crate::tempo::{TEMPO_PRIVATE_KEY_ENV, WalletType, read_tempo_keys_file};
 use alloy_primitives::Address;
 use tracing::debug;
 
+/// Options for MPP key discovery filtering.
+#[derive(Debug, Default)]
+pub struct DiscoverOptions {
+    /// Only consider keys matching this chain ID.
+    pub chain_id: Option<u64>,
+    /// Only consider keys whose spending limits include this currency.
+    pub currency: Option<Address>,
+}
+
 /// Discovered MPP key configuration.
 ///
 /// Contains the private key and optional keychain metadata for signing mode
@@ -23,6 +32,8 @@ pub struct MppKeyConfig {
     pub key_address: Option<Address>,
     /// RLP-encoded signed key authorization (hex string).
     pub key_authorization: Option<String>,
+    /// Currencies from the key's spending limits.
+    pub currencies: Vec<Address>,
 }
 
 /// Attempt to auto-discover an MPP signing key from the Tempo wallet.
@@ -30,23 +41,16 @@ pub struct MppKeyConfig {
 /// Returns `Some(hex_key)` if a key is found, `None` otherwise.
 /// Never fails — discovery errors are silently ignored (logged at debug level).
 pub fn discover_mpp_key() -> Option<String> {
-    discover_mpp_config().map(|c| c.key)
+    discover_mpp_config(Default::default()).map(|c| c.key)
 }
 
-/// Attempt to auto-discover MPP key configuration from the Tempo wallet.
+/// Discover MPP key configuration filtered by chain ID and/or currency.
 ///
-/// Returns the private key along with optional wallet/key addresses needed for
-/// keychain signing mode. Never fails — discovery errors are silently ignored.
-pub fn discover_mpp_config() -> Option<MppKeyConfig> {
-    discover_mpp_config_for_chain(None)
-}
-
-/// Like [`discover_mpp_config`] but filters keys by `chain_id` when provided.
-///
-/// When `chain_id` is `Some`, only keys.toml entries whose `chain_id` matches
-/// are considered. This allows correct key selection when multiple keys
-/// (e.g. mainnet + testnet) are present.
-pub fn discover_mpp_config_for_chain(chain_id: Option<u64>) -> Option<MppKeyConfig> {
+/// Filters keys.toml entries by `chain_id` and `currency` simultaneously,
+/// then applies the standard priority rule (passkey > inline key > first)
+/// within the filtered set. This ensures the selected key matches both the
+/// target chain and the required currency.
+pub fn discover_mpp_config(opts: DiscoverOptions) -> Option<MppKeyConfig> {
     // 1. Check TEMPO_PRIVATE_KEY env var (no keychain metadata available)
     if let Ok(key) = std::env::var(TEMPO_PRIVATE_KEY_ENV) {
         let key = key.trim().to_string();
@@ -57,6 +61,7 @@ pub fn discover_mpp_config_for_chain(chain_id: Option<u64>) -> Option<MppKeyConf
                 wallet_address: None,
                 key_address: None,
                 key_authorization: None,
+                currencies: vec![],
             });
         }
     }
@@ -68,9 +73,16 @@ pub fn discover_mpp_config_for_chain(chain_id: Option<u64>) -> Option<MppKeyConf
     // `Keystore::primary_key()` in tempo-common:
     //   passkey > first entry with inline key > first entry
     // Only entries with a usable inline key can provide a signing key.
-    // When a chain_id filter is provided, only consider matching entries.
-    let candidates: Vec<_> =
-        keys_file.keys.iter().filter(|k| chain_id.is_none_or(|cid| k.chain_id == cid)).collect();
+    // Filter by chain_id and currency when provided.
+    let candidates: Vec<_> = keys_file
+        .keys
+        .iter()
+        .filter(|k| opts.chain_id.is_none_or(|cid| k.chain_id == cid))
+        .filter(|k| {
+            opts.currency
+                .is_none_or(|cur| k.limits.is_empty() || k.limits.iter().any(|l| l.currency == cur))
+        })
+        .collect();
 
     let primary = candidates
         .iter()
@@ -90,6 +102,7 @@ pub fn discover_mpp_config_for_chain(chain_id: Option<u64>) -> Option<MppKeyConf
                 wallet_address: Some(entry.wallet_address),
                 key_address: entry.key_address,
                 key_authorization: entry.key_authorization.clone(),
+                currencies: entry.limits.iter().map(|l| l.currency).collect(),
             });
         }
     }
@@ -350,19 +363,22 @@ chain_id = 42431
         }
 
         // Filter by testnet chain_id → returns testnet key (even though mainnet is first)
-        let config = discover_mpp_config_for_chain(Some(42431));
+        let config =
+            discover_mpp_config(DiscoverOptions { chain_id: Some(42431), ..Default::default() });
         assert_eq!(config.as_ref().unwrap().key, testnet_key);
 
         // Filter by mainnet chain_id → returns mainnet key
-        let config = discover_mpp_config_for_chain(Some(4217));
+        let config =
+            discover_mpp_config(DiscoverOptions { chain_id: Some(4217), ..Default::default() });
         assert_eq!(config.as_ref().unwrap().key, mainnet_key);
 
         // No filter → returns first key (mainnet)
-        let config = discover_mpp_config_for_chain(None);
+        let config = discover_mpp_config(Default::default());
         assert_eq!(config.as_ref().unwrap().key, mainnet_key);
 
         // Filter by unknown chain_id → None
-        let config = discover_mpp_config_for_chain(Some(9999));
+        let config =
+            discover_mpp_config(DiscoverOptions { chain_id: Some(9999), ..Default::default() });
         assert!(config.is_none());
 
         // Passkey priority within filtered set
@@ -384,7 +400,8 @@ chain_id = 4217
         let (dir2, _) = setup_keys_toml(&toml_mixed);
         unsafe { std::env::set_var("TEMPO_HOME", dir2.path()) };
 
-        let config = discover_mpp_config_for_chain(Some(4217));
+        let config =
+            discover_mpp_config(DiscoverOptions { chain_id: Some(4217), ..Default::default() });
         assert_eq!(
             config.as_ref().unwrap().key,
             testnet_key,

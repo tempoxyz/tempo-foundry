@@ -19,7 +19,10 @@ use tower::Service;
 use tracing::{Instrument, debug, debug_span, trace};
 use url::Url;
 
-use super::{keys::discover_mpp_config_for_chain, session::SessionProvider};
+use super::{
+    keys::{DiscoverOptions, discover_mpp_config},
+    session::SessionProvider,
+};
 
 /// Default deposit amount for new channels (in base units).
 const DEFAULT_DEPOSIT: u128 = 100_000;
@@ -64,16 +67,17 @@ impl LazySessionProvider {
             return Ok(provider.clone());
         }
 
-        let config = discover_mpp_config_for_chain(chain_id).ok_or_else(|| {
-            TransportErrorKind::custom(std::io::Error::other(
-                "RPC endpoint returned HTTP 402 Payment Required. \
+        let config = discover_mpp_config(DiscoverOptions { chain_id, ..Default::default() })
+            .ok_or_else(|| {
+                TransportErrorKind::custom(std::io::Error::other(
+                    "RPC endpoint returned HTTP 402 Payment Required. \
                  This endpoint requires payment via the Machine Payments Protocol (MPP).\n\n\
                  To configure MPP, install the Tempo wallet CLI and create a key:\n\
                  \n  curl -sSL https://tempo.xyz/install.sh | bash\
                  \n  tempo wallet login\
                  \n\nSee https://docs.tempo.xyz for more information.",
-            ))
-        })?;
+                ))
+            })?;
 
         let signer: mpp::PrivateKeySigner = config.key.parse().map_err(|e| {
             TransportErrorKind::custom(std::io::Error::other(format!("invalid MPP key: {e}")))
@@ -190,24 +194,19 @@ where
             .filter_map(|r| r.ok())
             .collect();
 
-        // Extract chainId from the first Tempo challenge to select the correct
-        // key when multiple keys (mainnet/testnet) are present in keys.toml.
-        let challenge_chain_id = challenges.iter().find_map(|c| {
-            if c.method.as_str() == "tempo" {
-                c.request
-                    .decode_value()
-                    .ok()
-                    .and_then(|v| v.get("methodDetails")?.get("chainId")?.as_u64())
-            } else {
-                None
-            }
-        });
-
-        let resolved = self.provider.resolve_for_chain(challenge_chain_id)?;
-
-        let challenge = challenges
+        // Try each challenge until we find one with a matching key (chain + currency)
+        // in keys.toml. This handles servers that offer multiple chains and currencies
+        // (e.g. mainnet + testnet) — we pick the first one the user has a key for.
+        let (resolved, challenge) = challenges
             .iter()
-            .find(|c| resolved.supports(c.method.as_str(), c.intent.as_str()))
+            .find_map(|c| {
+                let (chain_id, currency) = extract_challenge_chain_and_currency(c);
+                if !self.provider.supports_challenge(chain_id, currency.as_deref()) {
+                    return None;
+                }
+                let provider = self.provider.resolve_for_chain(chain_id).ok()?;
+                provider.supports(c.method.as_str(), c.intent.as_str()).then_some((provider, c))
+            })
             .ok_or_else(|| {
                 let offered: Vec<_> =
                     challenges.iter().map(|c| format!("{}.{}", c.method, c.intent)).collect();
@@ -401,6 +400,20 @@ where
     }
 }
 
+/// Extract `(chainId, currency)` from a parsed MPP challenge.
+fn extract_challenge_chain_and_currency(
+    c: &mpp::protocol::core::PaymentChallenge,
+) -> (Option<u64>, Option<String>) {
+    if c.method.as_str() == "tempo" {
+        let val = c.request.decode_value().ok();
+        let chain_id = val.as_ref().and_then(|v| v.get("methodDetails")?.get("chainId")?.as_u64());
+        let currency = val.as_ref().and_then(|v| v.get("currency")?.as_str().map(String::from));
+        (chain_id, currency)
+    } else {
+        (None, None)
+    }
+}
+
 /// Trait for resolving a concrete `PaymentProvider` from a potentially lazy wrapper.
 pub(crate) trait ResolveProvider {
     type Provider: PaymentProvider;
@@ -408,6 +421,11 @@ pub(crate) trait ResolveProvider {
         self.resolve_for_chain(None)
     }
     fn resolve_for_chain(&self, _chain_id: Option<u64>) -> TransportResult<Self::Provider>;
+    /// Check if this provider can handle a challenge with the given chain and currency
+    /// without initializing/caching state. Returns `true` by default.
+    fn supports_challenge(&self, _chain_id: Option<u64>, _currency: Option<&str>) -> bool {
+        true
+    }
     fn set_key_provisioned(&self, _provisioned: bool) {}
     fn clear_channels(&self) {}
 }
@@ -423,6 +441,10 @@ impl ResolveProvider for LazySessionProvider {
     type Provider = SessionProvider;
     fn resolve_for_chain(&self, chain_id: Option<u64>) -> TransportResult<SessionProvider> {
         self.get_or_init(chain_id)
+    }
+    fn supports_challenge(&self, chain_id: Option<u64>, currency: Option<&str>) -> bool {
+        let currency = currency.and_then(|s| s.parse().ok());
+        discover_mpp_config(DiscoverOptions { chain_id, currency }).is_some()
     }
     fn set_key_provisioned(&self, provisioned: bool) {
         Self::set_key_provisioned(self, provisioned)
@@ -744,12 +766,8 @@ mod tests {
         let msg = err.to_string();
 
         assert!(
-            msg.contains("402 Payment Required"),
-            "expected 402 Payment Required in error, got: {msg}"
-        );
-        assert!(
-            msg.contains("tempo wallet login"),
-            "expected setup instructions in error, got: {msg}"
+            msg.contains("no supported MPP challenge"),
+            "expected 'no supported MPP challenge' in error, got: {msg}"
         );
 
         handle.abort();
@@ -796,7 +814,7 @@ mod tests {
             "no MPP key found; set TEMPO_PRIVATE_KEY or configure ~/.tempo/wallet/keys.toml",
         );
 
-        let config = discover_mpp_config_for_chain(None)
+        let config = discover_mpp_config(Default::default())
             .expect("no MPP config found; configure ~/.tempo/wallet/keys.toml");
 
         let signer: mpp::PrivateKeySigner =
@@ -863,47 +881,38 @@ mod tests {
     }
 
     #[test]
-    fn challenge_chain_id_extraction() {
-        let extract_chain_id = |headers: Vec<&str>| -> Option<u64> {
+    fn challenge_chain_and_currency_extraction() {
+        let extract = |headers: Vec<&str>| -> Vec<(Option<u64>, Option<String>)> {
             let challenges: Vec<_> =
                 parse_www_authenticate_all(headers).into_iter().filter_map(|r| r.ok()).collect();
-            challenges.iter().find_map(|c| {
-                if c.method.as_str() == "tempo" {
-                    c.request
-                        .decode_value()
-                        .ok()
-                        .and_then(|v| v.get("methodDetails")?.get("chainId")?.as_u64())
-                } else {
-                    None
-                }
-            })
+            challenges.iter().map(|c| extract_challenge_chain_and_currency(c)).collect()
         };
 
         let b64 = |v: serde_json::Value| -> String {
             Base64UrlJson::from_value(&v).unwrap().raw().to_string()
         };
 
-        // Tempo challenge with chainId → extracts it
+        // Tempo challenge with chainId + currency
         let tempo_header = format!(
             r#"Payment id="abc", realm="api", method="tempo", intent="charge", request="{}""#,
             b64(
                 serde_json::json!({"amount":"1000","currency":"0x20c0","methodDetails":{"chainId":42431},"recipient":"0xabc"})
             )
         );
-        assert_eq!(extract_chain_id(vec![&tempo_header]), Some(42431));
+        assert_eq!(extract(vec![&tempo_header]), vec![(Some(42431), Some("0x20c0".into()))]);
 
-        // Non-tempo challenge → None
+        // Non-tempo challenge → (None, None)
         let stripe_header = format!(
             r#"Payment id="xyz", realm="api", method="stripe", intent="charge", request="{}""#,
             b64(serde_json::json!({"amount":"100"}))
         );
-        assert_eq!(extract_chain_id(vec![&stripe_header]), None);
+        assert_eq!(extract(vec![&stripe_header]), vec![(None, None)]);
 
-        // Tempo challenge without methodDetails → None
+        // Tempo challenge without methodDetails → chainId None, currency present
         let no_details = format!(
             r#"Payment id="def", realm="api", method="tempo", intent="charge", request="{}""#,
             b64(serde_json::json!({"amount":"1000","currency":"0x20c0","recipient":"0xabc"}))
         );
-        assert_eq!(extract_chain_id(vec![&no_details]), None);
+        assert_eq!(extract(vec![&no_details]), vec![(None, Some("0x20c0".into()))]);
     }
 }
