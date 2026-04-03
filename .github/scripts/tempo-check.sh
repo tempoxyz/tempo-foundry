@@ -164,11 +164,20 @@ printf "Access key address: %s\n" "$ACCESS_KEY_ADDR"
 
 # Authorize the access key on-chain first (required for gas estimation)
 # Account Keychain precompile: 0xAAAAAAAA00000000000000000000000000000000
-# SignatureType: 0 = Secp256k1, Expiry: 1893456000 (year 2030), enforceLimits: false, limits: []
-cast send --rpc-url "$ETH_RPC_URL" 0xAAAAAAAA00000000000000000000000000000000 \
-  'authorizeKey(address,uint8,uint64,bool,(address,uint256)[])' \
-  "$ACCESS_KEY_ADDR" 0 1893456000 false "[]" \
-  --private-key "$PK"
+# SignatureType: 0 = Secp256k1, Expiry: 1893456000 (year 2030), enforceLimits: false, limits: [], allowAnyCalls: true
+if [[ "$HARDFORK" == "T2" ]]; then
+  # Legacy: authorizeKey with flat params (pre-T3)
+  cast send --rpc-url "$ETH_RPC_URL" 0xAAAAAAAA00000000000000000000000000000000 \
+    'authorizeKey(address,uint8,uint64,bool,(address,uint256)[])' \
+    "$ACCESS_KEY_ADDR" 0 1893456000 false "[]" \
+    --private-key "$PK"
+else
+  # TIP-1011 (T3+): authorizeKey takes a KeyRestrictions struct
+  cast send --rpc-url "$ETH_RPC_URL" 0xAAAAAAAA00000000000000000000000000000000 \
+    'authorizeKey(address,uint8,(uint64,bool,(address,uint256)[],bool,(address,bytes4)[]))' \
+    "$ACCESS_KEY_ADDR" 0 "(1893456000,false,[],true,[])" \
+    --private-key "$PK"
+fi
 
 # Fund the access key address (needed for gas)
 fund_and_wait "$ACCESS_KEY_ADDR"
