@@ -173,8 +173,12 @@ if [[ "$HARDFORK" == "T2" ]]; then
     --private-key "$PK"
 else
   # TIP-1011 (T3+): authorizeKey takes a KeyRestrictions struct
+  # KeyRestrictions = (uint64 expiry, bool enforceLimits, TokenLimit[] limits, bool allowAnyCalls, CallScope[] allowedCalls)
+  # TokenLimit = (address token, uint256 amount, uint64 period)
+  # CallScope = (address target, SelectorRule[] selectorRules)
+  # SelectorRule = (bytes4 selector, address[] recipients)
   cast send --rpc-url "$ETH_RPC_URL" 0xAAAAAAAA00000000000000000000000000000000 \
-    'authorizeKey(address,uint8,(uint64,bool,(address,uint256)[],bool,(address,bytes4)[]))' \
+    'authorizeKey(address,uint8,(uint64,bool,(address,uint256,uint64)[],bool,(address,(bytes4,address[])[])[])) ' \
     "$ACCESS_KEY_ADDR" 0 "(1893456000,false,[],true,[])" \
     --private-key "$PK"
 fi
