@@ -61,23 +61,22 @@ impl LazySessionProvider {
         }
     }
 
-    fn get_or_init(&self, chain_id: Option<u64>) -> TransportResult<SessionProvider> {
+    fn get_or_init(&self, opts: DiscoverOptions) -> TransportResult<SessionProvider> {
         let mut guard = self.inner.lock().unwrap();
         if let Some(ref provider) = *guard {
             return Ok(provider.clone());
         }
 
-        let config = discover_mpp_config(DiscoverOptions { chain_id, ..Default::default() })
-            .ok_or_else(|| {
-                TransportErrorKind::custom(std::io::Error::other(
-                    "RPC endpoint returned HTTP 402 Payment Required. \
+        let config = discover_mpp_config(opts).ok_or_else(|| {
+            TransportErrorKind::custom(std::io::Error::other(
+                "RPC endpoint returned HTTP 402 Payment Required. \
                  This endpoint requires payment via the Machine Payments Protocol (MPP).\n\n\
                  To configure MPP, install the Tempo wallet CLI and create a key:\n\
                  \n  curl -sSL https://tempo.xyz/install.sh | bash\
                  \n  tempo wallet login\
                  \n\nSee https://docs.tempo.xyz for more information.",
-                ))
-            })?;
+            ))
+        })?;
 
         let signer: mpp::PrivateKeySigner = config.key.parse().map_err(|e| {
             TransportErrorKind::custom(std::io::Error::other(format!("invalid MPP key: {e}")))
@@ -201,10 +200,9 @@ where
             .iter()
             .find_map(|c| {
                 let (chain_id, currency) = extract_challenge_chain_and_currency(c);
-                if !self.provider.supports_challenge(chain_id, currency.as_deref()) {
-                    return None;
-                }
-                let provider = self.provider.resolve_for_chain(chain_id).ok()?;
+                let currency = currency.and_then(|s| s.parse().ok());
+                let provider =
+                    self.provider.resolve_for(DiscoverOptions { chain_id, currency }).ok()?;
                 provider.supports(c.method.as_str(), c.intent.as_str()).then_some((provider, c))
             })
             .ok_or_else(|| {
@@ -418,33 +416,24 @@ fn extract_challenge_chain_and_currency(
 pub(crate) trait ResolveProvider {
     type Provider: PaymentProvider;
     fn resolve(&self) -> TransportResult<Self::Provider> {
-        self.resolve_for_chain(None)
+        self.resolve_for(Default::default())
     }
-    fn resolve_for_chain(&self, _chain_id: Option<u64>) -> TransportResult<Self::Provider>;
-    /// Check if this provider can handle a challenge with the given chain and currency
-    /// without initializing/caching state. Returns `true` by default.
-    fn supports_challenge(&self, _chain_id: Option<u64>, _currency: Option<&str>) -> bool {
-        true
-    }
+    fn resolve_for(&self, opts: DiscoverOptions) -> TransportResult<Self::Provider>;
     fn set_key_provisioned(&self, _provisioned: bool) {}
     fn clear_channels(&self) {}
 }
 
 impl<P: PaymentProvider + Clone> ResolveProvider for P {
     type Provider = P;
-    fn resolve_for_chain(&self, _chain_id: Option<u64>) -> TransportResult<P> {
+    fn resolve_for(&self, _opts: DiscoverOptions) -> TransportResult<P> {
         Ok(self.clone())
     }
 }
 
 impl ResolveProvider for LazySessionProvider {
     type Provider = SessionProvider;
-    fn resolve_for_chain(&self, chain_id: Option<u64>) -> TransportResult<SessionProvider> {
-        self.get_or_init(chain_id)
-    }
-    fn supports_challenge(&self, chain_id: Option<u64>, currency: Option<&str>) -> bool {
-        let currency = currency.and_then(|s| s.parse().ok());
-        discover_mpp_config(DiscoverOptions { chain_id, currency }).is_some()
+    fn resolve_for(&self, opts: DiscoverOptions) -> TransportResult<SessionProvider> {
+        self.get_or_init(opts)
     }
     fn set_key_provisioned(&self, provisioned: bool) {
         Self::set_key_provisioned(self, provisioned)
