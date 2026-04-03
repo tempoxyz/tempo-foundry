@@ -885,7 +885,7 @@ mod tests {
         let extract = |headers: Vec<&str>| -> Vec<(Option<u64>, Option<String>)> {
             let challenges: Vec<_> =
                 parse_www_authenticate_all(headers).into_iter().filter_map(|r| r.ok()).collect();
-            challenges.iter().map(|c| extract_challenge_chain_and_currency(c)).collect()
+            challenges.iter().map(extract_challenge_chain_and_currency).collect()
         };
 
         let b64 = |v: serde_json::Value| -> String {
