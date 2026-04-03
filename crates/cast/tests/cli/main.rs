@@ -1953,7 +1953,7 @@ casttest!(mktx_ethsign, async |_prj, cmd| {
     ])
     .assert_success()
     .stdout_eq(str![[r#"
-0x76[..]
+0x02[..]
 
 "#]]);
 });
