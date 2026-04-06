@@ -5328,6 +5328,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempo-alloy 1.5.1",
+ "tempo-contracts 1.5.1",
  "tempo-primitives 1.5.1",
  "thiserror 2.0.18",
  "tokio",

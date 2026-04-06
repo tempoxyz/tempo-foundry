@@ -1,7 +1,8 @@
 use alloy_eips::eip2718::Encodable2718;
-use alloy_primitives::Address;
+use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
 use alloy_signer::Signer;
+use alloy_sol_types::SolCall;
 use eyre::{Result, eyre};
 use foundry_common::tempo;
 use tempo_alloy::{TempoNetwork, provider::TempoProviderExt, rpc::TempoTransactionRequest};
@@ -12,6 +13,14 @@ use tempo_primitives::transaction::{
 };
 
 use crate::{WalletSigner, utils};
+
+pub use tempo_contracts::precompiles::{
+    ACCOUNT_KEYCHAIN_ADDRESS,
+    IAccountKeychain::{
+        self, CallScope, KeyRestrictions, SignatureType, TokenLimit,
+        authorizeKey_1Call as authorizeKeyCall, revokeKeyCall, updateSpendingLimitCall,
+    },
+};
 
 /// Configuration for a Tempo access key resolved from `keys.toml`.
 ///
@@ -133,5 +142,65 @@ pub async fn is_key_provisioned<P: Provider<TempoNetwork>>(
     match provider.get_keychain_key(wallet_address, key_address).await {
         Ok(info) => info.keyId != Address::ZERO,
         Err(_) => false,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Calldata builders (pure — no provider needed)
+// ---------------------------------------------------------------------------
+
+/// ABI-encodes an `authorizeKey` call for the AccountKeychain precompile (T3).
+pub fn authorize_key_calldata(
+    key_id: Address,
+    sig_type: SignatureType,
+    config: KeyRestrictions,
+) -> Vec<u8> {
+    authorizeKeyCall { keyId: key_id, signatureType: sig_type, config }.abi_encode()
+}
+
+/// ABI-encodes a `revokeKey` call for the AccountKeychain precompile.
+pub fn revoke_key_calldata(key_id: Address) -> Vec<u8> {
+    revokeKeyCall { keyId: key_id }.abi_encode()
+}
+
+/// ABI-encodes an `updateSpendingLimit` call for the AccountKeychain precompile.
+pub fn update_spending_limit_calldata(key_id: Address, token: Address, new_limit: U256) -> Vec<u8> {
+    updateSpendingLimitCall { keyId: key_id, token, newLimit: new_limit }.abi_encode()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::address;
+
+    const TEST_KEY: Address = address!("0x1111111111111111111111111111111111111111");
+    const TEST_TOKEN: Address = address!("0x2222222222222222222222222222222222222222");
+
+    #[test]
+    fn test_authorize_key_calldata() {
+        let config = KeyRestrictions {
+            expiry: u64::MAX,
+            enforceLimits: false,
+            limits: vec![],
+            allowAnyCalls: true,
+            allowedCalls: vec![],
+        };
+        let data = authorize_key_calldata(TEST_KEY, SignatureType::Secp256k1, config);
+        assert!(!data.is_empty());
+        assert_eq!(&data[..4], &authorizeKeyCall::SELECTOR);
+    }
+
+    #[test]
+    fn test_revoke_key_calldata() {
+        let data = revoke_key_calldata(TEST_KEY);
+        assert!(!data.is_empty());
+        assert_eq!(&data[..4], &revokeKeyCall::SELECTOR);
+    }
+
+    #[test]
+    fn test_update_spending_limit_calldata() {
+        let data = update_spending_limit_calldata(TEST_KEY, TEST_TOKEN, U256::from(1000));
+        assert!(!data.is_empty());
+        assert_eq!(&data[..4], &updateSpendingLimitCall::SELECTOR);
     }
 }

@@ -194,6 +194,119 @@ echo -e "\n=== CAST SEND WITH ACCESS-KEY ==="
 # Send transaction using the access key (Keychain signature wrapped in AA transaction)
 cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' --tempo.access-key "$ACCESS_KEY" --tempo.root-account "$ADDR"
 
+# --- cast keychain subcommand tests ---
+
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE ==="
+kc_wallet_json="$(cast wallet new --json)"
+KC_KEY_PK="$(jq -r '.[0].private_key' <<<"$kc_wallet_json")"
+KC_KEY_ADDR="$(jq -r '.[0].address' <<<"$kc_wallet_json")"
+printf "Keychain key address: %s\n" "$KC_KEY_ADDR"
+
+cast keychain auth "$KC_KEY_ADDR" secp256k1 1893456000 \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+
+echo -e "\n=== CAST KEYCHAIN: KEY-INFO ==="
+KC_INFO=$(cast keychain info "$ADDR" "$KC_KEY_ADDR" --rpc-url "$ETH_RPC_URL")
+echo "$KC_INFO"
+echo "$KC_INFO" | grep -q "secp256k1"
+
+echo -e "\n=== CAST KEYCHAIN: KEY-INFO --json ==="
+KC_INFO_JSON=$(cast keychain info "$ADDR" "$KC_KEY_ADDR" --rpc-url "$ETH_RPC_URL" --json)
+echo "$KC_INFO_JSON" | jq -e '.signatureType == "secp256k1"'
+
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH LIMIT ==="
+kc_limited_json="$(cast wallet new --json)"
+KC_LIMITED_ADDR="$(jq -r '.[0].address' <<<"$kc_limited_json")"
+cast keychain auth "$KC_LIMITED_ADDR" secp256k1 1893456000 \
+  --limit "$FEE_TOKEN:1000000000" \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+
+echo -e "\n=== CAST KEYCHAIN: REMAINING-LIMIT ==="
+KC_REMAINING=$(cast keychain rl "$ADDR" "$KC_LIMITED_ADDR" "$FEE_TOKEN" --rpc-url "$ETH_RPC_URL")
+echo "Remaining: $KC_REMAINING"
+[[ "$KC_REMAINING" != "0" ]] || { echo "ERROR: expected non-zero limit"; exit 1; }
+
+echo -e "\n=== CAST KEYCHAIN: REMAINING-LIMIT --json ==="
+KC_REMAINING_JSON=$(cast keychain rl "$ADDR" "$KC_LIMITED_ADDR" "$FEE_TOKEN" --rpc-url "$ETH_RPC_URL" --json)
+echo "$KC_REMAINING_JSON" | jq -e '. != "0"'
+
+echo -e "\n=== CAST KEYCHAIN: UPDATE-LIMIT ==="
+cast keychain ul "$KC_LIMITED_ADDR" "$FEE_TOKEN" 500000000 \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+
+echo -e "\n=== CAST KEYCHAIN: VERIFY UPDATE-LIMIT ==="
+KC_UPDATED=$(cast keychain rl "$ADDR" "$KC_LIMITED_ADDR" "$FEE_TOKEN" --rpc-url "$ETH_RPC_URL")
+echo "Remaining after update: $KC_UPDATED"
+[[ "$KC_UPDATED" == "500000000" ]] || { echo "ERROR: expected 500000000 after update-limit, got $KC_UPDATED"; exit 1; }
+
+echo -e "\n=== CAST KEYCHAIN: REVOKE ==="
+cast keychain rev "$KC_KEY_ADDR" \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+
+# Verify revocation
+KC_INFO_REV=$(cast keychain info "$ADDR" "$KC_KEY_ADDR" --rpc-url "$ETH_RPC_URL")
+echo "$KC_INFO_REV"
+echo "$KC_INFO_REV" | grep -q "true"
+
+echo -e "\n=== CAST KEYCHAIN: REVOKED KEY REJECTION ==="
+# Fund the revoked key so failure is due to revocation, not gas
+fund_and_wait "$KC_KEY_ADDR"
+if cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' \
+  --tempo.access-key "$KC_KEY_PK" --tempo.root-account "$ADDR" 2>&1; then
+  echo "ERROR: revoked key should have been rejected"
+  exit 1
+fi
+echo "OK: revoked key correctly rejected"
+
+echo -e "\n=== CAST KEYCHAIN: DUPLICATE AUTHORIZE REJECTION ==="
+# Try to authorize KC_LIMITED_ADDR again — should fail with KeyAlreadyExists
+if cast keychain auth "$KC_LIMITED_ADDR" secp256k1 1893456000 \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} 2>&1; then
+  echo "ERROR: duplicate authorize should have been rejected"
+  exit 1
+fi
+echo "OK: duplicate authorize correctly rejected"
+
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH DESTINATION RESTRICTION ==="
+kc_scoped_json="$(cast wallet new --json)"
+KC_SCOPED_PK="$(jq -r '.[0].private_key' <<<"$kc_scoped_json")"
+KC_SCOPED_ADDR="$(jq -r '.[0].address' <<<"$kc_scoped_json")"
+cast keychain auth "$KC_SCOPED_ADDR" secp256k1 1893456000 \
+  --destination 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+
+echo -e "\n=== CAST KEYCHAIN: DESTINATION ALLOWED TARGET ==="
+fund_and_wait "$KC_SCOPED_ADDR"
+cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' \
+  --tempo.access-key "$KC_SCOPED_PK" --tempo.root-account "$ADDR"
+echo "OK: scoped key allowed to call permitted target"
+
+echo -e "\n=== CAST KEYCHAIN: DESTINATION BLOCKED TARGET ==="
+if cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 'doesNotExist()' \
+  --tempo.access-key "$KC_SCOPED_PK" --tempo.root-account "$ADDR" 2>&1; then
+  echo "ERROR: scoped key should have been blocked for disallowed target"
+  exit 1
+fi
+echo "OK: scoped key correctly blocked for disallowed target"
+
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH MULTIPLE LIMITS ==="
+kc_multi_json="$(cast wallet new --json)"
+KC_MULTI_ADDR="$(jq -r '.[0].address' <<<"$kc_multi_json")"
+cast keychain auth "$KC_MULTI_ADDR" secp256k1 1893456000 \
+  --limit "$FEE_TOKEN:1000000" \
+  --limit "0x20C0000000000000000000000000000000000001:2000000" \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+
+# Verify both limits
+KC_MULTI_RL1=$(cast keychain rl "$ADDR" "$KC_MULTI_ADDR" "$FEE_TOKEN" --rpc-url "$ETH_RPC_URL")
+KC_MULTI_RL2=$(cast keychain rl "$ADDR" "$KC_MULTI_ADDR" 0x20C0000000000000000000000000000000000001 --rpc-url "$ETH_RPC_URL")
+echo "Limit 1: $KC_MULTI_RL1 (expected 1000000), Limit 2: $KC_MULTI_RL2 (expected 2000000)"
+[[ "$KC_MULTI_RL1" == "1000000" ]] || { echo "ERROR: limit 1 mismatch"; exit 1; }
+[[ "$KC_MULTI_RL2" == "2000000" ]] || { echo "ERROR: limit 2 mismatch"; exit 1; }
+
 echo -e "\n=== SETUP SPONSOR ==="
 # Create a sponsor wallet for testing sponsored (gasless) transactions
 sponsor_wallet_json="$(cast wallet new --json)"

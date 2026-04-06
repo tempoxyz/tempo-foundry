@@ -22,7 +22,10 @@ pub mod wallet_raw;
 
 pub use opts::{AccessKeyConfig, WalletOpts};
 pub use signer::{PendingSigner, WalletSigner};
-pub use tempo::{TempoAccessKeyConfig, is_key_provisioned, sign_with_access_key};
+pub use tempo::{
+    ACCOUNT_KEYCHAIN_ADDRESS, TempoAccessKeyConfig, authorize_key_calldata, is_key_provisioned,
+    revoke_key_calldata, sign_with_access_key, update_spending_limit_calldata,
+};
 pub use wallet_multi::MultiWalletOpts;
 pub use wallet_raw::RawWalletOpts;
 

@@ -83,7 +83,11 @@ pub struct Erc20TxOpts {
 }
 
 /// Apply transaction options to a TempoTransactionRequest for ERC20 operations.
-fn apply_tempo_tx_opts(tx: &mut TempoTransactionRequest, tx_opts: &Erc20TxOpts, is_legacy: bool) {
+pub fn apply_tempo_tx_opts(
+    tx: &mut TempoTransactionRequest,
+    tx_opts: &Erc20TxOpts,
+    is_legacy: bool,
+) {
     if let Some(gas_limit) = tx_opts.gas_limit {
         tx.set_gas_limit(gas_limit.to());
     }
