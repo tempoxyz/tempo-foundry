@@ -13,9 +13,10 @@
 
 use std::borrow::Cow;
 
-use alloy_evm::precompiles::{DynPrecompile, PrecompileInput};
+use alloy_evm::precompiles::{DynPrecompile, PrecompileInput, PrecompileOutputExt, PrecompileResultExt};
 use alloy_primitives::{Address, U256, address};
-use revm::precompile::{PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult};
+use revm::precompile::{PrecompileError, PrecompileId, PrecompileOutput};
+use revm::interpreter::gas::GasTracker;
 
 /// Label of the Celo transfer precompile to display in traces.
 pub const CELO_TRANSFER_LABEL: &str = "CELO_TRANSFER_PRECOMPILE";
@@ -38,10 +39,10 @@ pub fn precompile() -> DynPrecompile {
 /// Celo transfer precompile implementation.
 ///
 /// Uses load_account to modify balances directly, making it compatible with PrecompilesMap.
-pub fn celo_transfer_precompile(mut input: PrecompileInput<'_>) -> PrecompileResult {
+pub fn celo_transfer_precompile(mut input: PrecompileInput<'_>) -> PrecompileResultExt {
     // Check minimum gas requirement
     if input.gas < CELO_TRANSFER_GAS_COST {
-        return Err(PrecompileError::OutOfGas);
+        return Err(PrecompileError::OutOfGas.into());
     }
 
     // Validate input length (must be exactly 96 bytes: 32 + 32 + 32)
@@ -52,7 +53,7 @@ pub fn celo_transfer_precompile(mut input: PrecompileInput<'_>) -> PrecompileRes
                 input.data.len()
             )
             .into(),
-        ));
+        ).into());
     }
 
     // Parse input: from (bytes 12-32), to (bytes 44-64), value (bytes 64-96)
@@ -74,32 +75,35 @@ pub fn celo_transfer_precompile(mut input: PrecompileInput<'_>) -> PrecompileRes
         Err(e) => {
             return Err(PrecompileError::Other(
                 format!("Failed to load from account: {e:?}").into(),
-            ));
+            ).into());
         }
     };
 
     // Check if from account has sufficient balance
     if from_account.data.info.balance < value {
-        return Err(PrecompileError::Other("Insufficient balance".into()));
+        return Err(PrecompileError::Other("Insufficient balance".into()).into());
     }
 
     let to_account = match internals.load_account(to_address) {
         Ok(account) => account,
         Err(e) => {
-            return Err(PrecompileError::Other(format!("Failed to load to account: {e:?}").into()));
+            return Err(PrecompileError::Other(format!("Failed to load to account: {e:?}").into()).into());
         }
     };
 
     // Check for overflow in to account
     if to_account.data.info.balance.checked_add(value).is_none() {
-        return Err(PrecompileError::Other("Balance overflow in to account".into()));
+        return Err(PrecompileError::Other("Balance overflow in to account".into()).into());
     }
 
     // Transfer the value between accounts
     internals
         .transfer(from_address, to_address, value)
-        .map_err(|e| PrecompileError::Other(format!("Failed to perform transfer: {e:?}").into()))?;
+        .map_err(|e| -> alloy_evm::precompiles::PrecompileErrorExt {
+            PrecompileError::Other(format!("Failed to perform transfer: {e:?}").into()).into()
+        })?;
 
     // No output data for successful transfer
-    Ok(PrecompileOutput::new(CELO_TRANSFER_GAS_COST, alloy_primitives::Bytes::new()))
+    let output = PrecompileOutput::new(CELO_TRANSFER_GAS_COST, alloy_primitives::Bytes::new());
+    Ok(PrecompileOutputExt::from_precompile_output(output, input.gas, input.reservoir))
 }
