@@ -163,7 +163,10 @@ Transaction: {
   "input": "[..]",
   "nonce": "0x0",
   "chainId": "0x7a69",
-  "calls": []
+  "feeToken": null,
+  "calls": [],
+  "keyType": null,
+  "keyData": null
 }
 ABI: [
   {
@@ -218,7 +221,10 @@ ABI: [
     "input": "[..]",
     "nonce": "0x0",
     "chainId": "0x7a69",
-    "calls": []
+    "feeToken": null,
+    "calls": [],
+    "keyType": null,
+    "keyData": null
   },
   "abi": [
     {
