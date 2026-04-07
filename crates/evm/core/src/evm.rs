@@ -438,8 +438,6 @@ impl<I: InspectorExt> InspectorHandler for FoundryHandler<'_, I> {
         )
         .map_err(|e| EVMError::Custom(e.to_string()))?;
 
-        self.inner.load_fee_fields(evm)?;
-
         match self.inspect_run_without_catch_error(evm) {
             Ok(output) => Ok(output),
             Err(e) => self.catch_error(evm, e),
