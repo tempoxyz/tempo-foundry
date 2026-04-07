@@ -6,8 +6,9 @@ use crate::{
     tx::{CastTxSender, SendTxOpts, get_provider_with_wallet},
 };
 use alloy_network::TransactionBuilder;
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, Bytes, FixedBytes, U256};
 use alloy_provider::Provider;
+use alloy_sol_types::SolCall;
 use clap::Parser;
 use eyre::bail;
 use foundry_cli::{
@@ -21,8 +22,9 @@ use foundry_wallets::{
     update_spending_limit_calldata,
 };
 use tempo_alloy::{TempoNetwork, provider::TempoProviderExt, rpc::TempoTransactionRequest};
-use tempo_contracts::precompiles::IAccountKeychain::{
-    CallScope, KeyRestrictions, SignatureType, TokenLimit,
+use tempo_contracts::precompiles::{
+    ITIP20,
+    IAccountKeychain::{CallScope, KeyRestrictions, SelectorRule, SignatureType, TokenLimit},
 };
 
 use super::erc20::{Erc20TxOpts, apply_tempo_tx_opts};
@@ -47,9 +49,23 @@ pub enum KeychainSubcommand {
         #[arg(long, value_name = "TOKEN:AMOUNT[:PERIOD]")]
         limit: Vec<String>,
 
-        /// Restrict key to only call these addresses (repeatable)
-        #[arg(long, value_name = "ADDRESS")]
-        destination: Vec<Address>,
+        /// Call scope restriction (repeatable). Format: ADDRESS or ADDRESS:SELECTORS
+        ///
+        /// SELECTORS is a comma-separated list of: transfer, transfer_with_memo, approve,
+        /// or a raw 4-byte hex selector (0xaabbccdd).
+        ///
+        /// Examples:
+        ///   --scope 0xTIP20:transfer,approve   (scoped to transfer+approve on this TIP-20)
+        ///   --scope 0xDEX                       (unrestricted calls to this address)
+        ///   --scope 0xToken:0xa9059cbb          (raw selector)
+        #[arg(long, value_name = "ADDRESS[:SELECTORS]")]
+        scope: Vec<String>,
+
+        /// Call scope restrictions as JSON array (mutually exclusive with --scope).
+        ///
+        /// Format: [{"target":"0x...","selectors":["transfer","approve"]}, ...]
+        #[arg(long, value_name = "JSON", conflicts_with = "scope")]
+        scopes: Option<String>,
 
         #[command(flatten)]
         send_tx: SendTxOpts,
@@ -247,7 +263,8 @@ impl KeychainSubcommand {
                 signature_type,
                 expiry,
                 limit,
-                destination,
+                scope,
+                scopes,
                 send_tx,
                 tx: tx_opts,
             } => {
@@ -256,18 +273,15 @@ impl KeychainSubcommand {
                 let enforce_limits = !limits.is_empty();
                 let expiry = if expiry == 0 { u64::MAX } else { expiry };
 
-                let allow_any_calls = destination.is_empty();
-                let allowed_calls: Vec<CallScope> = destination
-                    .into_iter()
-                    .map(|target| CallScope { target, selectorRules: vec![] })
-                    .collect();
+                let allowed_calls = parse_call_scopes(&scope, scopes.as_deref())?;
+                let allow_any_calls = allowed_calls.is_none();
 
                 let config = KeyRestrictions {
                     expiry,
                     enforceLimits: enforce_limits,
                     limits,
                     allowAnyCalls: allow_any_calls,
-                    allowedCalls: allowed_calls,
+                    allowedCalls: allowed_calls.unwrap_or_default(),
                 };
 
                 let calldata = authorize_key_calldata(key_id, signature_type, config);
@@ -324,6 +338,105 @@ fn parse_token_limit(s: &str) -> eyre::Result<TokenLimit> {
     };
 
     Ok(TokenLimit { token, amount, period })
+}
+
+/// Parse a named selector into a 4-byte function selector.
+fn parse_selector_name(s: &str) -> eyre::Result<FixedBytes<4>> {
+    match s.to_lowercase().as_str() {
+        "transfer" => Ok(ITIP20::transferCall::SELECTOR.into()),
+        "transfer_with_memo" => Ok(ITIP20::transferWithMemoCall::SELECTOR.into()),
+        "approve" => Ok(ITIP20::approveCall::SELECTOR.into()),
+        _ if s.starts_with("0x") || s.starts_with("0X") => {
+            let bytes = alloy_primitives::hex::decode(s)
+                .map_err(|e| eyre::eyre!("invalid hex selector '{s}': {e}"))?;
+            if bytes.len() != 4 {
+                eyre::bail!("selector must be exactly 4 bytes, got {} in '{s}'", bytes.len());
+            }
+            Ok(FixedBytes::from_slice(&bytes))
+        }
+        _ => eyre::bail!(
+            "unknown selector '{s}', expected: transfer, transfer_with_memo, approve, or 0x<4-byte hex>"
+        ),
+    }
+}
+
+/// Parse a single `--scope` value: `ADDRESS` or `ADDRESS:selector1,selector2,...`
+fn parse_scope(s: &str) -> eyre::Result<CallScope> {
+    // Split on first colon only — address may contain "0x" but selectors come after first ":"
+    let (addr_str, selectors_str) = match s.find(':') {
+        // Skip the colon in "0x" prefix — find the colon after the address (42 chars for 0x + 40 hex)
+        Some(pos) if pos < 3 => {
+            // This is the "0x" colon in the address; look for the next one
+            match s[pos + 1..].find(':') {
+                Some(next) => {
+                    let split = pos + 1 + next;
+                    (&s[..split], Some(&s[split + 1..]))
+                }
+                None => (s, None),
+            }
+        }
+        Some(pos) => (&s[..pos], Some(&s[pos + 1..])),
+        None => (s, None),
+    };
+
+    let target = Address::from_str(addr_str)
+        .map_err(|e| eyre::eyre!("invalid address '{addr_str}': {e}"))?;
+
+    let selector_rules = match selectors_str {
+        Some(sel_str) if !sel_str.is_empty() => sel_str
+            .split(',')
+            .map(|name| {
+                let selector = parse_selector_name(name.trim())?;
+                Ok(SelectorRule { selector, recipients: vec![] })
+            })
+            .collect::<eyre::Result<Vec<_>>>()?,
+        _ => vec![],
+    };
+
+    Ok(CallScope { target, selectorRules: selector_rules })
+}
+
+/// JSON representation for `--scopes`.
+#[derive(serde::Deserialize)]
+struct JsonCallScope {
+    target: Address,
+    #[serde(default)]
+    selectors: Vec<String>,
+}
+
+/// Parse call scopes from `--scope` flags or `--scopes` JSON.
+///
+/// Returns `None` if no scopes were provided (= allow any calls).
+fn parse_call_scopes(
+    scope: &[String],
+    scopes_json: Option<&str>,
+) -> eyre::Result<Option<Vec<CallScope>>> {
+    if let Some(json) = scopes_json {
+        let entries: Vec<JsonCallScope> =
+            serde_json::from_str(json).map_err(|e| eyre::eyre!("invalid --scopes JSON: {e}"))?;
+        let call_scopes = entries
+            .into_iter()
+            .map(|entry| {
+                let selector_rules = entry
+                    .selectors
+                    .iter()
+                    .map(|name| {
+                        let selector = parse_selector_name(name)?;
+                        Ok(SelectorRule { selector, recipients: vec![] })
+                    })
+                    .collect::<eyre::Result<Vec<_>>>()?;
+                Ok(CallScope { target: entry.target, selectorRules: selector_rules })
+            })
+            .collect::<eyre::Result<Vec<_>>>()?;
+        return Ok(Some(call_scopes));
+    }
+
+    if scope.is_empty() {
+        return Ok(None);
+    }
+
+    let call_scopes = scope.iter().map(|s| parse_scope(s)).collect::<eyre::Result<Vec<_>>>()?;
+    Ok(Some(call_scopes))
 }
 
 /// Build a `TempoTransactionRequest` targeting the keychain precompile.
@@ -445,5 +558,98 @@ mod tests {
         assert!(
             parse_token_limit("0x0000000000000000000000000000000000000001:not_a_number").is_err()
         );
+    }
+
+    #[test]
+    fn test_parse_selector_name() {
+        assert_eq!(
+            parse_selector_name("transfer").unwrap(),
+            FixedBytes::from(ITIP20::transferCall::SELECTOR)
+        );
+        assert_eq!(
+            parse_selector_name("transfer_with_memo").unwrap(),
+            FixedBytes::from(ITIP20::transferWithMemoCall::SELECTOR)
+        );
+        assert_eq!(
+            parse_selector_name("approve").unwrap(),
+            FixedBytes::from(ITIP20::approveCall::SELECTOR)
+        );
+        // Raw hex selector
+        assert_eq!(
+            parse_selector_name("0xaabbccdd").unwrap(),
+            FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd])
+        );
+        // Unknown name
+        assert!(parse_selector_name("unknown").is_err());
+        // Invalid hex length
+        assert!(parse_selector_name("0xaabb").is_err());
+    }
+
+    #[test]
+    fn test_parse_scope_address_only() {
+        let scope =
+            parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D").unwrap();
+        assert_eq!(
+            scope.target,
+            Address::from_str("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D").unwrap()
+        );
+        assert!(scope.selectorRules.is_empty());
+    }
+
+    #[test]
+    fn test_parse_scope_with_selectors() {
+        let scope =
+            parse_scope("0x20c0000000000000000000000000000000000001:transfer,approve").unwrap();
+        assert_eq!(
+            scope.target,
+            Address::from_str("0x20c0000000000000000000000000000000000001").unwrap()
+        );
+        assert_eq!(scope.selectorRules.len(), 2);
+        assert_eq!(
+            scope.selectorRules[0].selector,
+            FixedBytes::from(ITIP20::transferCall::SELECTOR)
+        );
+        assert_eq!(
+            scope.selectorRules[1].selector,
+            FixedBytes::from(ITIP20::approveCall::SELECTOR)
+        );
+    }
+
+    #[test]
+    fn test_parse_scope_with_raw_hex_selector() {
+        let scope =
+            parse_scope("0x20c0000000000000000000000000000000000001:0xaabbccdd").unwrap();
+        assert_eq!(scope.selectorRules.len(), 1);
+        assert_eq!(
+            scope.selectorRules[0].selector,
+            FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd])
+        );
+    }
+
+    #[test]
+    fn test_parse_call_scopes_none_when_empty() {
+        let result = parse_call_scopes(&[], None).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_call_scopes_from_flags() {
+        let scopes = vec![
+            "0x20c0000000000000000000000000000000000001:transfer".to_string(),
+            "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D".to_string(),
+        ];
+        let result = parse_call_scopes(&scopes, None).unwrap().unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].selectorRules.len(), 1);
+        assert!(result[1].selectorRules.is_empty());
+    }
+
+    #[test]
+    fn test_parse_call_scopes_from_json() {
+        let json = r#"[{"target":"0x20c0000000000000000000000000000000000001","selectors":["transfer","approve"]},{"target":"0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D"}]"#;
+        let result = parse_call_scopes(&[], Some(json)).unwrap().unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].selectorRules.len(), 2);
+        assert!(result[1].selectorRules.is_empty());
     }
 }

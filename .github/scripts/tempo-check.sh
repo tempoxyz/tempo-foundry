@@ -268,22 +268,22 @@ if cast keychain auth "$KC_LIMITED_ADDR" secp256k1 1893456000 \
 fi
 echo "OK: duplicate authorize correctly rejected"
 
-echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH DESTINATION RESTRICTION ==="
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH --scope (ADDRESS ONLY, UNRESTRICTED) ==="
 kc_scoped_json="$(cast wallet new --json)"
 KC_SCOPED_PK="$(jq -r '.[0].private_key' <<<"$kc_scoped_json")"
 KC_SCOPED_ADDR="$(jq -r '.[0].address' <<<"$kc_scoped_json")"
 cast keychain auth "$KC_SCOPED_ADDR" secp256k1 1893456000 \
-  --destination 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D \
+  --scope 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D \
   --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
 
-echo -e "\n=== CAST KEYCHAIN: DESTINATION ALLOWED TARGET ==="
+echo -e "\n=== CAST KEYCHAIN: SCOPE ALLOWED TARGET ==="
 fund_and_wait "$KC_SCOPED_ADDR"
 cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' \
   --tempo.access-key "$KC_SCOPED_PK" --tempo.root-account "$ADDR"
 echo "OK: scoped key allowed to call permitted target"
 
-echo -e "\n=== CAST KEYCHAIN: DESTINATION BLOCKED TARGET ==="
+echo -e "\n=== CAST KEYCHAIN: SCOPE BLOCKED TARGET ==="
 if cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
   0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 'doesNotExist()' \
   --tempo.access-key "$KC_SCOPED_PK" --tempo.root-account "$ADDR" 2>&1; then
@@ -291,6 +291,31 @@ if cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 
   exit 1
 fi
 echo "OK: scoped key correctly blocked for disallowed target"
+
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH --scope + SELECTORS ==="
+kc_sel_json="$(cast wallet new --json)"
+KC_SEL_PK="$(jq -r '.[0].private_key' <<<"$kc_sel_json")"
+KC_SEL_ADDR="$(jq -r '.[0].address' <<<"$kc_sel_json")"
+cast keychain auth "$KC_SEL_ADDR" secp256k1 1893456000 \
+  --scope "$FEE_TOKEN:transfer,approve" \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+echo "OK: authorized key with selector-scoped restrictions"
+
+echo -e "\n=== CAST KEYCHAIN: SELECTOR-SCOPED TRANSFER ALLOWED ==="
+fund_and_wait "$KC_SEL_ADDR"
+cast erc20 transfer ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} "$FEE_TOKEN" \
+  0x4ef5DFf69C1514f4Dbf85aA4F9D95F804F64275F 100 \
+  --rpc-url "$ETH_RPC_URL" \
+  --tempo.access-key "$KC_SEL_PK" --tempo.root-account "$ADDR"
+echo "OK: selector-scoped key allowed transfer on permitted TIP-20"
+
+echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH --scopes JSON ==="
+kc_json_json="$(cast wallet new --json)"
+KC_JSON_ADDR="$(jq -r '.[0].address' <<<"$kc_json_json")"
+cast keychain auth "$KC_JSON_ADDR" secp256k1 1893456000 \
+  --scopes "[{\"target\":\"$FEE_TOKEN\",\"selectors\":[\"transfer\"]},{\"target\":\"0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D\"}]" \
+  --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
+echo "OK: authorized key with --scopes JSON"
 
 echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH MULTIPLE LIMITS ==="
 kc_multi_json="$(cast wallet new --json)"
