@@ -352,7 +352,8 @@ fn parse_selector_name(s: &str) -> eyre::Result<FixedBytes<4>> {
 fn parse_scope(s: &str) -> eyre::Result<CallScope> {
     // Split on first colon only — address may contain "0x" but selectors come after first ":"
     let (addr_str, selectors_str) = match s.find(':') {
-        // Skip the colon in "0x" prefix — find the colon after the address (42 chars for 0x + 40 hex)
+        // Skip the colon in "0x" prefix — find the colon after the address (42 chars for 0x + 40
+        // hex)
         Some(pos) if pos < 3 => {
             // This is the "0x" colon in the address; look for the next one
             match s[pos + 1..].find(':') {
