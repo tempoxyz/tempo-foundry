@@ -33,6 +33,7 @@ pub mod buffer;
 pub mod bytecode;
 pub mod constants;
 pub mod decode;
+#[cfg(feature = "op")]
 pub mod either_evm;
 pub mod evm;
 pub mod fork;

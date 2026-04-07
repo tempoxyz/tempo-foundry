@@ -301,7 +301,7 @@ impl Executor {
     pub fn set_storage(
         &mut self,
         address: Address,
-        storage: HashMap<U256, U256>,
+        storage: alloy_primitives::map::U256Map<U256>,
     ) -> BackendResult<()> {
         self.backend_mut().replace_account_storage(address, storage)?;
         Ok(())
@@ -1064,22 +1064,21 @@ fn convert_executed_result(
     has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
-        ExecutionResult::Success { reason, gas_used, gas_refunded, output, logs, .. } => {
-            (reason.into(), gas_refunded, gas_used, Some(output), logs)
+        ExecutionResult::Success { reason, gas, output, logs, .. } => {
+            (reason.into(), gas.final_refunded(), gas.tx_gas_used(), Some(output), logs)
         }
-        ExecutionResult::Revert { gas_used, output } => {
-            // Need to fetch the unused gas
-            (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
+        ExecutionResult::Revert { gas, output, .. } => {
+            (InstructionResult::Revert, 0_u64, gas.tx_gas_used(), Some(Output::Call(output)), vec![])
         }
-        ExecutionResult::Halt { reason, gas_used } => {
+        ExecutionResult::Halt { reason, gas, .. } => {
             let instruction_result = match reason {
                 TempoHaltReason::Ethereum(halt) => halt.into(),
                 TempoHaltReason::SubblockTxFeePayment => InstructionResult::Revert,
             };
-            (instruction_result, 0_u64, gas_used, None, vec![])
+            (instruction_result, 0_u64, gas.tx_gas_used(), None, vec![])
         }
     };
-    let gas = revm::interpreter::gas::calculate_initial_tx_gas(
+    let init_gas = revm::interpreter::gas::calculate_initial_tx_gas(
         env.evm_env.cfg_env.spec.into(),
         &env.tx.data,
         env.tx.kind.is_create(),
@@ -1120,7 +1119,7 @@ fn convert_executed_result(
         result,
         gas_used,
         gas_refunded,
-        stipend: gas.initial_gas,
+        stipend: init_gas.initial_total_gas,
         logs,
         labels,
         traces,

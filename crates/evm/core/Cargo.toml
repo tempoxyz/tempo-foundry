@@ -53,8 +53,9 @@ revm = { workspace = true, features = [
     "blst",
 ] }
 revm-inspectors.workspace = true
-op-revm.workspace = true
-alloy-op-evm.workspace = true
+# op-revm and alloy-op-evm: disabled on tip1016-revm branch (no alloy-op-evm compatible with revm 36)
+# op-revm = { workspace = true, optional = true }
+# alloy-op-evm = { workspace = true, optional = true }
 
 tempo-alloy.workspace = true
 tempo-evm.workspace = true
@@ -76,3 +77,6 @@ url.workspace = true
 
 [dev-dependencies]
 foundry-test-utils.workspace = true
+
+[features]
+default = []

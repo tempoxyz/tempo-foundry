@@ -234,7 +234,7 @@ foundry-compilers = { version = "0.19.10", default-features = false, features = 
   "rustls",
   "svm-solc",
 ] }
-foundry-fork-db = "0.21"
+foundry-fork-db = "0.24"
 solang-parser = { version = "=0.3.9", package = "foundry-solang-parser" }
 solar = { package = "solar-compiler", version = "=0.1.8", default-features = false }
 svm = { package = "svm-rs", version = "0.5", default-features = false, features = [
@@ -294,7 +294,7 @@ op-alloy-rpc-types = "0.23.1"
 op-alloy-flz = "0.13.1"
 
 ## alloy-evm
-alloy-evm = "0.29.2"
+alloy-evm = "0.30.0"
 alloy-op-evm = "0.27.0"  # not used by forge
 
 # revm
@@ -358,9 +358,9 @@ rand = "0.9"
 rand_08 = { package = "rand", version = "0.8" }
 rayon = "1"
 regex = { version = "1", default-features = false }
-reqwest = { version = "0.12", default-features = false, features = [
-  "rustls-tls",
-  "rustls-tls-native-roots",
+reqwest = { version = "0.13", default-features = false, features = [
+  "rustls",
+  "rustls-native-certs",
 ] }
 rustls = "0.23"
 semver = "1"
@@ -393,13 +393,13 @@ flate2 = "1.1"
 ethereum_ssz = "0.10"
 
 # Tempo
-tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
-tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
-tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
-tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
-tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
-tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "275951e7aa27ac2f004550bf45b6467dc903d99a" }
+tempo-alloy = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
+tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
+tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
+tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
+tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "f0f25280ccbdbcd89f17b409324113863da6d1ee" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
 
@@ -454,27 +454,27 @@ rexpect = { git = "https://github.com/rust-cli/rexpect", rev = "2ed0b1898d7edaf6
 # alloy-transport-ws = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
 
 ## alloy-evm
-alloy-evm = { git = "https://github.com/alloy-rs/evm.git", rev = "ec772db" }
-# alloy-op-evm not present at this rev
+alloy-evm = { git = "https://github.com/alloy-rs/evm.git", rev = "72428ade653fdc05116accca8638946dc73ca86a" }
+# alloy-op-evm: not present at this rev, made optional in foundry-evm-core
 
 ## revm
-revm = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-bytecode = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-context = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-context-interface = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-database = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-database-interface = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-handler = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-inspector = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-interpreter = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-precompile = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "8891655bb" }
-revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "ecc5bc7" }
+revm = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-bytecode = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-context = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-context-interface = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-database = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-database-interface = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-handler = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-inspector = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-interpreter = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-precompile = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "d7267ab182ea0ae2f0d8b870237a306be836b410" }
+revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "15c71f3ed1f21ce17ac5a2a5e45f0944f9c7f5dd" }
 
 ## foundry
-foundry-fork-db = { git = "https://github.com/decofe/foundry-fork-db", branch = "tip1016-revm-deps" }
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", branch = "main" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
 

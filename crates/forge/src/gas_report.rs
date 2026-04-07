@@ -174,9 +174,7 @@ impl GasReport {
                     }
 
                     let functions = contract
-                        .functions
-                        .iter()
-                        .flat_map(|(_, sigs)| {
+                        .functions.values().flat_map(|sigs| {
                             sigs.iter().map(|(sig, gas_info)| {
                                 let display_name = sig.replace(':', "");
                                 (display_name, gas_info)

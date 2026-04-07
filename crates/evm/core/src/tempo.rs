@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use alloy_primitives::{Address, U256};
 use revm::{
     Database,
+    context::journaled_state::JournalCheckpoint,
     state::{AccountInfo, Bytecode},
 };
 use tempo_chainspec::hardfork::TempoHardfork;
@@ -147,4 +148,20 @@ impl<'a> PrecompileStorageProvider for FoundryStorageProvider<'a> {
     fn is_static(&self) -> bool {
         false
     }
+
+    fn block_number(&self) -> u64 {
+        0
+    }
+
+    fn gas_limit(&self) -> u64 {
+        u64::MAX
+    }
+
+    fn checkpoint(&mut self) -> JournalCheckpoint {
+        JournalCheckpoint { log_i: 0, journal_i: 0, selfdestructed_i: 0 }
+    }
+
+    fn checkpoint_commit(&mut self, _checkpoint: JournalCheckpoint) {}
+
+    fn checkpoint_revert(&mut self, _checkpoint: JournalCheckpoint) {}
 }

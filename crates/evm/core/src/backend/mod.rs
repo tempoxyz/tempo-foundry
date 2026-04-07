@@ -28,7 +28,7 @@ use revm::{
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{HashMap as Map, KECCAK_EMPTY, Log, hardfork::SpecId},
+    primitives::{AddressMap, KECCAK_EMPTY, Log, hardfork::SpecId},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
 };
 use std::{
@@ -570,7 +570,7 @@ impl Backend {
     pub fn replace_account_storage(
         &mut self,
         address: Address,
-        storage: Map<U256, U256>,
+        storage: alloy_primitives::map::U256Map<U256>,
     ) -> Result<(), DatabaseError> {
         if let Some(db) = self.active_fork_db_mut() {
             db.replace_account_storage(address, storage)
@@ -1540,7 +1540,7 @@ impl DatabaseRef for Backend {
 }
 
 impl DatabaseCommit for Backend {
-    fn commit(&mut self, changes: Map<Address, Account>) {
+    fn commit(&mut self, changes: AddressMap<Account>) {
         if let Some(db) = self.active_fork_db_mut() {
             db.commit(changes)
         } else {
@@ -2017,7 +2017,7 @@ pub fn update_state<DB: Database>(
 /// Applies the changeset of a transaction to the active journaled state and also commits it in the
 /// forked db
 fn apply_state_changeset(
-    state: Map<revm::primitives::Address, Account>,
+    state: AddressMap<Account>,
     journaled_state: &mut JournaledState,
     fork: &mut Fork,
     persistent_accounts: &HashSet<Address>,
