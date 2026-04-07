@@ -23,8 +23,8 @@ use foundry_wallets::{
 };
 use tempo_alloy::{TempoNetwork, provider::TempoProviderExt, rpc::TempoTransactionRequest};
 use tempo_contracts::precompiles::{
-    ITIP20,
     IAccountKeychain::{CallScope, KeyRestrictions, SelectorRule, SignatureType, TokenLimit},
+    ITIP20,
 };
 
 use super::erc20::{Erc20TxOpts, apply_tempo_tx_opts};
@@ -51,13 +51,11 @@ pub enum KeychainSubcommand {
 
         /// Call scope restriction (repeatable). Format: ADDRESS or ADDRESS:SELECTORS
         ///
-        /// SELECTORS is a comma-separated list of: transfer, transfer_with_memo, approve,
-        /// or a raw 4-byte hex selector (0xaabbccdd).
+        /// SELECTORS is a comma-separated list of: transfer, transfer_with_memo, approve.
         ///
         /// Examples:
         ///   --scope 0xTIP20:transfer,approve   (scoped to transfer+approve on this TIP-20)
         ///   --scope 0xDEX                       (unrestricted calls to this address)
-        ///   --scope 0xToken:0xa9059cbb          (raw selector)
         #[arg(long, value_name = "ADDRESS[:SELECTORS]")]
         scope: Vec<String>,
 
@@ -346,17 +344,7 @@ fn parse_selector_name(s: &str) -> eyre::Result<FixedBytes<4>> {
         "transfer" => Ok(ITIP20::transferCall::SELECTOR.into()),
         "transfer_with_memo" => Ok(ITIP20::transferWithMemoCall::SELECTOR.into()),
         "approve" => Ok(ITIP20::approveCall::SELECTOR.into()),
-        _ if s.starts_with("0x") || s.starts_with("0X") => {
-            let bytes = alloy_primitives::hex::decode(s)
-                .map_err(|e| eyre::eyre!("invalid hex selector '{s}': {e}"))?;
-            if bytes.len() != 4 {
-                eyre::bail!("selector must be exactly 4 bytes, got {} in '{s}'", bytes.len());
-            }
-            Ok(FixedBytes::from_slice(&bytes))
-        }
-        _ => eyre::bail!(
-            "unknown selector '{s}', expected: transfer, transfer_with_memo, approve, or 0x<4-byte hex>"
-        ),
+        _ => eyre::bail!("unknown selector '{s}', expected: transfer, transfer_with_memo, approve"),
     }
 }
 
@@ -574,15 +562,8 @@ mod tests {
             parse_selector_name("approve").unwrap(),
             FixedBytes::from(ITIP20::approveCall::SELECTOR)
         );
-        // Raw hex selector
-        assert_eq!(
-            parse_selector_name("0xaabbccdd").unwrap(),
-            FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd])
-        );
-        // Unknown name
         assert!(parse_selector_name("unknown").is_err());
-        // Invalid hex length
-        assert!(parse_selector_name("0xaabb").is_err());
+        assert!(parse_selector_name("0xaabbccdd").is_err());
     }
 
     #[test]
@@ -606,15 +587,6 @@ mod tests {
         assert_eq!(
             scope.selectorRules[1].selector,
             FixedBytes::from(ITIP20::approveCall::SELECTOR)
-        );
-
-        // With raw hex selector
-        let scope =
-            parse_scope("0x20c0000000000000000000000000000000000001:0xaabbccdd").unwrap();
-        assert_eq!(scope.selectorRules.len(), 1);
-        assert_eq!(
-            scope.selectorRules[0].selector,
-            FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd])
         );
     }
 
