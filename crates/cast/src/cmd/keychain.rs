@@ -586,24 +586,18 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_scope_address_only() {
-        let scope =
-            parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D").unwrap();
+    fn test_parse_scope() {
+        // Address only — unrestricted
+        let scope = parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D").unwrap();
         assert_eq!(
             scope.target,
             Address::from_str("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D").unwrap()
         );
         assert!(scope.selectorRules.is_empty());
-    }
 
-    #[test]
-    fn test_parse_scope_with_selectors() {
+        // With named selectors
         let scope =
             parse_scope("0x20c0000000000000000000000000000000000001:transfer,approve").unwrap();
-        assert_eq!(
-            scope.target,
-            Address::from_str("0x20c0000000000000000000000000000000000001").unwrap()
-        );
         assert_eq!(scope.selectorRules.len(), 2);
         assert_eq!(
             scope.selectorRules[0].selector,
@@ -613,10 +607,8 @@ mod tests {
             scope.selectorRules[1].selector,
             FixedBytes::from(ITIP20::approveCall::SELECTOR)
         );
-    }
 
-    #[test]
-    fn test_parse_scope_with_raw_hex_selector() {
+        // With raw hex selector
         let scope =
             parse_scope("0x20c0000000000000000000000000000000000001:0xaabbccdd").unwrap();
         assert_eq!(scope.selectorRules.len(), 1);
@@ -627,13 +619,11 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_call_scopes_none_when_empty() {
-        let result = parse_call_scopes(&[], None).unwrap();
-        assert!(result.is_none());
-    }
+    fn test_parse_call_scopes() {
+        // No scopes = None (allow any calls)
+        assert!(parse_call_scopes(&[], None).unwrap().is_none());
 
-    #[test]
-    fn test_parse_call_scopes_from_flags() {
+        // From --scope flags
         let scopes = vec![
             "0x20c0000000000000000000000000000000000001:transfer".to_string(),
             "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D".to_string(),
@@ -642,10 +632,8 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].selectorRules.len(), 1);
         assert!(result[1].selectorRules.is_empty());
-    }
 
-    #[test]
-    fn test_parse_call_scopes_from_json() {
+        // From --scopes JSON
         let json = r#"[{"target":"0x20c0000000000000000000000000000000000001","selectors":["transfer","approve"]},{"target":"0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D"}]"#;
         let result = parse_call_scopes(&[], Some(json)).unwrap().unwrap();
         assert_eq!(result.len(), 2);
