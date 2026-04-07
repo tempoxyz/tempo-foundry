@@ -1930,7 +1930,7 @@ casttest!(mktx_raw_unsigned_no_from_missing_nonce, |_prj, cmd| {
 });
 
 casttest!(mktx_ethsign, async |_prj, cmd| {
-    let (_api, handle) = anvil::spawn(NodeConfig::test_tempo()).await;
+    let (_api, handle) = anvil::spawn(NodeConfig::test()).await;
     let rpc = handle.http_endpoint();
     cmd.args([
         "mktx",
@@ -1952,10 +1952,12 @@ casttest!(mktx_ethsign, async |_prj, cmd| {
         rpc.as_str(),
     ])
     .assert_success()
-    .stdout_eq(str![[r#"
-0x02[..]
+    .stdout_eq(str![[
+        r#"
+0x02f86d827a6980843b9aca008502540be4008252089400000000000000000000000000000000000000018080c001a0b8eeb1ded87b085859c510c5692bed231e3ee8b068ccf71142bbf28da0e95987a07813b676a248ae8055f28495021d78dee6695479d339a6ad9d260d9eaf20674c
 
-"#]]);
+"#
+    ]]);
 });
 
 // tests that the raw encoded transaction is returned
