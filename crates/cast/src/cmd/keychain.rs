@@ -488,12 +488,15 @@ enum JsonSelectorRule {
     /// Just a selector name/hex string
     Name(String),
     /// Selector with recipients: {"selector": "transfer", "recipients": ["0x..."]}
-    #[serde(deny_unknown_fields)]
-    WithRecipients {
-        selector: String,
-        #[serde(default)]
-        recipients: Vec<Address>,
-    },
+    WithRecipients(JsonSelectorWithRecipients),
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JsonSelectorWithRecipients {
+    selector: String,
+    #[serde(default)]
+    recipients: Vec<Address>,
 }
 
 /// Parse call scopes from `--scope` flags or `--scopes` JSON.
@@ -517,9 +520,9 @@ fn parse_call_scopes(
                             let selector = parse_selector_name(name)?;
                             Ok(SelectorRule { selector, recipients: vec![] })
                         }
-                        JsonSelectorRule::WithRecipients { selector: name, recipients } => {
-                            let selector = parse_selector_name(name)?;
-                            Ok(SelectorRule { selector, recipients: recipients.clone() })
+                        JsonSelectorRule::WithRecipients(r) => {
+                            let selector = parse_selector_name(&r.selector)?;
+                            Ok(SelectorRule { selector, recipients: r.recipients.clone() })
                         }
                     })
                     .collect::<eyre::Result<Vec<_>>>()?;
