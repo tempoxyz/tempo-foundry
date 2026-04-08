@@ -18,8 +18,8 @@ use foundry_cli::{
 use foundry_common::shell;
 use foundry_config::Chain;
 use foundry_wallets::{
-    ACCOUNT_KEYCHAIN_ADDRESS, WalletSigner, authorize_key_calldata, revoke_key_calldata,
-    update_spending_limit_calldata,
+    ACCOUNT_KEYCHAIN_ADDRESS, WalletSigner, authorize_key_calldata, remove_allowed_calls_calldata,
+    revoke_key_calldata, set_allowed_calls_calldata, update_spending_limit_calldata,
 };
 use tempo_alloy::{TempoNetwork, provider::TempoProviderExt, rpc::TempoTransactionRequest};
 use tempo_contracts::precompiles::{
@@ -51,11 +51,15 @@ pub enum KeychainSubcommand {
 
         /// Call scope restriction (repeatable). Format: ADDRESS or ADDRESS:SELECTORS
         ///
-        /// SELECTORS is a comma-separated list of: transfer, transfer_with_memo, approve.
+        /// SELECTORS is a comma-separated list of named selectors (transfer, transfer_with_memo,
+        /// approve) or raw 4-byte hex (0xaabbccdd). Optionally append @RECIPIENT to restrict
+        /// the first argument (e.g. transfer recipient).
         ///
         /// Examples:
-        ///   --scope 0xTIP20:transfer,approve   (scoped to transfer+approve on this TIP-20)
-        ///   --scope 0xDEX                       (unrestricted calls to this address)
+        ///   --scope 0xTIP20:transfer,approve           (scoped to transfer+approve)
+        ///   --scope 0xTIP20:transfer@0xAlice            (transfer only to 0xAlice)
+        ///   --scope 0xDEX                               (unrestricted calls to this address)
+        ///   --scope 0xContract:0xaabbccdd               (raw 4-byte selector)
         #[arg(long, value_name = "ADDRESS[:SELECTORS]")]
         scope: Vec<String>,
 
@@ -132,6 +136,43 @@ pub enum KeychainSubcommand {
         #[command(flatten)]
         rpc: RpcOpts,
     },
+
+    /// Set or replace allowed call scopes for an existing key
+    #[command(visible_alias = "ss")]
+    SetScope {
+        /// The key identifier
+        key_id: Address,
+
+        /// Call scope restriction (repeatable). Format: ADDRESS or ADDRESS:SELECTORS
+        #[arg(long, value_name = "ADDRESS[:SELECTORS]")]
+        scope: Vec<String>,
+
+        /// Call scope restrictions as JSON array (mutually exclusive with --scope).
+        #[arg(long, value_name = "JSON", conflicts_with = "scope")]
+        scopes: Option<String>,
+
+        #[command(flatten)]
+        send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tx: Erc20TxOpts,
+    },
+
+    /// Remove call scope restriction for a specific target contract
+    #[command(visible_alias = "rs")]
+    RemoveScope {
+        /// The key identifier
+        key_id: Address,
+
+        /// The target contract to remove from allowed calls
+        target: Address,
+
+        #[command(flatten)]
+        send_tx: SendTxOpts,
+
+        #[command(flatten)]
+        tx: Erc20TxOpts,
+    },
 }
 
 impl KeychainSubcommand {
@@ -139,7 +180,9 @@ impl KeychainSubcommand {
         match self {
             Self::Authorize { send_tx, .. }
             | Self::Revoke { send_tx, .. }
-            | Self::UpdateLimit { send_tx, .. } => &send_tx.eth.rpc,
+            | Self::UpdateLimit { send_tx, .. }
+            | Self::SetScope { send_tx, .. }
+            | Self::RemoveScope { send_tx, .. } => &send_tx.eth.rpc,
             Self::KeyInfo { rpc, .. } | Self::RemainingLimit { rpc, .. } => rpc,
         }
     }
@@ -149,7 +192,9 @@ impl KeychainSubcommand {
         let (signer, tempo_access_key) = match &self {
             Self::Authorize { send_tx, .. }
             | Self::Revoke { send_tx, .. }
-            | Self::UpdateLimit { send_tx, .. } => {
+            | Self::UpdateLimit { send_tx, .. }
+            | Self::SetScope { send_tx, .. }
+            | Self::RemoveScope { send_tx, .. } => {
                 if send_tx.eth.wallet.from.is_some() {
                     send_tx.eth.wallet.maybe_signer().await?
                 } else {
@@ -295,6 +340,18 @@ impl KeychainSubcommand {
                 let calldata = update_spending_limit_calldata(key_id, token, new_limit);
                 keychain_send!(send_tx, tx_opts, calldata)
             }
+
+            Self::SetScope { key_id, scope, scopes, send_tx, tx: tx_opts } => {
+                let call_scopes = parse_call_scopes(&scope, scopes.as_deref())?
+                    .ok_or_else(|| eyre::eyre!("at least one --scope or --scopes is required"))?;
+                let calldata = set_allowed_calls_calldata(key_id, call_scopes);
+                keychain_send!(send_tx, tx_opts, calldata)
+            }
+
+            Self::RemoveScope { key_id, target, send_tx, tx: tx_opts } => {
+                let calldata = remove_allowed_calls_calldata(key_id, target);
+                keychain_send!(send_tx, tx_opts, calldata)
+            }
         }
 
         Ok(())
@@ -340,12 +397,36 @@ fn parse_token_limit(s: &str) -> eyre::Result<TokenLimit> {
 
 /// Parse a named selector into a 4-byte function selector.
 fn parse_selector_name(s: &str) -> eyre::Result<FixedBytes<4>> {
-    match s.to_lowercase().as_str() {
+    let lower = s.to_lowercase();
+    match lower.as_str() {
         "transfer" => Ok(ITIP20::transferCall::SELECTOR.into()),
         "transfer_with_memo" => Ok(ITIP20::transferWithMemoCall::SELECTOR.into()),
         "approve" => Ok(ITIP20::approveCall::SELECTOR.into()),
-        _ => eyre::bail!("unknown selector '{s}', expected: transfer, transfer_with_memo, approve"),
+        _ if lower.starts_with("0x") => FixedBytes::<4>::from_str(&lower)
+            .map_err(|e| eyre::eyre!("invalid hex selector '{s}': {e}")),
+        _ => eyre::bail!(
+            "unknown selector '{s}', expected: transfer, transfer_with_memo, approve, or 0x<4-byte hex>"
+        ),
     }
+}
+
+/// Parse a selector entry that may include recipient restrictions.
+///
+/// Format: `SELECTOR` or `SELECTOR@RECIPIENT1@RECIPIENT2`
+fn parse_selector_with_recipients(s: &str) -> eyre::Result<(&str, Vec<Address>)> {
+    let mut parts = s.splitn(2, '@');
+    let selector_name = parts.next().unwrap().trim();
+    let recipients = match parts.next() {
+        Some(rest) => rest
+            .split('@')
+            .map(|addr| {
+                Address::from_str(addr.trim())
+                    .map_err(|e| eyre::eyre!("invalid recipient address '{addr}': {e}"))
+            })
+            .collect::<eyre::Result<Vec<_>>>()?,
+        None => vec![],
+    };
+    Ok((selector_name, recipients))
 }
 
 /// Parse a single `--scope` value: `ADDRESS` or `ADDRESS:selector1,selector2,...`
@@ -374,9 +455,11 @@ fn parse_scope(s: &str) -> eyre::Result<CallScope> {
     let selector_rules = match selectors_str {
         Some(sel_str) if !sel_str.is_empty() => sel_str
             .split(',')
-            .map(|name| {
-                let selector = parse_selector_name(name.trim())?;
-                Ok(SelectorRule { selector, recipients: vec![] })
+            .map(|entry| {
+                let entry = entry.trim();
+                let (sel_name, recipients) = parse_selector_with_recipients(entry)?;
+                let selector = parse_selector_name(sel_name)?;
+                Ok(SelectorRule { selector, recipients })
             })
             .collect::<eyre::Result<Vec<_>>>()?,
         _ => vec![],
@@ -390,7 +473,25 @@ fn parse_scope(s: &str) -> eyre::Result<CallScope> {
 struct JsonCallScope {
     target: Address,
     #[serde(default)]
-    selectors: Vec<String>,
+    selectors: Vec<JsonSelectorRule>,
+}
+
+/// JSON representation for a selector rule with optional recipients.
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum JsonSelectorRule {
+    /// Just a selector name/hex string
+    Name(String),
+    /// Selector with recipients: {"selector": "transfer", "recipients": ["0x..."]}
+    WithRecipients(JsonSelectorWithRecipients),
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JsonSelectorWithRecipients {
+    selector: String,
+    #[serde(default)]
+    recipients: Vec<Address>,
 }
 
 /// Parse call scopes from `--scope` flags or `--scopes` JSON.
@@ -409,9 +510,15 @@ fn parse_call_scopes(
                 let selector_rules = entry
                     .selectors
                     .iter()
-                    .map(|name| {
-                        let selector = parse_selector_name(name)?;
-                        Ok(SelectorRule { selector, recipients: vec![] })
+                    .map(|rule| match rule {
+                        JsonSelectorRule::Name(name) => {
+                            let selector = parse_selector_name(name)?;
+                            Ok(SelectorRule { selector, recipients: vec![] })
+                        }
+                        JsonSelectorRule::WithRecipients(r) => {
+                            let selector = parse_selector_name(&r.selector)?;
+                            Ok(SelectorRule { selector, recipients: r.recipients.clone() })
+                        }
                     })
                     .collect::<eyre::Result<Vec<_>>>()?;
                 Ok(CallScope { target: entry.target, selectorRules: selector_rules })
@@ -563,8 +670,43 @@ mod tests {
             parse_selector_name("approve").unwrap(),
             FixedBytes::from(ITIP20::approveCall::SELECTOR)
         );
+        // Raw hex selector
+        assert_eq!(
+            parse_selector_name("0xaabbccdd").unwrap(),
+            FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd])
+        );
         assert!(parse_selector_name("unknown").is_err());
-        assert!(parse_selector_name("0xaabbccdd").is_err());
+        // Too short
+        assert!(parse_selector_name("0xaabb").is_err());
+        // Too long
+        assert!(parse_selector_name("0xaabbccddee").is_err());
+    }
+
+    #[test]
+    fn test_parse_selector_with_recipients() {
+        // No recipients
+        let (sel, recips) = parse_selector_with_recipients("transfer").unwrap();
+        assert_eq!(sel, "transfer");
+        assert!(recips.is_empty());
+
+        // Single recipient
+        let (sel, recips) =
+            parse_selector_with_recipients("transfer@0x1111111111111111111111111111111111111111")
+                .unwrap();
+        assert_eq!(sel, "transfer");
+        assert_eq!(recips.len(), 1);
+        assert_eq!(
+            recips[0],
+            Address::from_str("0x1111111111111111111111111111111111111111").unwrap()
+        );
+
+        // Multiple recipients
+        let (sel, recips) = parse_selector_with_recipients(
+            "transfer@0x1111111111111111111111111111111111111111@0x2222222222222222222222222222222222222222",
+        )
+        .unwrap();
+        assert_eq!(sel, "transfer");
+        assert_eq!(recips.len(), 2);
     }
 
     #[test]
@@ -577,7 +719,7 @@ mod tests {
         );
         assert!(scope.selectorRules.is_empty());
 
-        // With named selectors
+        // Named selectors
         let scope =
             parse_scope("0x20c0000000000000000000000000000000000001:transfer,approve").unwrap();
         assert_eq!(scope.selectorRules.len(), 2);
@@ -589,6 +731,31 @@ mod tests {
             scope.selectorRules[1].selector,
             FixedBytes::from(ITIP20::approveCall::SELECTOR)
         );
+
+        // Raw hex selector
+        let scope = parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0xaabbccdd").unwrap();
+        assert_eq!(scope.selectorRules.len(), 1);
+        assert_eq!(scope.selectorRules[0].selector, FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd]));
+        assert!(scope.selectorRules[0].recipients.is_empty());
+
+        // Raw hex selector + recipient
+        let scope = parse_scope(
+            "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0xaabbccdd@0x1111111111111111111111111111111111111111",
+        )
+        .unwrap();
+        assert_eq!(scope.selectorRules[0].selector, FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd]));
+        assert_eq!(scope.selectorRules[0].recipients.len(), 1);
+
+        // Named selector + recipient
+        let scope = parse_scope(
+            "0x20c0000000000000000000000000000000000001:transfer@0x1111111111111111111111111111111111111111",
+        )
+        .unwrap();
+        assert_eq!(
+            scope.selectorRules[0].selector,
+            FixedBytes::from(ITIP20::transferCall::SELECTOR)
+        );
+        assert_eq!(scope.selectorRules[0].recipients.len(), 1);
     }
 
     #[test]
@@ -606,11 +773,18 @@ mod tests {
         assert_eq!(result[0].selectorRules.len(), 1);
         assert!(result[1].selectorRules.is_empty());
 
-        // From --scopes JSON
+        // From --scopes JSON (plain selector names)
         let json = r#"[{"target":"0x20c0000000000000000000000000000000000001","selectors":["transfer","approve"]},{"target":"0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D"}]"#;
         let result = parse_call_scopes(&[], Some(json)).unwrap().unwrap();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].selectorRules.len(), 2);
         assert!(result[1].selectorRules.is_empty());
+
+        // From --scopes JSON (selector objects with recipients)
+        let json = r#"[{"target":"0x20c0000000000000000000000000000000000001","selectors":[{"selector":"transfer","recipients":["0x1111111111111111111111111111111111111111"]}]}]"#;
+        let result = parse_call_scopes(&[], Some(json)).unwrap().unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].selectorRules.len(), 1);
+        assert_eq!(result[0].selectorRules[0].recipients.len(), 1);
     }
 }
