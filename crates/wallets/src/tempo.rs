@@ -217,10 +217,7 @@ mod tests {
 
     #[test]
     fn test_set_allowed_calls_calldata() {
-        let scope = CallScope {
-            target: TEST_TOKEN,
-            selectorRules: vec![],
-        };
+        let scope = CallScope { target: TEST_TOKEN, selectorRules: vec![] };
         let data = set_allowed_calls_calldata(TEST_KEY, vec![scope]);
         assert!(!data.is_empty());
         assert_eq!(&data[..4], &setAllowedCallsCall::SELECTOR);

@@ -692,10 +692,9 @@ mod tests {
         assert!(recips.is_empty());
 
         // Single recipient
-        let (sel, recips) = parse_selector_with_recipients(
-            "transfer@0x1111111111111111111111111111111111111111",
-        )
-        .unwrap();
+        let (sel, recips) =
+            parse_selector_with_recipients("transfer@0x1111111111111111111111111111111111111111")
+                .unwrap();
         assert_eq!(sel, "transfer");
         assert_eq!(recips.len(), 1);
         assert_eq!(
@@ -738,8 +737,7 @@ mod tests {
 
     #[test]
     fn test_parse_scope_raw_hex_selector() {
-        let scope =
-            parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0xaabbccdd").unwrap();
+        let scope = parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0xaabbccdd").unwrap();
         assert_eq!(scope.selectorRules.len(), 1);
         assert_eq!(scope.selectorRules[0].selector, FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd]));
         assert!(scope.selectorRules[0].recipients.is_empty());
