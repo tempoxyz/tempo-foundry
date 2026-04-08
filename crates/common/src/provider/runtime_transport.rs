@@ -212,6 +212,20 @@ impl RuntimeTransport {
             );
         }
 
+        // If MPP_API_KEY is set, attach it as x-api-key for gated MPP proxies.
+        // Does not override an explicit x-api-key header from the user.
+        if !headers.contains_key(HeaderName::from_static("x-api-key"))
+            && let Ok(api_key) = std::env::var("MPP_API_KEY")
+        {
+            let api_key = api_key.trim();
+            if !api_key.is_empty() {
+                let mut value = HeaderValue::from_str(api_key)
+                    .map_err(|_| RuntimeTransportError::BadHeader("MPP_API_KEY".to_string()))?;
+                value.set_sensitive(true);
+                headers.insert(HeaderName::from_static("x-api-key"), value);
+            }
+        }
+
         if !headers.contains_key(reqwest::header::USER_AGENT) {
             headers.insert(
                 reqwest::header::USER_AGENT,
@@ -402,5 +416,59 @@ mod tests {
         }
 
         server_task.abort();
+    }
+
+    #[tokio::test]
+    async fn test_mpp_api_key_header_from_env() {
+        unsafe { std::env::set_var("MPP_API_KEY", "test-gate-key") };
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let http_handler = axum::routing::get(|actual_headers: HeaderMap| {
+            let key = HeaderName::from_static("x-api-key");
+            assert_eq!(actual_headers[key], HeaderValue::from_str("test-gate-key").unwrap());
+            async { "" }
+        });
+
+        let server_task = tokio::spawn(async move {
+            axum::serve(listener, http_handler.into_make_service()).await.unwrap()
+        });
+
+        let url = Url::parse("https://example.com").unwrap();
+        let transport = RuntimeTransportBuilder::new(url).build();
+        let client = transport.reqwest_client().unwrap();
+        let _ = client.get(format!("http://{addr}")).send().await.unwrap();
+
+        server_task.abort();
+        unsafe { std::env::remove_var("MPP_API_KEY") };
+    }
+
+    #[tokio::test]
+    async fn test_explicit_api_key_header_not_overridden() {
+        unsafe { std::env::set_var("MPP_API_KEY", "env-key") };
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let http_handler = axum::routing::get(|actual_headers: HeaderMap| {
+            let key = HeaderName::from_static("x-api-key");
+            assert_eq!(actual_headers[key], HeaderValue::from_str("user-key").unwrap());
+            async { "" }
+        });
+
+        let server_task = tokio::spawn(async move {
+            axum::serve(listener, http_handler.into_make_service()).await.unwrap()
+        });
+
+        let url = Url::parse("https://example.com").unwrap();
+        let transport = RuntimeTransportBuilder::new(url)
+            .with_headers(vec!["x-api-key: user-key".to_string()])
+            .build();
+        let client = transport.reqwest_client().unwrap();
+        let _ = client.get(format!("http://{addr}")).send().await.unwrap();
+
+        server_task.abort();
+        unsafe { std::env::remove_var("MPP_API_KEY") };
     }
 }

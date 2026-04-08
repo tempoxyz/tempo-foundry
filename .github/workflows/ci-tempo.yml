@@ -65,6 +65,7 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         env:
           TEMPO_KEYS_TOML_B64: ${{ secrets.TEMPO_KEYS_TOML_B64 }}
+          MPP_API_KEY: ${{ secrets.MPP_API_KEY }}
           MPP_DEPOSIT: "1000000"
         run: |
           if [ -z "${TEMPO_KEYS_TOML_B64:-}" ]; then
