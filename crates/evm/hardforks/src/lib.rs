@@ -190,11 +190,9 @@ pub fn spec_id_from_optimism_hardfork(hardfork: OpHardfork) -> OpSpecId {
 }
 
 /// Map a `TempoHardfork` enum into its corresponding `SpecId`.
-pub fn spec_id_from_tempo_hardfork(hardfork: TempoHardfork) -> SpecId {
-    match hardfork {
-        TempoHardfork::Genesis => SpecId::OSAKA,
-        f => unreachable!("unimplemented {}", f),
-    }
+pub fn spec_id_from_tempo_hardfork(_hardfork: TempoHardfork) -> SpecId {
+    // All Tempo hardforks map to SpecId::OSAKA
+    SpecId::OSAKA
 }
 
 /// Convert a `BlockNumberOrTag` into an `EthereumHardfork`.
