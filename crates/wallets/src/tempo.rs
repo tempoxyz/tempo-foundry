@@ -18,7 +18,8 @@ pub use tempo_contracts::precompiles::{
     ACCOUNT_KEYCHAIN_ADDRESS,
     IAccountKeychain::{
         self, CallScope, KeyRestrictions, SignatureType, TokenLimit,
-        authorizeKey_1Call as authorizeKeyCall, revokeKeyCall, updateSpendingLimitCall,
+        authorizeKey_1Call as authorizeKeyCall, removeAllowedCallsCall, revokeKeyCall,
+        setAllowedCallsCall, updateSpendingLimitCall,
     },
 };
 
@@ -168,6 +169,16 @@ pub fn update_spending_limit_calldata(key_id: Address, token: Address, new_limit
     updateSpendingLimitCall { keyId: key_id, token, newLimit: new_limit }.abi_encode()
 }
 
+/// ABI-encodes a `setAllowedCalls` call for the AccountKeychain precompile.
+pub fn set_allowed_calls_calldata(key_id: Address, scopes: Vec<CallScope>) -> Vec<u8> {
+    setAllowedCallsCall { keyId: key_id, scopes }.abi_encode()
+}
+
+/// ABI-encodes a `removeAllowedCalls` call for the AccountKeychain precompile.
+pub fn remove_allowed_calls_calldata(key_id: Address, target: Address) -> Vec<u8> {
+    removeAllowedCallsCall { keyId: key_id, target }.abi_encode()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,5 +213,20 @@ mod tests {
         let data = update_spending_limit_calldata(TEST_KEY, TEST_TOKEN, U256::from(1000));
         assert!(!data.is_empty());
         assert_eq!(&data[..4], &updateSpendingLimitCall::SELECTOR);
+    }
+
+    #[test]
+    fn test_set_allowed_calls_calldata() {
+        let scope = CallScope { target: TEST_TOKEN, selectorRules: vec![] };
+        let data = set_allowed_calls_calldata(TEST_KEY, vec![scope]);
+        assert!(!data.is_empty());
+        assert_eq!(&data[..4], &setAllowedCallsCall::SELECTOR);
+    }
+
+    #[test]
+    fn test_remove_allowed_calls_calldata() {
+        let data = remove_allowed_calls_calldata(TEST_KEY, TEST_TOKEN);
+        assert!(!data.is_empty());
+        assert_eq!(&data[..4], &removeAllowedCallsCall::SELECTOR);
     }
 }
