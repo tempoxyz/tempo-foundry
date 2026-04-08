@@ -379,10 +379,25 @@ if cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" 
 fi
 echo "OK: set-scope key correctly blocked for disallowed target"
 
+echo -e "\n=== CAST KEYCHAIN: REMOVE-SCOPE (BEFORE — CALL SUCCEEDS) ==="
+cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' \
+  --tempo.access-key "$KC_SS_PK" --tempo.root-account "$ADDR"
+echo "OK: call to scoped target succeeds before remove-scope"
+
 echo -e "\n=== CAST KEYCHAIN: REMOVE-SCOPE ==="
 cast keychain rs "$KC_SS_ADDR" 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D \
   --rpc-url "$ETH_RPC_URL" --private-key "$PK" ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"}
 echo "OK: remove-scope applied"
+
+echo -e "\n=== CAST KEYCHAIN: REMOVE-SCOPE (AFTER — CALL FAILS) ==="
+if cast send ${FEE_TOKEN_ARG[@]+"${FEE_TOKEN_ARG[@]}"} --rpc-url "$ETH_RPC_URL" \
+  0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D 'increment()' \
+  --tempo.access-key "$KC_SS_PK" --tempo.root-account "$ADDR" 2>&1; then
+  echo "ERROR: call should have been blocked after remove-scope"
+  exit 1
+fi
+echo "OK: call correctly blocked after remove-scope"
 
 echo -e "\n=== CAST KEYCHAIN: AUTHORIZE WITH RECIPIENT RESTRICTION ==="
 kc_recip_json="$(cast wallet new --json)"
