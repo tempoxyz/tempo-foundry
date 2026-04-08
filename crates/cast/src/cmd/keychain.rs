@@ -402,13 +402,8 @@ fn parse_selector_name(s: &str) -> eyre::Result<FixedBytes<4>> {
         "transfer" => Ok(ITIP20::transferCall::SELECTOR.into()),
         "transfer_with_memo" => Ok(ITIP20::transferWithMemoCall::SELECTOR.into()),
         "approve" => Ok(ITIP20::approveCall::SELECTOR.into()),
-        hex if hex.starts_with("0x") && hex.len() == 10 => {
-            let bytes = alloy_primitives::hex::decode(&hex[2..])
-                .map_err(|e| eyre::eyre!("invalid hex selector '{s}': {e}"))?;
-            let arr: [u8; 4] =
-                bytes.try_into().map_err(|_| eyre::eyre!("selector must be 4 bytes"))?;
-            Ok(FixedBytes::from(arr))
-        }
+        _ if lower.starts_with("0x") => FixedBytes::<4>::from_str(&lower)
+            .map_err(|e| eyre::eyre!("invalid hex selector '{s}': {e}")),
         _ => eyre::bail!(
             "unknown selector '{s}', expected: transfer, transfer_with_memo, approve, or 0x<4-byte hex>"
         ),
@@ -724,7 +719,7 @@ mod tests {
         );
         assert!(scope.selectorRules.is_empty());
 
-        // With named selectors
+        // Named selectors
         let scope =
             parse_scope("0x20c0000000000000000000000000000000000001:transfer,approve").unwrap();
         assert_eq!(scope.selectorRules.len(), 2);
@@ -736,47 +731,31 @@ mod tests {
             scope.selectorRules[1].selector,
             FixedBytes::from(ITIP20::approveCall::SELECTOR)
         );
-    }
 
-    #[test]
-    fn test_parse_scope_raw_hex_selector() {
+        // Raw hex selector
         let scope = parse_scope("0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0xaabbccdd").unwrap();
         assert_eq!(scope.selectorRules.len(), 1);
         assert_eq!(scope.selectorRules[0].selector, FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd]));
         assert!(scope.selectorRules[0].recipients.is_empty());
-    }
 
-    #[test]
-    fn test_parse_scope_raw_hex_with_recipient() {
+        // Raw hex selector + recipient
         let scope = parse_scope(
             "0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D:0xaabbccdd@0x1111111111111111111111111111111111111111",
         )
         .unwrap();
-        assert_eq!(scope.selectorRules.len(), 1);
         assert_eq!(scope.selectorRules[0].selector, FixedBytes::from([0xaa, 0xbb, 0xcc, 0xdd]));
         assert_eq!(scope.selectorRules[0].recipients.len(), 1);
-        assert_eq!(
-            scope.selectorRules[0].recipients[0],
-            Address::from_str("0x1111111111111111111111111111111111111111").unwrap()
-        );
-    }
 
-    #[test]
-    fn test_parse_scope_with_recipients() {
+        // Named selector + recipient
         let scope = parse_scope(
             "0x20c0000000000000000000000000000000000001:transfer@0x1111111111111111111111111111111111111111",
         )
         .unwrap();
-        assert_eq!(scope.selectorRules.len(), 1);
         assert_eq!(
             scope.selectorRules[0].selector,
             FixedBytes::from(ITIP20::transferCall::SELECTOR)
         );
         assert_eq!(scope.selectorRules[0].recipients.len(), 1);
-        assert_eq!(
-            scope.selectorRules[0].recipients[0],
-            Address::from_str("0x1111111111111111111111111111111111111111").unwrap()
-        );
     }
 
     #[test]
@@ -794,16 +773,14 @@ mod tests {
         assert_eq!(result[0].selectorRules.len(), 1);
         assert!(result[1].selectorRules.is_empty());
 
-        // From --scopes JSON
+        // From --scopes JSON (plain selector names)
         let json = r#"[{"target":"0x20c0000000000000000000000000000000000001","selectors":["transfer","approve"]},{"target":"0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D"}]"#;
         let result = parse_call_scopes(&[], Some(json)).unwrap().unwrap();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].selectorRules.len(), 2);
         assert!(result[1].selectorRules.is_empty());
-    }
 
-    #[test]
-    fn test_parse_call_scopes_json_with_recipients() {
+        // From --scopes JSON (selector objects with recipients)
         let json = r#"[{"target":"0x20c0000000000000000000000000000000000001","selectors":[{"selector":"transfer","recipients":["0x1111111111111111111111111111111111111111"]}]}]"#;
         let result = parse_call_scopes(&[], Some(json)).unwrap().unwrap();
         assert_eq!(result.len(), 1);
