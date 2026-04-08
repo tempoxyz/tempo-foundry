@@ -27,7 +27,7 @@ use foundry_evm::{
     Env,
     core::env::AsEnvMut,
     executors::{EvmError, Executor, TracingExecutor},
-    hardforks::FoundryHardfork,
+    hardforks::{FoundryHardfork, hardfork_for_chain},
     opts::EvmOpts,
     traces::{InternalTraceMode, TraceMode, Traces},
 };
@@ -131,7 +131,7 @@ impl RunArgs {
     /// This replays the entire block the transaction was mined in unless `quick` is set to true
     ///
     /// Note: This executes the transaction(s) as is: Cheatcodes are disabled
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(mut self) -> Result<()> {
         let figment = self.rpc.clone().into_figment(self.with_local_artifacts).merge(&self);
         let evm_opts = figment.extract::<EvmOpts>()?;
         let mut config = Config::from_provider(figment)?.sanitized();
@@ -200,11 +200,17 @@ impl RunArgs {
             env.evm_env.block_env.basefee = block.header.base_fee_per_gas().unwrap_or_default();
             env.evm_env.block_env.gas_limit = block.header.gas_limit();
 
-            // TODO: we need a smarter way to map the block to the corresponding evm_version for
-            // commonly used chains
-            if evm_version.is_none() {
-                // if the block has the excess_blob_gas field, we assume it's a Cancun block
-                if block.header.excess_blob_gas().is_some() {
+            // Resolve the correct hardfork for the block using the same approach as reth:
+            // walk known chain activation conditions (block number / timestamp) to find the
+            // latest active fork. Falls back to a blob-gas heuristic for unknown chains.
+            if evm_version.is_none() && self.hardfork.is_none() {
+                if let Some(hf) = hardfork_for_chain(
+                    env.evm_env.cfg_env.chain_id,
+                    tx_block_number,
+                    block.header.timestamp(),
+                ) {
+                    self.hardfork = Some(hf);
+                } else if block.header.excess_blob_gas().is_some() {
                     evm_version = Some(EvmVersion::Prague);
                 }
             }
@@ -233,18 +239,23 @@ impl RunArgs {
             create2_deployer,
             None,
         )?;
-        // Preserve the original cfg.spec (TempoHardfork) when no hardfork override is specified.
-        // This is important because the SpecId round-trip loses the distinction between T0/T1
-        // (all Tempo hardforks map to OSAKA).
+        // Rebuild the env from the executor's resolved spec. For non-Tempo chains this uses
+        // the SpecId set by the executor. For Tempo hardforks we must preserve the exact
+        // TempoHardfork variant because the SpecId round-trip is lossy (all Tempo forks map
+        // to OSAKA).
         let mut env = if self.hardfork.is_none() {
             Env::from(env.evm_env.cfg_env.clone(), env.evm_env.block_env.clone(), env.tx.clone())
         } else {
-            Env::new_with_spec_id(
+            let mut env = Env::new_with_spec_id(
                 env.evm_env.cfg_env.clone(),
                 env.evm_env.block_env.clone(),
                 env.tx.clone(),
                 executor.spec_id(),
-            )
+            );
+            if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
+                env.evm_env.cfg_env.spec = tempo_hf;
+            }
+            env
         };
 
         // Set the state to the moment right before the transaction

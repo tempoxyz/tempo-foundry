@@ -198,6 +198,55 @@ pub fn ethereum_hardfork_from_block_tag(block: impl Into<BlockNumberOrTag>) -> E
     EthereumHardfork::from_mainnet_block_number(num)
 }
 
+/// Tempo mainnet chain ID.
+const TEMPO_MAINNET_CHAIN_ID: u64 = 4217;
+/// Tempo moderato testnet chain ID.
+const TEMPO_MODERATO_CHAIN_ID: u64 = 42431;
+
+/// Resolves the active hardfork for a known chain at the given block.
+///
+/// Uses the same approach as reth: walk hardfork activation conditions (block number for Ethereum,
+/// timestamp for Tempo) to find the latest active fork.
+///
+/// Returns `None` for unknown chains — the caller should fall back to heuristics.
+pub fn hardfork_for_chain(
+    chain_id: u64,
+    block_number: u64,
+    timestamp: u64,
+) -> Option<FoundryHardfork> {
+    match chain_id {
+        1 => Some(FoundryHardfork::Ethereum(
+            EthereumHardfork::from_mainnet_block_number(block_number),
+        )),
+        TEMPO_MAINNET_CHAIN_ID => Some(FoundryHardfork::Tempo(tempo_hardfork_at(
+            TempoHardfork::mainnet_activation_timestamp,
+            timestamp,
+        ))),
+        TEMPO_MODERATO_CHAIN_ID => Some(FoundryHardfork::Tempo(tempo_hardfork_at(
+            TempoHardfork::moderato_activation_timestamp,
+            timestamp,
+        ))),
+        _ => None,
+    }
+}
+
+/// Walk `TempoHardfork::VARIANTS` in reverse to find the latest active fork at the given
+/// timestamp, mirroring `TempoHardforks::tempo_hardfork_at` from reth but without requiring a
+/// `ChainSpec` instance.
+fn tempo_hardfork_at(
+    activation_fn: fn(&TempoHardfork) -> Option<u64>,
+    timestamp: u64,
+) -> TempoHardfork {
+    for &fork in TempoHardfork::VARIANTS.iter().rev() {
+        if let Some(ts) = activation_fn(&fork)
+            && timestamp >= ts
+        {
+            return fork;
+        }
+    }
+    TempoHardfork::Genesis
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +288,42 @@ mod tests {
             ethereum_hardfork_from_block_tag(MAINNET_LONDON_BLOCK + 1),
             EthereumHardfork::London
         );
+    }
+
+    #[test]
+    fn test_hardfork_for_chain_ethereum() {
+        assert_eq!(
+            hardfork_for_chain(1, MAINNET_LONDON_BLOCK + 1, 0),
+            Some(FoundryHardfork::Ethereum(EthereumHardfork::London))
+        );
+    }
+
+    #[test]
+    fn test_hardfork_for_chain_tempo_mainnet() {
+        // Pre-T1: should resolve to T0
+        assert_eq!(
+            hardfork_for_chain(TEMPO_MAINNET_CHAIN_ID, 0, 0),
+            Some(FoundryHardfork::Tempo(TempoHardfork::T0))
+        );
+        // T1 activation timestamp
+        assert_eq!(
+            hardfork_for_chain(TEMPO_MAINNET_CHAIN_ID, 0, 1_770_908_400),
+            Some(FoundryHardfork::Tempo(TempoHardfork::T1A))
+        );
+        // T1B activation timestamp
+        assert_eq!(
+            hardfork_for_chain(TEMPO_MAINNET_CHAIN_ID, 0, 1_771_858_800),
+            Some(FoundryHardfork::Tempo(TempoHardfork::T1B))
+        );
+        // T2 activation timestamp
+        assert_eq!(
+            hardfork_for_chain(TEMPO_MAINNET_CHAIN_ID, 0, 1_774_965_600),
+            Some(FoundryHardfork::Tempo(TempoHardfork::T2))
+        );
+    }
+
+    #[test]
+    fn test_hardfork_for_chain_unknown() {
+        assert_eq!(hardfork_for_chain(999999, 0, 0), None);
     }
 }
