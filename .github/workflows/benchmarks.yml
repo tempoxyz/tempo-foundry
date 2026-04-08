@@ -34,7 +34,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -64,22 +64,26 @@ jobs:
         run: cargo build --release --bin foundry-bench
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "24"
 
       - name: Install hyperfine
         run: |
-          curl -L https://github.com/sharkdp/hyperfine/releases/download/v1.19.0/hyperfine-v1.19.0-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          curl -fsSL https://github.com/sharkdp/hyperfine/releases/download/v1.19.0/hyperfine-v1.19.0-x86_64-unknown-linux-gnu.tar.gz -o /tmp/hyperfine.tar.gz
+          echo "d5550bbdc240d2aaa8f43ea2dc8b03a306afb30ea8464cd8b2faa9486ed1019e /tmp/hyperfine.tar.gz" | sha256sum -c
+          tar xzf /tmp/hyperfine.tar.gz
           sudo mv hyperfine-v1.19.0-x86_64-unknown-linux-gnu/hyperfine /usr/local/bin/
           rm -rf hyperfine-v1.19.0-x86_64-unknown-linux-gnu
 
       - name: Run forge test benchmarks
         env:
           FOUNDRY_DIR: ${{ github.workspace }}/.foundry
+          INPUT_VERSIONS: ${{ github.event.inputs.versions || 'stable,nightly' }}
+          INPUT_REPOS: ${{ github.event.inputs.repos || env.DEFAULT_REPOS }}
         run: |
-          VERSIONS="${{ github.event.inputs.versions || 'stable,nightly' }}"
-          REPOS="${{ github.event.inputs.repos || env.DEFAULT_REPOS }}"
+          VERSIONS="${INPUT_VERSIONS}"
+          REPOS="${INPUT_REPOS}"
 
           ./target/release/foundry-bench --output-dir ./benches --force-install \
             --versions $VERSIONS \
@@ -90,10 +94,12 @@ jobs:
       - name: Run forge isolate test benchmarks
         env:
           FOUNDRY_DIR: ${{ github.workspace }}/.foundry
+          INPUT_VERSIONS: ${{ github.event.inputs.versions || 'stable,nightly' }}
+          INPUT_REPOS: ${{ github.event.inputs.repos || env.VECTORIZED_SOLADY }}
         run: |
-          VERSIONS="${{ github.event.inputs.versions || 'stable,nightly' }}"
+          VERSIONS="${INPUT_VERSIONS}"
           # Isolate tests default to Vectorized/solady but can be overridden
-          REPOS="${{ github.event.inputs.repos || env.VECTORIZED_SOLADY }}"
+          REPOS="${INPUT_REPOS}"
 
           ./target/release/foundry-bench --output-dir ./benches --force-install \
             --versions $VERSIONS \
@@ -104,9 +110,11 @@ jobs:
       - name: Run forge build benchmarks
         env:
           FOUNDRY_DIR: ${{ github.workspace }}/.foundry
+          INPUT_VERSIONS: ${{ github.event.inputs.versions || 'stable,nightly' }}
+          INPUT_REPOS: ${{ github.event.inputs.repos || env.DEFAULT_REPOS }}
         run: |
-          VERSIONS="${{ github.event.inputs.versions || 'stable,nightly' }}"
-          REPOS="${{ github.event.inputs.repos || env.DEFAULT_REPOS }}"
+          VERSIONS="${INPUT_VERSIONS}"
+          REPOS="${INPUT_REPOS}"
 
           ./target/release/foundry-bench --output-dir ./benches --force-install \
             --versions $VERSIONS \
@@ -117,13 +125,15 @@ jobs:
       - name: Run forge coverage benchmarks
         env:
           FOUNDRY_DIR: ${{ github.workspace }}/.foundry
+          INPUT_VERSIONS: ${{ github.event.inputs.versions || 'stable,nightly' }}
+          INPUT_REPOS: ${{ env.ITHACAXYZ_ACCOUNT }}
         run: |
-          VERSIONS="${{ github.event.inputs.versions || 'stable,nightly' }}"
+          VERSIONS="${INPUT_VERSIONS}"
           # Coverage only runs on ithacaxyz/account:v0.3.2
 
           ./target/release/foundry-bench --output-dir ./benches --force-install \
             --versions $VERSIONS \
-            --repos ${{ env.ITHACAXYZ_ACCOUNT }} \
+            --repos $INPUT_REPOS \
             --benchmarks forge_coverage \
             --output-file forge_coverage_bench.md
 
@@ -137,7 +147,7 @@ jobs:
         run: ./.github/scripts/commit-and-read-benchmarks.sh benches "${{ github.event_name }}" "${{ github.repository }}"
 
       - name: Upload benchmark results as artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: benchmark-results
           path: |
@@ -160,12 +170,12 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
       - name: Download benchmark results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: benchmark-results
           path: benches/
@@ -178,7 +188,7 @@ jobs:
 
       - name: Create PR for manual runs
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const branchName = '${{ needs.run-benchmarks.outputs.branch_name }}';
@@ -190,7 +200,7 @@ jobs:
               repo: context.repo.repo,
               title: 'chore(bench): update benchmark results',
               head: branchName,
-              base: 'master',
+              base: 'tempo',
               body: `## Benchmark Results Update
 
             This PR contains the latest benchmark results from a manual workflow run.
@@ -206,7 +216,7 @@ jobs:
 
       - name: Comment on PR
         if: github.event.inputs.pr_number != '' || github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const prNumber = ${{ github.event.inputs.pr_number || github.event.pull_request.number }};
