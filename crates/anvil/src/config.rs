@@ -65,7 +65,7 @@ use std::{
 };
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
-use tempo_revm::TempoTxEnv;
+use tempo_revm::{TempoTxEnv, gas_params::tempo_gas_params};
 use tokio::sync::RwLock as TokioRwLock;
 use yansi::Paint;
 
@@ -1103,6 +1103,7 @@ impl NodeConfig {
 
         let mut cfg: CfgEnv<TempoHardfork> = CfgEnv::default();
         cfg.spec = self.get_hardfork().into();
+        cfg.gas_params = tempo_gas_params(cfg.spec);
 
         cfg.chain_id = self.get_chain_id();
         cfg.limit_contract_code_size = self.code_size_limit;
@@ -1281,7 +1282,10 @@ impl NodeConfig {
                     let hardfork: EthereumHardfork =
                         ethereum_hardfork_from_block_tag(fork_block_number);
 
-                    env.evm_env.cfg_env.spec = spec_id_from_ethereum_hardfork(hardfork).into();
+                    let spec: TempoHardfork = spec_id_from_ethereum_hardfork(hardfork).into();
+                    env.evm_env.cfg_env.spec = spec;
+                    env.evm_env.cfg_env.gas_params =
+                        revm::context_interface::cfg::GasParams::new_spec(spec.into());
                     self.hardfork = Some(FoundryHardfork::Ethereum(hardfork));
                 }
                 Some(U256::from(chain_id))

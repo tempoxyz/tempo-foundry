@@ -40,6 +40,7 @@ use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{DatabaseError, DatabaseExt, RevertDiagnostic},
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, MAGIC_ASSUME},
+    env::TempoCfgEnvExt,
     evm::{FoundryEvm, new_evm_with_existing_context},
 };
 use foundry_evm_traces::{
@@ -706,7 +707,7 @@ impl Cheatcodes {
     ) -> Option<CallOutcome> {
         // Apply custom execution evm version.
         if let Some(spec_id) = self.execution_evm_version {
-            ecx.cfg.spec = spec_id.into();
+            ecx.cfg.set_tempo_spec(spec_id.into());
         }
 
         let gas = Gas::new(call.gas_limit);
@@ -1649,7 +1650,7 @@ impl Inspector<TempoContext<&mut dyn DatabaseExt>> for Cheatcodes {
     fn create(&mut self, ecx: Ecx, mut input: &mut CreateInputs) -> Option<CreateOutcome> {
         // Apply custom execution evm version.
         if let Some(spec_id) = self.execution_evm_version {
-            ecx.cfg.spec = spec_id.into();
+            ecx.cfg.set_tempo_spec(spec_id.into());
         }
 
         let gas = Gas::new(input.gas_limit());

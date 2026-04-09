@@ -6,7 +6,31 @@ use revm::{
 };
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
-use tempo_revm::{TempoTxEnv, evm::TempoContext};
+use tempo_revm::{TempoTxEnv, evm::TempoContext, gas_params::tempo_gas_params};
+
+/// Extension trait for `CfgEnv<TempoHardfork>` that keeps `spec` and `gas_params` in sync.
+///
+/// `CfgEnv::set_spec()` only updates the spec discriminant without updating the gas parameters
+/// table. For Tempo, we also need to apply custom gas overrides via [`tempo_gas_params`]. Use
+/// this trait instead of bare `.spec = ...` assignments.
+pub trait TempoCfgEnvExt {
+    /// Sets the Tempo hardfork spec and rebuilds the gas parameters table.
+    fn set_tempo_spec(&mut self, spec: TempoHardfork);
+
+    /// Rebuilds the gas parameters table from the current spec.
+    fn sync_tempo_gas_params(&mut self);
+}
+
+impl TempoCfgEnvExt for CfgEnv<TempoHardfork> {
+    fn set_tempo_spec(&mut self, spec: TempoHardfork) {
+        self.spec = spec;
+        self.gas_params = tempo_gas_params(spec);
+    }
+
+    fn sync_tempo_gas_params(&mut self) {
+        self.gas_params = tempo_gas_params(self.spec);
+    }
+}
 
 /// Helper container type for [`EvmEnv`] and [`TxEnv`].
 #[derive(Clone, Debug, Default)]
@@ -19,7 +43,7 @@ pub struct Env {
 impl Env {
     pub fn default_with_spec_id(spec_id: SpecId) -> Self {
         let mut cfg = CfgEnv::<TempoHardfork>::default();
-        cfg.spec = spec_id.into();
+        cfg.set_tempo_spec(spec_id.into());
 
         Self::from(cfg, TempoBlockEnv::default(), TempoTxEnv::default())
     }
@@ -35,7 +59,7 @@ impl Env {
         spec_id: SpecId,
     ) -> Self {
         let mut cfg = cfg;
-        cfg.spec = spec_id.into();
+        cfg.set_tempo_spec(spec_id.into());
 
         Self::from(cfg, block, tx)
     }

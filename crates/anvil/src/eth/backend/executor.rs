@@ -47,6 +47,7 @@ use revm::{
 use std::{fmt::Debug, sync::Arc};
 use tempo_chainspec::hardfork::TempoHardfork;
 use tempo_evm::TempoBlockEnv;
+use tempo_revm::gas_params::tempo_gas_params;
 
 /// Represents an executed transaction (transacted on the DB)
 #[derive(Debug)]
@@ -519,14 +520,16 @@ where
     } else if env.networks.is_tempo() {
         // Use TempoEvm for Tempo mode - this includes built-in Tempo precompiles
         use revm::context_interface::JournalTr;
+        let mut cfg = env.evm_env.cfg_env.clone();
+        cfg.gas_params = tempo_gas_params(cfg.spec);
         let ctx = tempo_revm::evm::TempoContext {
             journaled_state: {
                 let mut journal = revm::Journal::new(db);
-                journal.set_spec_id(env.evm_env.cfg_env.spec.into());
+                journal.set_spec_id(cfg.spec.into());
                 journal
             },
             block: env.evm_env.block_env.clone(),
-            cfg: env.evm_env.cfg_env.clone(),
+            cfg,
             tx: Default::default(),
             chain: (),
             local: revm::context::LocalContext::default(),

@@ -12,7 +12,10 @@ use revm::{
     interpreter::InterpreterResult,
     primitives::hardfork::SpecId,
 };
-use tempo_revm::{TempoHaltReason, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext};
+use tempo_revm::{
+    TempoHaltReason, TempoInvalidTransaction, TempoTxEnv, evm::TempoContext,
+    gas_params::tempo_gas_params,
+};
 
 pub use foundry_primitives::EitherTx;
 
@@ -245,11 +248,11 @@ where
                 (db, map_env(env))
             }
             Self::Tempo(evm) => {
-                let spec_id: SpecId = evm.inner.ctx.cfg.spec.into();
-                let env = EvmEnv::new(
-                    evm.inner.ctx.cfg.with_spec_and_mainnet_gas_params(spec_id),
-                    evm.inner.ctx.block.inner,
-                );
+                let spec = evm.inner.ctx.cfg.spec;
+                let gas_params = tempo_gas_params(spec);
+                let spec_id: SpecId = spec.into();
+                let cfg = evm.inner.ctx.cfg.with_spec_and_gas_params(spec_id, gas_params);
+                let env = EvmEnv::new(cfg, evm.inner.ctx.block.inner);
                 (evm.inner.ctx.journaled_state.database, env)
             }
         }
@@ -346,11 +349,11 @@ where
             Self::Eth(evm) => evm.into_env(),
             Self::Op(evm) => map_env(evm.into_env()),
             Self::Tempo(evm) => {
-                let spec_id: SpecId = evm.inner.ctx.cfg.spec.into();
-                EvmEnv::new(
-                    evm.inner.ctx.cfg.with_spec_and_mainnet_gas_params(spec_id),
-                    evm.inner.ctx.block.inner,
-                )
+                let spec = evm.inner.ctx.cfg.spec;
+                let gas_params = tempo_gas_params(spec);
+                let spec_id: SpecId = spec.into();
+                let cfg = evm.inner.ctx.cfg.with_spec_and_gas_params(spec_id, gas_params);
+                EvmEnv::new(cfg, evm.inner.ctx.block.inner)
             }
         }
     }

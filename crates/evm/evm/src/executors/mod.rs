@@ -27,6 +27,7 @@ use foundry_evm_core::{
         DEFAULT_CREATE2_DEPLOYER_CODE, DEFAULT_CREATE2_DEPLOYER_DEPLOYER,
     },
     decode::{RevertDecoder, SkipReason},
+    env::TempoCfgEnvExt,
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
@@ -153,7 +154,7 @@ impl Executor {
                 self.spec_id(),
             );
             if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
-                env.evm_env.cfg_env.spec = tempo_hf;
+                env.evm_env.cfg_env.set_tempo_spec(tempo_hf);
             }
             env
         };
@@ -213,18 +214,18 @@ impl Executor {
         // For Tempo hardforks, preserve the specific hardfork (T0, T1, etc.)
         // since the SpecId round-trip loses this information.
         if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
-            self.env.evm_env.cfg_env.spec = tempo_hf;
+            self.env.evm_env.cfg_env.set_tempo_spec(tempo_hf);
         } else {
-            self.env.evm_env.cfg_env.spec = spec_id.into();
+            self.env.evm_env.cfg_env.set_tempo_spec(spec_id.into());
         }
     }
 
     /// Sets the EVM hardfork.
     pub fn set_hardfork(&mut self, hardfork: Option<FoundryHardfork>) {
         self.hardfork = hardfork;
-        // Also update cfg_env.spec for Tempo hardforks
+        // Also update cfg_env.spec and gas_params for Tempo hardforks
         if let Some(FoundryHardfork::Tempo(tempo_hf)) = hardfork {
-            self.env.evm_env.cfg_env.spec = tempo_hf;
+            self.env.evm_env.cfg_env.set_tempo_spec(tempo_hf);
         }
     }
 
@@ -784,9 +785,9 @@ impl Executor {
                     // For Tempo hardforks, preserve the specific hardfork (T0, T1, etc.)
                     // since spec_id().into() loses the distinction (all map to OSAKA).
                     if let Some(FoundryHardfork::Tempo(tempo_hf)) = self.hardfork {
-                        cfg.spec = tempo_hf;
+                        cfg.set_tempo_spec(tempo_hf);
                     } else {
-                        cfg.spec = self.spec_id().into();
+                        cfg.set_tempo_spec(self.spec_id().into());
                     }
                     cfg
                 },
