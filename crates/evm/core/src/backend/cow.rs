@@ -7,6 +7,7 @@ use crate::{
         Backend, DatabaseExt, JournaledState, LocalForkId, RevertStateSnapshotAction,
         diagnostic::RevertDiagnostic,
     },
+    env::TempoCfgEnvExt,
     fork::{CreateFork, ForkId},
 };
 use alloy_evm::Evm;
@@ -102,7 +103,7 @@ impl<'a> CowBackend<'a> {
         if !self.is_initialized {
             let backend = self.backend.to_mut();
             let mut env = env.to_owned();
-            env.evm_env.cfg_env.spec = self.hardfork;
+            env.evm_env.cfg_env.set_tempo_spec(self.hardfork);
             backend.initialize(&env);
             self.is_initialized = true;
             return backend;

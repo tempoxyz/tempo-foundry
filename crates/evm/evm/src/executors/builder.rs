@@ -1,5 +1,5 @@
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
-use foundry_evm_core::{Env, backend::Backend};
+use foundry_evm_core::{Env, backend::Backend, env::TempoCfgEnvExt};
 use foundry_evm_hardforks::FoundryHardfork;
 use revm::primitives::hardfork::SpecId;
 
@@ -104,7 +104,7 @@ impl ExecutorBuilder {
                 spec_id,
             );
             if let Some(FoundryHardfork::Tempo(tempo_hf)) = hardfork {
-                env.evm_env.cfg_env.spec = tempo_hf;
+                env.evm_env.cfg_env.set_tempo_spec(tempo_hf);
             }
             env
         };
