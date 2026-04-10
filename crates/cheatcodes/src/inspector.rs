@@ -517,6 +517,11 @@ pub struct Cheatcodes {
     pub dynamic_gas_limit: bool,
     // Custom execution evm version.
     pub execution_evm_version: Option<SpecId>,
+    /// Registered external cheatcode handlers.
+    ///
+    /// These are tried in order when a call to the cheatcode address does not match any
+    /// built-in cheatcode selector.
+    pub external_cheatcodes: Vec<Arc<dyn crate::ExternalCheatcode>>,
 }
 
 // This is not derived because calling this in `fn new` with `..Default::default()` creates a second
@@ -575,6 +580,7 @@ impl Cheatcodes {
             signatures_identifier: Default::default(),
             dynamic_gas_limit: Default::default(),
             execution_evm_version: None,
+            external_cheatcodes: Vec::new(),
         }
     }
 
@@ -605,6 +611,14 @@ impl Cheatcodes {
         self.active_delegations.push(authorization);
     }
 
+    /// Registers an external cheatcode handler.
+    ///
+    /// External handlers are tried in order when a call to the cheatcode address does not
+    /// match any built-in cheatcode selector.
+    pub fn register_external_cheatcode(&mut self, handler: Arc<dyn crate::ExternalCheatcode>) {
+        self.external_cheatcodes.push(handler);
+    }
+
     /// Returns the signatures identifier.
     pub fn signatures_identifier(&self) -> Option<&SignaturesIdentifier> {
         self.signatures_identifier.get_or_init(|| SignaturesIdentifier::new(true).ok()).as_ref()
@@ -617,24 +631,43 @@ impl Cheatcodes {
         call: &CallInputs,
         executor: &mut dyn CheatcodesExecutor,
     ) -> Result {
-        // decode the cheatcode call
-        let decoded = Vm::VmCalls::abi_decode(&call.input.bytes(ecx)).map_err(|e| {
-            if let alloy_sol_types::Error::UnknownSelector { name: _, selector } = e {
-                let msg = format!(
-                    "unknown cheatcode with selector {selector}; \
-                     you may have a mismatch between the `Vm` interface (likely in `forge-std`) \
-                     and the `forge` version"
-                );
-                return alloy_sol_types::Error::Other(std::borrow::Cow::Owned(msg));
-            }
-            e
-        })?;
-
         let caller = call.caller;
 
         // ensure the caller is allowed to execute cheatcodes,
         // but only if the backend is in forking mode
         ecx.journaled_state.database.ensure_cheatcode_access_forking_mode(&caller)?;
+
+        // decode the cheatcode call
+        let decoded = match Vm::VmCalls::abi_decode(&call.input.bytes(ecx)) {
+            Ok(decoded) => decoded,
+            Err(alloy_sol_types::Error::UnknownSelector { name: _, selector }) => {
+                // Try registered external cheatcode handlers before erroring.
+                // Clone the Arc vec (cheap) to avoid borrow conflict with `self`.
+                let handlers = self.external_cheatcodes.clone();
+                let calldata = call.input.bytes(ecx);
+
+                for handler in &handlers {
+                    let mut ccx = CheatsCtxt {
+                        state: self,
+                        ecx: &mut *ecx,
+                        gas_limit: call.gas_limit,
+                        caller,
+                    };
+                    match handler.call(&calldata, &mut ccx) {
+                        Ok(Some(retdata)) => return Ok(retdata),
+                        Ok(None) => continue,
+                        Err(e) => return Err(e),
+                    }
+                }
+
+                return Err(fmt_err!(
+                    "unknown cheatcode with selector {selector}; \
+                     you may have a mismatch between the `Vm` interface (likely in `forge-std`) \
+                     and the `forge` version"
+                ));
+            }
+            Err(e) => return Err(e.into()),
+        };
 
         apply_dispatch(
             &decoded,

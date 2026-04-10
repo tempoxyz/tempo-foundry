@@ -153,6 +153,38 @@ impl std::ops::DerefMut for CheatsCtxt<'_, '_, '_, '_> {
     }
 }
 
+impl<'cheats, 'evm, 'db, 'db2> CheatsCtxt<'cheats, 'evm, 'db, 'db2> {
+    /// Returns a mutable reference to the cheatcodes inspector state.
+    pub fn state_mut(&mut self) -> &mut Cheatcodes {
+        self.state
+    }
+
+    /// Returns a reference to the cheatcodes inspector state.
+    pub fn state(&self) -> &Cheatcodes {
+        self.state
+    }
+
+    /// Returns a mutable reference to the EVM context.
+    pub fn ecx_mut(&mut self) -> &mut TempoContext<&'db mut (dyn DatabaseExt + 'db2)> {
+        self.ecx
+    }
+
+    /// Returns a reference to the EVM context.
+    pub fn ecx(&self) -> &TempoContext<&'db mut (dyn DatabaseExt + 'db2)> {
+        self.ecx
+    }
+
+    /// Returns the original `msg.sender`.
+    pub fn caller(&self) -> Address {
+        self.caller
+    }
+
+    /// Returns the gas limit of the current cheatcode call.
+    pub fn gas_limit(&self) -> u64 {
+        self.gas_limit
+    }
+}
+
 impl CheatsCtxt<'_, '_, '_, '_> {
     pub(crate) fn ensure_not_precompile(&self, address: &Address) -> Result<()> {
         if self.is_precompile(address) { Err(precompile_error(address)) } else { Ok(()) }
@@ -166,4 +198,50 @@ impl CheatsCtxt<'_, '_, '_, '_> {
 #[cold]
 fn precompile_error(address: &Address) -> Error {
     fmt_err!("cannot use precompile {address} as an argument")
+}
+
+/// Trait for defining custom cheatcodes that extend Foundry's built-in set.
+///
+/// Implement this trait to add new cheatcodes without forking Foundry. External cheatcodes
+/// are dispatched when a call to the cheatcode address (`0x7109...`) does not match any
+/// built-in cheatcode selector.
+///
+/// # Return value
+///
+/// The return type uses a tri-state convention:
+/// - `Ok(Some(bytes))` — this handler recognized the selector and succeeded; `bytes` is
+///   ABI-encoded return data.
+/// - `Ok(None)` — this handler does not recognize the selector; try the next handler.
+/// - `Err(e)` — this handler recognized the selector but wants to revert with error `e`.
+///
+/// # Example
+///
+/// ```ignore
+/// use alloy_primitives::Bytes;
+/// use foundry_cheatcodes::{CheatsCtxt, ExternalCheatcode};
+///
+/// struct MyCheatcodes;
+///
+/// impl ExternalCheatcode for MyCheatcodes {
+///     fn call(
+///         &self,
+///         calldata: &[u8],
+///         ccx: &mut CheatsCtxt,
+///     ) -> foundry_cheatcodes::Result<Option<Vec<u8>>> {
+///         // Return Ok(None) for selectors you don't handle
+///         if calldata.len() < 4 {
+///             return Ok(None);
+///         }
+///         // Decode calldata and implement custom logic
+///         Ok(Some(Bytes::new().to_vec()))
+///     }
+/// }
+/// ```
+pub trait ExternalCheatcode: Send + Sync + std::fmt::Debug + 'static {
+    /// Called when an unknown cheatcode selector is encountered.
+    ///
+    /// `calldata` contains the full ABI-encoded call data (including the 4-byte selector).
+    ///
+    /// Return `Ok(Some(ret))` on success, `Ok(None)` if unhandled, or `Err(e)` to revert.
+    fn call(&self, calldata: &[u8], ccx: &mut CheatsCtxt) -> Result<Option<Vec<u8>>>;
 }
