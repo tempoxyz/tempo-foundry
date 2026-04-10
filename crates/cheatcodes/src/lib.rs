@@ -209,8 +209,8 @@ fn precompile_error(address: &Address) -> Error {
 /// # Return value
 ///
 /// The return type uses a tri-state convention:
-/// - `Ok(Some(bytes))` — this handler recognized the selector and succeeded; `bytes` is
-///   ABI-encoded return data.
+/// - `Ok(Some(bytes))` — this handler recognized the selector and succeeded; `bytes` is ABI-encoded
+///   return data.
 /// - `Ok(None)` — this handler does not recognize the selector; try the next handler.
 /// - `Err(e)` — this handler recognized the selector but wants to revert with error `e`.
 ///

@@ -2620,3 +2620,78 @@ fn will_exit(action: &InterpreterAction) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A test external cheatcode handler that responds to selector `0xdeadbeef`.
+    /// Returns ABI-encoded uint256(42).
+    #[derive(Debug)]
+    struct TestExternalCheatcode;
+
+    impl crate::ExternalCheatcode for TestExternalCheatcode {
+        fn call(&self, calldata: &[u8], _ccx: &mut CheatsCtxt) -> Result<Option<Vec<u8>>> {
+            if calldata.len() >= 4 && calldata[..4] == [0xde, 0xad, 0xbe, 0xef] {
+                let mut ret = vec![0u8; 32];
+                ret[31] = 42;
+                Ok(Some(ret))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    /// A handler that reverts for selector `0xcafebabe`.
+    #[derive(Debug)]
+    struct RevertingExternalCheatcode;
+
+    impl crate::ExternalCheatcode for RevertingExternalCheatcode {
+        fn call(&self, calldata: &[u8], _ccx: &mut CheatsCtxt) -> Result<Option<Vec<u8>>> {
+            if calldata.len() >= 4 && calldata[..4] == [0xca, 0xfe, 0xba, 0xbe] {
+                Err(fmt_err!("custom revert from external cheatcode"))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    #[test]
+    fn register_external_cheatcode() {
+        let mut cheats = Cheatcodes::default();
+        assert!(cheats.external_cheatcodes.is_empty());
+
+        cheats.register_external_cheatcode(Arc::new(TestExternalCheatcode));
+        assert_eq!(cheats.external_cheatcodes.len(), 1);
+
+        cheats.register_external_cheatcode(Arc::new(RevertingExternalCheatcode));
+        assert_eq!(cheats.external_cheatcodes.len(), 2);
+    }
+
+    #[test]
+    fn external_cheatcodes_are_cloneable() {
+        let mut cheats = Cheatcodes::default();
+        cheats.register_external_cheatcode(Arc::new(TestExternalCheatcode));
+
+        let cloned = cheats.clone();
+        assert_eq!(cloned.external_cheatcodes.len(), 1);
+        assert!(Arc::ptr_eq(&cheats.external_cheatcodes[0], &cloned.external_cheatcodes[0]));
+    }
+
+    #[test]
+    fn multiple_handlers_can_coexist() {
+        let mut cheats = Cheatcodes::default();
+        cheats.register_external_cheatcode(Arc::new(TestExternalCheatcode));
+        cheats.register_external_cheatcode(Arc::new(RevertingExternalCheatcode));
+
+        // Verify both handlers are stored and can be cloned independently
+        let handlers = cheats.external_cheatcodes.clone();
+        assert_eq!(handlers.len(), 2);
+
+        // Verify Debug impls work (required by trait bound)
+        let dbg0 = format!("{:?}", handlers[0]);
+        let dbg1 = format!("{:?}", handlers[1]);
+        assert!(dbg0.contains("TestExternal"));
+        assert!(dbg1.contains("Reverting"));
+    }
+}
