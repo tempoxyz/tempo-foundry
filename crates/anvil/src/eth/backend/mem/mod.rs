@@ -3787,9 +3787,9 @@ impl TransactionValidator for Backend {
             const AA_VALID_BEFORE_MIN_SECS: u64 = 3;
             if let Some(valid_before) = tempo_tx.valid_before {
                 let min_allowed = current_time.saturating_add(AA_VALID_BEFORE_MIN_SECS);
-                if valid_before <= min_allowed {
+                if valid_before.get() <= min_allowed {
                     return Err(InvalidTransactionError::TempoValidBeforeExpired {
-                        valid_before,
+                        valid_before: valid_before.get(),
                         min_allowed,
                     }
                     .into());
@@ -3800,9 +3800,9 @@ impl TransactionValidator for Backend {
             const AA_VALID_AFTER_MAX_SECS: u64 = 3600;
             if let Some(valid_after) = tempo_tx.valid_after {
                 let max_allowed = current_time.saturating_add(AA_VALID_AFTER_MAX_SECS);
-                if valid_after > max_allowed {
+                if valid_after.get() > max_allowed {
                     return Err(InvalidTransactionError::TempoValidAfterTooFar {
-                        valid_after,
+                        valid_after: valid_after.get(),
                         max_allowed,
                     }
                     .into());
