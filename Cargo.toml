@@ -468,9 +468,6 @@ revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors", rev 
 
 ## reth-core (matching tempo's patches)
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-reth-codecs = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-reth-codecs-derive = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-reth-zstd-compressors = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
 
 ## foundry
 foundry-fork-db = { path = "vendor/foundry-fork-db" }
