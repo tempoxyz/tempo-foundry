@@ -466,6 +466,12 @@ alloy-evm = { git = "https://github.com/alloy-rs/evm", rev = "0331f40e9deab54edb
 
 revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors", rev = "bf531ab5d761f95572c34289405fd2d1f1045e60" }
 
+## reth-core v0.3.0 — bumped revm to v37/revm-state v11
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth-core", rev = "064d26ee67ac556364adaecf783ab5c1eef0a76e" }
+reth-codecs = { git = "https://github.com/paradigmxyz/reth-core", rev = "064d26ee67ac556364adaecf783ab5c1eef0a76e" }
+reth-codecs-derive = { git = "https://github.com/paradigmxyz/reth-core", rev = "064d26ee67ac556364adaecf783ab5c1eef0a76e" }
+reth-zstd-compressors = { git = "https://github.com/paradigmxyz/reth-core", rev = "064d26ee67ac556364adaecf783ab5c1eef0a76e" }
+
 ## foundry
 foundry-fork-db = { path = "vendor/foundry-fork-db" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
