@@ -306,6 +306,7 @@ crossterm.opt-level = "s"
 alloy-json-abi.opt-level = "s"
 
 [workspace.dependencies]
+anvil = { path = "crates/anvil" }
 cast = { path = "crates/cast" }
 forge = { path = "crates/forge" }
 
