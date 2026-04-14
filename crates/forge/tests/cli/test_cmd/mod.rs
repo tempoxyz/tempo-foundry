@@ -19,33 +19,42 @@ mod spec;
 mod table;
 mod trace;
 
+/// Sets up a [`TestCommand`] to run `forge test` on the `/testdata` directory with RPC
+/// endpoints written to a `.env` file.
+fn setup_testdata_cmd(cmd: &mut TestCommand) {
+    let testdata =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata").canonicalize().unwrap();
+    cmd.current_dir(&testdata);
+
+    let mut dotenv = std::fs::File::create(testdata.join(".env")).unwrap();
+    for (name, endpoint) in rpc_endpoints().iter() {
+        if let Some(url) = endpoint.endpoint.as_url() {
+            let key = format!("RPC_{}", name.to_uppercase());
+            writeln!(dotenv, "{key}={url}").unwrap();
+        }
+    }
+    drop(dotenv);
+}
+
+/// Contracts excluded from the main `testdata` run because they depend on flaky external RPCs.
+/// These are run separately by the `flaky_testdata` test below.
+/// Format: pipe-separated regex alternation, e.g. `"Foo|Bar|Baz"`.
+const FLAKY_TESTDATA_CONTRACTS: &str = "Issue4640Test";
+
 // Run `forge test` on `/testdata`.
-forgetest!(
-    #[ignore = "tempo skip"]
-    testdata,
-    |_prj, cmd| {
-        let testdata = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../testdata")
-            .canonicalize()
-            .unwrap();
-        cmd.current_dir(&testdata);
+forgetest!(testdata, |_prj, cmd| {
+    setup_testdata_cmd(&mut cmd);
 
-        let mut dotenv = std::fs::File::create(testdata.join(".env")).unwrap();
-        for (name, endpoint) in rpc_endpoints().iter() {
-            if let Some(url) = endpoint.endpoint.as_url() {
-                let key = format!("RPC_{}", name.to_uppercase());
-                // cmd.env(&key, url);
-                writeln!(dotenv, "{key}={url}").unwrap();
-            }
-        }
-        drop(dotenv);
-
-        let mut args = vec!["test"];
-        if cfg!(feature = "isolate-by-default") {
-            args.push(
-            "--nmc=(LastCallGasDefaultTest|MockFunctionTest|WithSeed|StateDiff|GetStorageSlotsTest|RecordAccount)",
-        );
-        }
+    let mut args = vec!["test"];
+    let nmc_isolate = format!(
+        "--nmc=(LastCallGasDefaultTest|MockFunctionTest|WithSeed|StateDiff|GetStorageSlotsTest|RecordAccount|{FLAKY_TESTDATA_CONTRACTS})",
+    );
+    let nmc_default = format!("--nmc=({FLAKY_TESTDATA_CONTRACTS})");
+    if cfg!(feature = "isolate-by-default") {
+        args.push(&nmc_isolate);
+    } else {
+        args.push(&nmc_default);
+    }
 
         let orig_assert = cmd.args(args).assert();
         if orig_assert.get_output().status.success() {
@@ -70,6 +79,14 @@ forgetest!(
         orig_assert.success();
     }
 );
+
+// Run flaky testdata contracts excluded from the main `testdata` test above.
+// Picked up by the nightly `test-flaky` workflow via `cargo nextest run --profile flaky`.
+forgetest!(flaky_testdata, |_prj, cmd| {
+    setup_testdata_cmd(&mut cmd);
+    let mc = format!("--mc=({FLAKY_TESTDATA_CONTRACTS})");
+    cmd.args(["test", &mc]).assert_success();
+});
 
 // tests that test filters are handled correctly
 forgetest!(can_set_filter_values, |prj, cmd| {
@@ -683,6 +700,33 @@ Ran 1 test suite [ELAPSED]: 1 tests passed, 0 failed, 0 skipped (1 total tests)
 "#]]);
 });
 
+// Validates BPO1 blob gas price calculation during fork transaction replay.
+// Block 24127158 has a blob tx at index 0, target tx at index 1.
+// Forking at the target tx replays the blob tx with correct BPO1 blob base fee calculation.
+forgetest_init!(fork_tx_replay_bpo1_blob_base_fee, |prj, cmd| {
+    let endpoint = rpc::next_http_archive_rpc_url();
+
+    prj.add_test(
+        "BlobFork.t.sol",
+        &r#"
+import {Test} from "forge-std/Test.sol";
+
+contract BlobForkTest is Test {
+    function test_fork_with_blob_replay() public {
+        // Fork at tx index 1 in block 24127158, which replays blob tx at index 0
+        bytes32 txHash = 0xa0f349b16e0f338ee760a9954ff5dbf2a402cff3320f3fe2c3755aee8babc335;
+        vm.createSelectFork("<url>", txHash);
+        // If we get here, blob tx replay succeeded
+        assertTrue(true);
+    }
+}
+    "#
+        .replace("<url>", &endpoint),
+    );
+
+    cmd.args(["test", "-vvvv"]).assert_success();
+});
+
 // https://github.com/foundry-rs/foundry/issues/6579
 forgetest_init!(include_custom_types_in_traces, |prj, cmd| {
     prj.add_test(
@@ -880,18 +924,20 @@ contract CounterTest is Test {
 Compiler run successful!
 
 Ran 1 test for test/CounterFuzz.t.sol:CounterTest
-[FAIL: panic: arithmetic underflow or overflow (0x11); counterexample: calldata=0xa76d58f5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe args=[115792089237316195423570985008687907853269984665640564039457584007913129639934 [1.157e77]]] testAddOne(uint256) (runs: 27, [AVG_GAS])
+[FAIL: panic: arithmetic underflow or overflow (0x11); counterexample: calldata=[..] args=[..]] testAddOne(uint256) (runs: [..], [AVG_GAS])
 Suite result: FAILED. 0 passed; 1 failed; 0 skipped; [ELAPSED]
 
 Ran 1 test suite [ELAPSED]: 0 tests passed, 1 failed, 0 skipped (1 total tests)
 
 Failing tests:
 Encountered 1 failing test in test/CounterFuzz.t.sol:CounterTest
-[FAIL: panic: arithmetic underflow or overflow (0x11); counterexample: calldata=0xa76d58f5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe args=[115792089237316195423570985008687907853269984665640564039457584007913129639934 [1.157e77]]] testAddOne(uint256) (runs: 27, [AVG_GAS])
+[FAIL: panic: arithmetic underflow or overflow (0x11); counterexample: calldata=[..] args=[..]] testAddOne(uint256) (runs: [..], [AVG_GAS])
 
 Encountered a total of 1 failing tests, 0 tests succeeded
 
 Tip: Run `forge test --rerun` to retry only the 1 failed test
+
+[SEED] (use `--fuzz-seed` to reproduce)
 
 "#]]);
 });
@@ -943,6 +989,8 @@ Encountered 1 failing test in test/CounterInvariant.t.sol:CounterTest
 Encountered a total of 1 failing tests, 0 tests succeeded
 
 Tip: Run `forge test --rerun` to retry only the 1 failed test
+
+[SEED] (use `--fuzz-seed` to reproduce)
 
 "#]]);
 });
@@ -1398,10 +1446,10 @@ contract SimpleContractTest is Test {
 ...
 Traces:
   [..] SimpleContractTest::test()
-    ├─ [370554] → new SimpleContract@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-    │   └─ ← [Return] 1737 bytes of code
-    ├─ [2511] SimpleContract::setStr("new value")
-    │   ├─ [1588] SimpleContract::_setStr("new value")
+    ├─ [..] → new SimpleContract@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] [..] bytes of code
+    ├─ [..] SimpleContract::setStr("new value")
+    │   ├─ [..] SimpleContract::_setStr("new value")
     │   │   └─ ← "initial value"
     │   └─ ← [Stop]
     └─ ← [Stop]
@@ -2697,6 +2745,204 @@ Ran 8 tests for src/AssumeNoRevertTest.t.sol:ReverterTest
 "#]]);
 });
 
+forgetest_async!(flaky_can_get_broadcast_txs, |prj, cmd| {
+    foundry_test_utils::util::initialize(prj.root());
+
+    let (_api, handle) = spawn(NodeConfig::test().silent()).await;
+
+    prj.insert_vm();
+    prj.insert_ds_test();
+    prj.insert_console();
+
+    prj.add_source(
+        "Counter.sol",
+        r#"
+        contract Counter {
+    uint256 public number;
+
+    function setNumber(uint256 newNumber) public {
+        number = newNumber;
+    }
+
+    function increment() public {
+        number++;
+    }
+}
+    "#,
+    );
+
+    prj.add_script(
+        "DeployCounter",
+        r#"
+        import "forge-std/Script.sol";
+        import "src/Counter.sol";
+
+        contract DeployCounter is Script {
+            function run() public {
+                vm.startBroadcast();
+
+                Counter counter = new Counter();
+
+                counter.increment();
+
+                counter.setNumber(10);
+
+                vm.stopBroadcast();
+            }
+        }
+    "#,
+    );
+
+    prj.add_script(
+        "DeployCounterWithCreate2",
+        r#"
+        import "forge-std/Script.sol";
+        import "src/Counter.sol";
+
+        contract DeployCounterWithCreate2 is Script {
+            function run() public {
+                vm.startBroadcast();
+
+                bytes32 salt = bytes32(uint256(1337));
+                Counter counter = new Counter{salt: salt}();
+
+                counter.increment();
+
+                counter.setNumber(20);
+
+                vm.stopBroadcast();
+            }
+        }
+    "#,
+    );
+
+    let test = r#"
+        import {Vm} from "../src/Vm.sol";
+        import {DSTest} from "../src/test.sol";
+        import {console} from "../src/console.sol";
+
+        contract GetBroadcastTest is DSTest {
+            Vm constant vm = Vm(HEVM_ADDRESS);
+
+            function test_getLatestBroadcast() external {
+                // Gets the latest create
+                Vm.BroadcastTxSummary memory broadcast = vm.getBroadcast(
+                    "Counter",
+                    31337,
+                    Vm.BroadcastTxType.Create
+                );
+
+                console.log("latest create");
+                console.log(broadcast.blockNumber);
+
+                assertEq(broadcast.blockNumber, 1);
+
+                // Gets the latest create2
+                Vm.BroadcastTxSummary memory broadcast2 = vm.getBroadcast(
+                    "Counter",
+                    31337,
+                    Vm.BroadcastTxType.Create2
+                );
+
+                console.log("latest create2");
+                console.log(broadcast2.blockNumber);
+                assertEq(broadcast2.blockNumber, 4);
+
+                // Gets the latest call
+                Vm.BroadcastTxSummary memory broadcast3 = vm.getBroadcast(
+                    "Counter",
+                    31337,
+                    Vm.BroadcastTxType.Call
+                );
+
+                console.log("latest call");
+                assertEq(broadcast3.blockNumber, 6);
+            }
+
+            function test_getBroadcasts() public {
+                // Gets all calls
+                Vm.BroadcastTxSummary[] memory broadcasts = vm.getBroadcasts(
+                    "Counter",
+                    31337,
+                    Vm.BroadcastTxType.Call
+                );
+
+                assertEq(broadcasts.length, 4);
+            }
+
+            function test_getAllBroadcasts() public {
+                // Gets all broadcasts
+                Vm.BroadcastTxSummary[] memory broadcasts2 = vm.getBroadcasts(
+                    "Counter",
+                    31337
+                );
+
+                assertEq(broadcasts2.length, 6);
+            }
+
+            function test_getLatestDeployment() public {
+                address deployedAddress = vm.getDeployment(
+                    "Counter",
+                    31337
+                );
+
+                assertGt(uint160(deployedAddress), 0);
+            }
+
+            function test_getDeployments() public {
+                address[] memory deployments = vm.getDeployments(
+                    "Counter",
+                    31337
+                );
+
+                assertEq(deployments.length, 2);
+                // Verify valid addresses returned and they're different (CREATE vs CREATE2)
+                assertGt(uint160(deployments[0]), 0);
+                assertGt(uint160(deployments[1]), 0);
+                assertTrue(deployments[0] != deployments[1]);
+            }
+}
+    "#;
+
+    prj.add_test("GetBroadcast", test);
+
+    let sender = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+    cmd.args([
+        "script",
+        "DeployCounter",
+        "--rpc-url",
+        &handle.http_endpoint(),
+        "--sender",
+        sender,
+        "--unlocked",
+        "--broadcast",
+        "--slow",
+    ])
+    .assert_success();
+
+    cmd.forge_fuse()
+        .args([
+            "script",
+            "DeployCounterWithCreate2",
+            "--rpc-url",
+            &handle.http_endpoint(),
+            "--sender",
+            sender,
+            "--unlocked",
+            "--broadcast",
+            "--slow",
+        ])
+        .assert_success();
+
+    let broadcast_path = prj.root().join("broadcast");
+
+    // Check if the broadcast folder exists
+    assert!(broadcast_path.exists() && broadcast_path.is_dir());
+
+    cmd.forge_fuse().args(["test", "--mc", "GetBroadcastTest", "-vvv"]).assert_success();
+});
+
 // See <https://github.com/foundry-rs/foundry/issues/9297>
 forgetest_init!(
     #[ignore = "RPC Service Unavailable"]
@@ -3182,7 +3428,7 @@ Traces:
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10068>
-forgetest_init!(can_upload_selectors_with_path, |prj, cmd| {
+forgetest_init!(flaky_can_upload_selectors_with_path, |prj, cmd| {
     prj.initialize_default_contracts();
     prj.add_source(
         "CounterV1.sol",
@@ -3647,7 +3893,7 @@ Ran 1 test suite [ELAPSED]: 2 tests passed, 0 failed, 0 skipped (2 total tests)
 });
 
 // <https://github.com/foundry-rs/foundry/issues/10544>
-forgetest_init!(should_not_panic_on_cool, |prj, cmd| {
+forgetest_init!(flaky_should_not_panic_on_cool, |prj, cmd| {
     prj.initialize_default_contracts();
     prj.add_test(
         "Counter.t.sol",
@@ -3912,7 +4158,7 @@ Tip: Run `forge test --rerun` to retry only the 1 failed test
 
 // This test is a copy of `error_event_decode_with_cache` in cast/tests/cli/selectors.rs
 // but it uses `forge build` to check that the project selectors are cached by default.
-forgetest_init!(build_with_selectors_cache, |prj, cmd| {
+forgetest_init!(flaky_build_with_selectors_cache, |prj, cmd| {
     prj.initialize_default_contracts();
     prj.add_source(
         "LocalProjectContract",
@@ -4199,6 +4445,49 @@ Encountered 1 failing test in test/MemoryLimit.t.sol:MemoryLimitTest
 Encountered a total of 1 failing tests, 1 tests succeeded
 
 Tip: Run `forge test --rerun` to retry only the 1 failed test
+
+"#]]);
+});
+
+forgetest_init!(zero_runs, |prj, cmd| {
+    prj.wipe_contracts();
+    prj.add_test(
+        "ZeroRuns.t.sol",
+        r#"
+import {Test} from "forge-std/Test.sol";
+
+contract Handler is Test {
+    function doSomething(uint256 param) public {
+        revert("unreachable");
+    }
+}
+
+contract ZeroRuns is Test {
+    Handler handler = new Handler();
+
+    /// forge-config: default.fuzz.runs = 0
+    function test_fuzzZeroRuns(uint256 x) public {
+        revert("unreachable");
+    }
+
+    /// forge-config: default.invariant.runs = 0
+    function invariant_zeroRuns() public {}
+
+    /// forge-config: default.invariant.depth = 0
+    function invariant_zeroDepth() public {}
+}
+"#,
+    );
+
+    cmd.args(["test"]).assert_success().stdout_eq(str![[r#"
+...
+Ran 3 tests for test/ZeroRuns.t.sol:ZeroRuns
+[PASS] invariant_zeroDepth() (runs: 256, calls: 0, reverts: 0)
+[PASS] invariant_zeroRuns() (runs: 0, calls: 0, reverts: 0)
+[PASS] test_fuzzZeroRuns(uint256) (runs: 0, [AVG_GAS])
+Suite result: ok. 3 passed; 0 failed; 0 skipped; [ELAPSED]
+
+Ran 1 test suite [ELAPSED]: 3 tests passed, 0 failed, 0 skipped (3 total tests)
 
 "#]]);
 });

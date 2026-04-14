@@ -5,7 +5,7 @@
 use crate::{DEFAULT_USER_AGENT, REQUEST_TIMEOUT};
 use alloy_json_rpc::{RequestPacket, ResponsePacket};
 use alloy_pubsub::{PubSubConnect, PubSubFrontend};
-use alloy_rpc_types::engine::{Claims, JwtSecret};
+use alloy_rpc_types_engine::{Claims, JwtSecret};
 use alloy_transport::{
     Authorization, BoxTransport, TransportError, TransportErrorKind, TransportFut,
 };
@@ -80,6 +80,8 @@ pub struct RuntimeTransport {
     timeout: std::time::Duration,
     /// Whether to accept invalid certificates.
     accept_invalid_certs: bool,
+    /// Whether to disable automatic proxy detection.
+    no_proxy: bool,
 }
 
 /// A builder for [RuntimeTransport].
@@ -90,17 +92,19 @@ pub struct RuntimeTransportBuilder {
     jwt: Option<String>,
     timeout: std::time::Duration,
     accept_invalid_certs: bool,
+    no_proxy: bool,
 }
 
 impl RuntimeTransportBuilder {
     /// Create a new builder with the given URL.
-    pub fn new(url: Url) -> Self {
+    pub const fn new(url: Url) -> Self {
         Self {
             url,
             headers: vec![],
             jwt: None,
             timeout: REQUEST_TIMEOUT,
             accept_invalid_certs: false,
+            no_proxy: false,
         }
     }
 
@@ -117,14 +121,23 @@ impl RuntimeTransportBuilder {
     }
 
     /// Set the timeout for the transport.
-    pub fn with_timeout(mut self, timeout: std::time::Duration) -> Self {
+    pub const fn with_timeout(mut self, timeout: std::time::Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
     /// Set whether to accept invalid certificates.
-    pub fn accept_invalid_certs(mut self, accept_invalid_certs: bool) -> Self {
+    pub const fn accept_invalid_certs(mut self, accept_invalid_certs: bool) -> Self {
         self.accept_invalid_certs = accept_invalid_certs;
+        self
+    }
+
+    /// Set whether to disable automatic proxy detection.
+    ///
+    /// This can help in sandboxed environments (e.g., Cursor IDE sandbox, macOS App Sandbox)
+    /// where system proxy detection via SCDynamicStore causes crashes.
+    pub const fn no_proxy(mut self, no_proxy: bool) -> Self {
+        self.no_proxy = no_proxy;
         self
     }
 
@@ -138,6 +151,7 @@ impl RuntimeTransportBuilder {
             jwt: self.jwt,
             timeout: self.timeout,
             accept_invalid_certs: self.accept_invalid_certs,
+            no_proxy: self.no_proxy,
         }
     }
 }
@@ -164,6 +178,14 @@ impl RuntimeTransport {
         let mut client_builder = reqwest::Client::builder()
             .timeout(self.timeout)
             .danger_accept_invalid_certs(self.accept_invalid_certs);
+
+        // Disable automatic proxy detection if requested. This helps in sandboxed environments
+        // (e.g., Cursor IDE sandbox, macOS App Sandbox) where system proxy detection via
+        // SCDynamicStore causes crashes. See: https://github.com/foundry-rs/foundry/issues/12733
+        if self.no_proxy {
+            client_builder = client_builder.no_proxy();
+        }
+
         let mut headers = reqwest::header::HeaderMap::new();
 
         // If there's a JWT, add it to the headers if we can decode it.
@@ -180,7 +202,7 @@ impl RuntimeTransport {
 
         // Add any custom headers.
         for header in &self.headers {
-            let make_err = || RuntimeTransportError::BadHeader(header.to_string());
+            let make_err = || RuntimeTransportError::BadHeader(header.clone());
 
             let (key, val) = header.split_once(':').ok_or_else(make_err)?;
 

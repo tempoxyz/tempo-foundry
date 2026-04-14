@@ -26,3 +26,4 @@ mod revert_diagnostic;
 pub use revert_diagnostic::RevertDiagnostic;
 
 mod tempo_labels;
+pub(crate) use tempo_labels::TempoLabels;

@@ -1,5 +1,6 @@
-use crate::{signer::WalletSigner, utils, wallet_raw::RawWalletOpts};
+use crate::{signer::WalletSigner, tempo::TempoAccessKeyConfig, utils, wallet_raw::RawWalletOpts};
 use alloy_primitives::Address;
+use alloy_signer::Signer;
 use clap::Parser;
 use eyre::Result;
 use serde::Serialize;
@@ -129,35 +130,29 @@ pub struct WalletOpts {
     #[arg(long, help_heading = "Wallet options - remote", hide = !cfg!(feature = "turnkey"))]
     pub turnkey: bool,
 
-    /// Use a browser wallet.
-    #[arg(long, help_heading = "Wallet options - browser")]
-    pub browser: bool,
-
-    /// Port for the browser wallet server.
-    #[arg(
-        long,
-        help_heading = "Wallet options - browser",
-        value_name = "PORT",
-        default_value = "9545",
-        requires = "browser"
-    )]
-    pub browser_port: u16,
-
-    /// Whether to open the browser for wallet connection.
-    #[arg(
-        long,
-        help_heading = "Wallet options - browser",
-        default_value_t = false,
-        requires = "browser"
-    )]
-    pub browser_disable_open: bool,
-
-    /// Enable development mode for the browser wallet.
-    /// This relaxes certain security features for local development.
+    /// Tempo access key private key.
     ///
-    /// **WARNING**: This should only be used in a development environment.
-    #[arg(long, help_heading = "Wallet options - browser", hide = true)]
-    pub browser_development: bool,
+    /// When set, the transaction is signed with this access key on behalf of
+    /// `--tempo.root-account`.
+    #[arg(
+        long = "tempo.access-key",
+        help_heading = "Wallet options - Tempo",
+        value_name = "PRIVATE_KEY",
+        env = "TEMPO_ACCESS_KEY"
+    )]
+    pub tempo_access_key: Option<String>,
+
+    /// Tempo root account address (the `from` address for keychain transactions).
+    ///
+    /// Required when `--tempo.access-key` is set.
+    #[arg(
+        long = "tempo.root-account",
+        help_heading = "Wallet options - Tempo",
+        value_name = "ADDRESS",
+        requires = "tempo_access_key",
+        env = "TEMPO_ROOT_ACCOUNT"
+    )]
+    pub tempo_root_account: Option<Address>,
 }
 
 /// Access key configuration for signing on behalf of a root account.
@@ -170,36 +165,32 @@ pub struct AccessKeyConfig {
 }
 
 impl WalletOpts {
-    /// Returns the access key configuration if an access key is being used.
+    /// Attempts to resolve a signer from the configured wallet options.
     ///
-    /// When using an access key:
-    /// - Transactions should use `root_account` as the sender (`from`)
-    /// - The `key_id` should be set on the transaction for Keychain signature wrapping
-    pub fn access_key_config(&self) -> Option<AccessKeyConfig> {
-        if let (Some(access_key), Some(root_account)) = (&self.access_key, self.root_account) {
-            // Derive the access key address from the private key
-            if let Ok(key_id) = self.derive_access_key_address(access_key) {
-                return Some(AccessKeyConfig { root_account, key_id });
-            }
-        }
-        None
-    }
-
-    /// Derives the address from an access key private key.
-    fn derive_access_key_address(&self, private_key: &str) -> Result<Address> {
-        use alloy_primitives::hex;
-        let key_bytes: alloy_primitives::B256 = hex::FromHex::from_hex(private_key)?;
-        let signer = alloy_signer_local::PrivateKeySigner::from_bytes(&key_bytes)?;
-        Ok(alloy_signer::Signer::address(&signer))
-    }
-
-    /// Returns true if an access key is being used.
-    pub fn is_access_key(&self) -> bool {
-        self.access_key.is_some() && self.root_account.is_some()
-    }
-
-    pub async fn signer(&self) -> Result<WalletSigner> {
+    /// Returns the signer and, for Tempo keychain mode, an [`TempoAccessKeyConfig`] describing the
+    /// root wallet and provisioning data.
+    ///
+    /// Returns `Ok((None, None))` if no wallet option was configured and no Tempo fallback
+    /// matched.
+    pub async fn maybe_signer(
+        &self,
+    ) -> Result<(Option<WalletSigner>, Option<TempoAccessKeyConfig>)> {
         trace!("start finding signer");
+
+        // If a Tempo access key is provided on the CLI, use it directly.
+        if let Some(ref access_key) = self.tempo_access_key {
+            let root_account = self.tempo_root_account.ok_or_else(|| {
+                eyre::eyre!("--tempo.root-account is required when --tempo.access-key is set")
+            })?;
+            let signer = utils::create_private_key_signer(access_key)?;
+            let key_address = signer.address();
+            let config = TempoAccessKeyConfig {
+                wallet_address: root_account,
+                key_address,
+                key_authorization: None,
+            };
+            return Ok((Some(signer), Some(config)));
+        }
 
         let get_env = |key: &str| {
             std::env::var(key)
@@ -238,13 +229,6 @@ impl WalletOpts {
                 eyre::eyre!("TURNKEY_ADDRESS could not be parsed as an Ethereum address")
             })?;
             WalletSigner::from_turnkey(api_private_key, organization_id, address)?
-        } else if self.browser {
-            WalletSigner::from_browser(
-                self.browser_port,
-                !self.browser_disable_open,
-                self.browser_development,
-            )
-            .await?
         } else if let Some(raw_wallet) = self.raw.signer()? {
             raw_wallet
         } else if let Some(path) = utils::maybe_get_keystore_path(
@@ -264,7 +248,29 @@ impl WalletOpts {
                 unreachable!()
             }
         } else {
-            eyre::bail!(
+            // No explicit wallet option was provided. Try Tempo wallet as a fallback
+            // if `--from` is set.
+            if let Some(from) = self.from {
+                match crate::tempo::lookup_signer(from)? {
+                    crate::tempo::TempoLookup::Direct(signer) => {
+                        return Ok((Some(signer), None));
+                    }
+                    crate::tempo::TempoLookup::Keychain(signer, config) => {
+                        return Ok((Some(signer), Some(*config)));
+                    }
+                    crate::tempo::TempoLookup::NotFound => {}
+                }
+            }
+
+            return Ok((None, None));
+        };
+
+        Ok((Some(signer), None))
+    }
+
+    pub async fn signer(&self) -> Result<WalletSigner> {
+        self.maybe_signer().await?.0.ok_or_else(|| {
+            eyre::eyre!(
                 "\
 Error accessing local wallet. Did you pass a keystore, hardware wallet, private key or mnemonic?
 
@@ -289,9 +295,7 @@ respectively. The sender address can be specified by setting the `ETH_FROM` envi
 variable to the desired unlocked account address, or by providing the address directly
 using the --from flag."
             )
-        };
-
-        Ok(signer)
+        })
     }
 }
 
@@ -304,7 +308,6 @@ impl From<RawWalletOpts> for WalletOpts {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_signer::Signer;
     use std::{path::Path, str::FromStr};
 
     #[tokio::test]
@@ -353,10 +356,8 @@ mod tests {
             aws: false,
             gcp: false,
             turnkey: false,
-            browser: false,
-            browser_port: 9545,
-            browser_development: false,
-            browser_disable_open: false,
+            tempo_access_key: None,
+            tempo_root_account: None,
         };
         match wallet.signer().await {
             Ok(_) => {

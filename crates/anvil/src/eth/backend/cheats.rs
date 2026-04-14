@@ -97,7 +97,7 @@ pub struct CheatsState {
 }
 
 impl CheatEcrecover {
-    pub fn new(cheats: Arc<CheatsManager>) -> Self {
+    pub const fn new(cheats: Arc<CheatsManager>) -> Self {
         Self { cheats }
     }
 }
@@ -130,7 +130,7 @@ impl Precompile for CheatEcrecover {
         &PRECOMPILE_ID_CHEAT_ECRECOVER
     }
 
-    fn is_pure(&self) -> bool {
+    fn supports_caching(&self) -> bool {
         false
     }
 }

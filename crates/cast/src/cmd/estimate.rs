@@ -1,17 +1,19 @@
 use crate::tx::{CastTxBuilder, SenderKind};
 use alloy_ens::NameOrAddress;
-use alloy_primitives::{Address, U256};
+use alloy_network::{Ethereum, Network};
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use alloy_rpc_types::BlockId;
 use clap::Parser;
 use eyre::Result;
 use foundry_cli::{
     opts::{RpcOpts, TransactionOpts},
-    utils::{self, LoadConfig, parse_ether_value, parse_fee_token_address},
+    utils::{LoadConfig, parse_ether_value},
 };
+use foundry_common::{FoundryTransactionBuilder, provider::ProviderBuilder};
 use foundry_wallets::WalletOpts;
 use std::str::FromStr;
-use tempo_alloy::rpc::TempoTransactionRequest;
+use tempo_alloy::TempoNetwork;
 
 /// CLI arguments for `cast estimate`.
 #[derive(Debug, Parser)]
@@ -83,11 +85,21 @@ pub enum EstimateSubcommands {
 
 impl EstimateArgs {
     pub async fn run(self) -> Result<()> {
-        let Self { to, mut sig, mut args, mut tx, block, cost, wallet, rpc, command, fee_token } =
-            self;
+        if self.tx.tempo.is_tempo() {
+            self.run_with_network::<TempoNetwork>().await
+        } else {
+            self.run_with_network::<Ethereum>().await
+        }
+    }
+
+    pub async fn run_with_network<N: Network>(self) -> Result<()>
+    where
+        N::TransactionRequest: FoundryTransactionBuilder<N>,
+    {
+        let Self { to, mut sig, mut args, mut tx, block, cost, wallet, rpc, command } = self;
 
         let config = rpc.load_config()?;
-        let provider = utils::get_tempo_provider(&config)?;
+        let provider = ProviderBuilder::<N>::from_config(&config)?.build()?;
         let sender = SenderKind::from_wallet_opts(wallet).await?;
 
         let code = if let Some(EstimateSubcommands::Create {
@@ -113,7 +125,8 @@ impl EstimateArgs {
             .await?
             .with_code_sig_and_args(code, sig, args)
             .await?
-            .build_raw(sender, fee_token)
+            .raw()
+            .build(sender)
             .await?;
 
         let gas = provider.estimate_gas(tx.inner).block(block.unwrap_or_default()).await?;

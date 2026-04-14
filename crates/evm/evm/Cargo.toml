@@ -26,7 +26,6 @@ foundry-evm-networks.workspace = true
 foundry-evm-traces.workspace = true
 
 alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }
-alloy-evm.workspace = true
 alloy-json-abi.workspace = true
 alloy-primitives = { workspace = true, features = [
     "serde",
@@ -48,6 +47,7 @@ revm = { workspace = true, default-features = false, features = [
     "c-kzg",
 ] }
 revm-inspectors.workspace = true
+tempo-precompiles.workspace = true
 
 tempo-contracts.workspace = true
 tempo-precompiles.workspace = true
@@ -62,3 +62,5 @@ indicatif.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 uuid.workspace = true
+rayon.workspace = true
+tokio.workspace = true

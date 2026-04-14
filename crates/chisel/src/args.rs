@@ -14,6 +14,8 @@ use yansi::Paint;
 pub fn run() -> Result<()> {
     setup()?;
 
+    foundry_cli::opts::GlobalArgs::check_markdown_help::<Chisel>();
+
     let args = Chisel::parse();
     args.global.init()?;
     args.global.tokio_runtime().block_on(run_command(args))
@@ -93,10 +95,9 @@ pub async fn run_command(args: Chisel) -> Result<()> {
             Err(ReadlineError::Interrupted) => {
                 if interrupt {
                     break;
-                } else {
-                    sh_println!("(To exit, press Ctrl+C again)")?;
-                    interrupt = true;
                 }
+                sh_println!("(To exit, press Ctrl+C again)")?;
+                interrupt = true;
             }
             Err(ReadlineError::Eof) => break,
             Err(err) => {

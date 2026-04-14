@@ -4,6 +4,7 @@ use crate::{
     eth::{EthApi, backend::db::SerializableState, pool::transactions::TransactionOrder},
 };
 use alloy_genesis::Genesis;
+use alloy_network::Network;
 use alloy_primitives::{B256, U256, utils::Unit};
 use alloy_signer_local::coins_bip39::{English, Mnemonic};
 use anvil_server::ServerConfig;
@@ -13,6 +14,7 @@ use foundry_common::shell;
 use foundry_config::{Chain, Config, FigmentProviders};
 use foundry_evm::hardfork::{EthereumHardfork, OpHardfork};
 use foundry_evm_networks::NetworkConfigs;
+use foundry_primitives::FoundryReceiptEnvelope;
 use futures::FutureExt;
 use rand_08::{SeedableRng, rngs::StdRng};
 use std::{
@@ -27,6 +29,7 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
+use tempo_chainspec::hardfork::TempoHardfork;
 use tokio::time::{Instant, Interval};
 
 #[derive(Clone, Debug, Parser)]
@@ -188,13 +191,21 @@ pub struct NodeArgs {
     #[arg(long)]
     pub transaction_block_keeper: Option<usize>,
 
+    /// Maximum number of transactions in a block.
+    #[arg(long)]
+    pub max_transactions: Option<usize>,
+
     #[command(flatten)]
     pub evm: AnvilEvmArgs,
 
     #[command(flatten)]
     pub server_config: ServerConfig,
 
-    /// Path to the cache directory where states are stored.
+    /// Path to the cache directory where persisted states are stored (see
+    /// `--max-persisted-states`).
+    ///
+    /// Note: This does not affect the fork RPC cache location (`storage.json`), which is stored in
+    /// `~/.foundry/cache/rpc/<chain>/<block>/`.
     #[arg(long, value_name = "PATH")]
     pub cache_path: Option<PathBuf>,
 }
@@ -220,6 +231,8 @@ impl NodeArgs {
             Some(hf) => {
                 if self.evm.networks.is_optimism() {
                     Some(OpHardfork::from_str(hf)?.into())
+                } else if self.evm.networks.is_tempo() {
+                    Some(TempoHardfork::from_str(hf)?.into())
                 } else {
                     Some(EthereumHardfork::from_str(hf)?.into())
                 }
@@ -230,6 +243,7 @@ impl NodeArgs {
         Ok(NodeConfig::default()
             .with_gas_limit(self.evm.gas_limit)
             .disable_block_gas_limit(self.evm.disable_block_gas_limit)
+            .enable_tx_gas_limit(self.evm.enable_tx_gas_limit)
             .with_gas_price(self.evm.gas_price)
             .with_hardfork(hardfork)
             .with_blocktime(self.block_time)
@@ -259,7 +273,7 @@ impl NodeArgs {
             .with_eth_rpc_url(self.evm.fork_url.map(|fork| fork.url))
             .with_base_fee(self.evm.block_base_fee_per_gas)
             .disable_min_priority_fee(self.evm.disable_min_priority_fee)
-            .with_storage_caching(self.evm.no_storage_caching)
+            .with_no_storage_caching(self.evm.no_storage_caching)
             .with_server_config(self.server_config)
             .with_host(self.host)
             .set_silent(shell::is_quiet())
@@ -277,6 +291,7 @@ impl NodeArgs {
             .set_pruned_history(self.prune_history)
             .with_init_state(self.load_state.or_else(|| self.state.and_then(|s| s.state)))
             .with_transaction_block_keeper(self.transaction_block_keeper)
+            .with_max_transactions(self.max_transactions)
             .with_max_persisted_states(self.max_persisted_states)
             .with_networks(self.evm.networks)
             .with_disable_default_create2_deployer(self.evm.disable_default_create2_deployer)
@@ -540,6 +555,10 @@ pub struct AnvilEvmArgs {
     )]
     pub disable_block_gas_limit: bool,
 
+    /// Enable the transaction gas limit check as imposed by EIP-7825 (Osaka hardfork).
+    #[arg(long, visible_alias = "tx-gas-limit", help_heading = "Environment config")]
+    pub enable_tx_gas_limit: bool,
+
     /// EIP-170: Contract code size limit in bytes. Useful to increase this because of tests. To
     /// disable entirely, use `--disable-code-size-limit`. By default, it is 0x6000 (~25kb).
     #[arg(long, value_name = "CODE_SIZE", help_heading = "Environment config")]
@@ -623,17 +642,17 @@ impl AnvilEvmArgs {
 }
 
 /// Helper type to periodically dump the state of the chain to disk
-struct PeriodicStateDumper {
+struct PeriodicStateDumper<N: Network> {
     in_progress_dump: Option<Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>>,
-    api: EthApi,
+    api: EthApi<N>,
     dump_state: Option<PathBuf>,
     preserve_historical_states: bool,
     interval: Interval,
 }
 
-impl PeriodicStateDumper {
+impl<N: Network<ReceiptEnvelope = FoundryReceiptEnvelope>> PeriodicStateDumper<N> {
     fn new(
-        api: EthApi,
+        api: EthApi<N>,
         dump_state: Option<PathBuf>,
         interval: Duration,
         preserve_historical_states: bool,
@@ -657,7 +676,7 @@ impl PeriodicStateDumper {
     }
 
     /// Infallible state dump
-    async fn dump_state(api: EthApi, dump_state: PathBuf, preserve_historical_states: bool) {
+    async fn dump_state(api: EthApi<N>, dump_state: PathBuf, preserve_historical_states: bool) {
         trace!(path=?dump_state, "Dumping state on shutdown");
         match api.serialized_state(preserve_historical_states).await {
             Ok(state) => {
@@ -675,7 +694,7 @@ impl PeriodicStateDumper {
 }
 
 // An endless future that periodically dumps the state to disk if configured.
-impl Future for PeriodicStateDumper {
+impl<N: Network<ReceiptEnvelope = FoundryReceiptEnvelope>> Future for PeriodicStateDumper<N> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -889,6 +908,16 @@ mod tests {
         let args =
             NodeArgs::try_parse_from(["anvil", "--disable-block-gas-limit", "--gas-limit", "100"]);
         assert!(args.is_err());
+    }
+
+    #[test]
+    fn can_parse_enable_tx_gas_limit() {
+        let args: NodeArgs = NodeArgs::parse_from(["anvil", "--enable-tx-gas-limit"]);
+        assert!(args.evm.enable_tx_gas_limit);
+
+        // Also test the alias
+        let args: NodeArgs = NodeArgs::parse_from(["anvil", "--tx-gas-limit"]);
+        assert!(args.evm.enable_tx_gas_limit);
     }
 
     #[test]

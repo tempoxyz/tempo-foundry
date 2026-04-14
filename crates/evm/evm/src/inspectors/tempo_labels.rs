@@ -8,6 +8,11 @@ use revm::{
 };
 use tempo_precompiles::tip20::is_tip20_prefix;
 
+/// Inspector that labels TIP20 token precompile addresses with their on-chain names.
+///
+/// During execution, when a call targets a TIP20 address, this inspector reads the token's
+/// name from storage and records the `address -> name` mapping. These labels are later merged
+/// into trace output for better readability.
 #[derive(Default, Clone, Debug)]
 pub struct TempoLabels {
     pub(crate) labels: AddressMap<String>,
@@ -20,7 +25,6 @@ where
     CTX::Journal: JournalExt,
 {
     fn call(&mut self, ctx: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        // hack(onbjerg): this is some actual dog water HOLY
         if is_tip20_prefix(inputs.target_address)
             && !self.labels.contains_key(&inputs.target_address)
         {

@@ -1,7 +1,10 @@
 use crate::{
+    BrowserWalletOpts,
     signer::{PendingSigner, WalletSigner},
     utils,
+    wallet_browser::signer::BrowserSigner,
 };
+use alloy_network::Network;
 use alloy_primitives::map::AddressHashMap;
 use alloy_signer::Signer;
 use clap::Parser;
@@ -229,6 +232,10 @@ pub struct MultiWalletOpts {
     /// See: <https://docs.turnkey.com/getting-started/quickstart>
     #[arg(long, help_heading = "Wallet options - remote", hide = !cfg!(feature = "turnkey"))]
     pub turnkey: bool,
+
+    /// Browser wallet options
+    #[command(flatten)]
+    pub browser: BrowserWalletOpts,
 }
 
 impl MultiWalletOpts {
@@ -285,14 +292,14 @@ impl MultiWalletOpts {
                 pks.push(pk);
             }
         }
-        if !pks.is_empty() {
+        if pks.is_empty() {
+            Ok(None)
+        } else {
             let wallets = pks
                 .into_iter()
                 .map(|pk| utils::create_private_key_signer(pk))
                 .collect::<Result<Vec<_>>>()?;
             Ok(Some(wallets))
-        } else {
-            Ok(None)
         }
     }
 
@@ -477,6 +484,21 @@ impl MultiWalletOpts {
 
         Ok(None)
     }
+
+    /// Returns the Turnkey address if `--turnkey` flag is set and `TURNKEY_ADDRESS` is available.
+    pub fn turnkey_address(&self) -> Option<alloy_primitives::Address> {
+        #[cfg(feature = "turnkey")]
+        if self.turnkey {
+            return std::env::var("TURNKEY_ADDRESS").ok().and_then(|addr| addr.parse().ok());
+        }
+
+        None
+    }
+
+    /// Launches and returns the Browser signer if `--browser` flag is set
+    pub async fn browser_signer<N: Network>(&self) -> Result<Option<BrowserSigner<N>>> {
+        self.browser.run().await
+    }
 }
 
 #[cfg(test)]
@@ -526,6 +548,42 @@ mod tests {
         let (_, unlocked) = args.keystores().unwrap().unwrap();
         assert_eq!(unlocked.len(), 1);
         assert_eq!(unlocked[0].address(), address!("0xec554aeafe75601aaab43bd4621a22284db566c2"));
+    }
+
+    // https://github.com/foundry-rs/foundry/issues/12916
+    #[test]
+    #[cfg(feature = "turnkey")]
+    fn turnkey_address_returns_address_when_flag_set() {
+        let args: MultiWalletOpts = MultiWalletOpts::parse_from(["foundry-cli", "--turnkey"]);
+        assert!(args.turnkey);
+
+        unsafe {
+            std::env::set_var("TURNKEY_ADDRESS", "0x1234567890123456789012345678901234567890");
+        }
+
+        let addr = args.turnkey_address();
+        assert_eq!(addr, Some(address!("0x1234567890123456789012345678901234567890")));
+
+        unsafe {
+            std::env::remove_var("TURNKEY_ADDRESS");
+        }
+    }
+
+    #[test]
+    fn turnkey_address_returns_none_when_flag_not_set() {
+        let args: MultiWalletOpts = MultiWalletOpts::parse_from(["foundry-cli"]);
+        assert!(!args.turnkey);
+
+        unsafe {
+            std::env::set_var("TURNKEY_ADDRESS", "0x1234567890123456789012345678901234567890");
+        }
+
+        let addr = args.turnkey_address();
+        assert_eq!(addr, None);
+
+        unsafe {
+            std::env::remove_var("TURNKEY_ADDRESS");
+        }
     }
 
     // https://github.com/foundry-rs/foundry/issues/5179

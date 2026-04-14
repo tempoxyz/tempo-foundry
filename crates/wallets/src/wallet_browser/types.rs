@@ -1,6 +1,6 @@
 use alloy_dyn_abi::TypedData;
+use alloy_network::Network;
 use alloy_primitives::{Address, Bytes, ChainId, TxHash};
-use alloy_rpc_types::TransactionRequest;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,14 +17,14 @@ pub(crate) enum BrowserApiResponse<T = ()> {
 
 impl BrowserApiResponse<()> {
     /// Create a successful response with no data.
-    pub fn ok() -> Self {
+    pub const fn ok() -> Self {
         Self::Ok(())
     }
 }
 
 impl<T> BrowserApiResponse<T> {
     /// Create a successful response with the given data.
-    pub fn with_data(data: T) -> Self {
+    pub const fn with_data(data: T) -> Self {
         Self::Ok(data)
     }
 
@@ -37,11 +37,11 @@ impl<T> BrowserApiResponse<T> {
 /// Represents a transaction request sent to the browser wallet.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BrowserTransactionRequest {
+pub struct BrowserTransactionRequest<N: Network> {
     /// The unique identifier for the transaction.
     pub id: Uuid,
     /// The transaction request details.
-    pub request: TransactionRequest,
+    pub request: N::TransactionRequest,
 }
 
 /// Represents a transaction response sent from the browser wallet.
@@ -121,7 +121,7 @@ pub struct Connection {
 
 impl Connection {
     /// Create a new connection instance.
-    pub fn new(address: Address, chain_id: ChainId) -> Self {
+    pub const fn new(address: Address, chain_id: ChainId) -> Self {
         Self { address, chain_id }
     }
 }

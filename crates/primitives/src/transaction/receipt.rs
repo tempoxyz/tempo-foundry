@@ -44,7 +44,7 @@ impl FoundryReceiptEnvelope<alloy_rpc_types::Log> {
         deposit_receipt_version: Option<u64>,
     ) -> Self {
         let logs = logs.into_iter().collect::<Vec<_>>();
-        let logs_bloom = logs_bloom(logs.iter().map(|l| &l.inner).collect::<Vec<_>>());
+        let logs_bloom = logs_bloom(logs.iter().map(|l| &l.inner));
         let inner_receipt =
             Receipt { status: Eip658Value::Eip658(status), cumulative_gas_used, logs };
         match tx_type {
@@ -391,10 +391,10 @@ impl Typed2718 for FoundryReceiptEnvelope {
 impl Encodable2718 for FoundryReceiptEnvelope {
     fn encode_2718_len(&self) -> usize {
         match self {
-            Self::Legacy(r) => ReceiptEnvelope::Legacy(r.clone()).encode_2718_len(),
-            Self::Eip2930(r) => ReceiptEnvelope::Eip2930(r.clone()).encode_2718_len(),
-            Self::Eip1559(r) => ReceiptEnvelope::Eip1559(r.clone()).encode_2718_len(),
-            Self::Eip4844(r) => ReceiptEnvelope::Eip4844(r.clone()).encode_2718_len(),
+            Self::Legacy(r) => r.length(),
+            Self::Eip2930(r) => 1 + r.length(),
+            Self::Eip1559(r) => 1 + r.length(),
+            Self::Eip4844(r) => 1 + r.length(),
             Self::Eip7702(r) => 1 + r.length(),
             Self::Deposit(r) => 1 + r.length(),
             Self::Tempo(r) => 1 + r.length(),

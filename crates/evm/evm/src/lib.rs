@@ -14,7 +14,8 @@ pub mod tempo;
 
 pub use foundry_evm_core as core;
 pub use foundry_evm_core::{
-    Env, EnvMut, EvmEnv, InspectorExt, backend, constants, decode, fork, opts, utils,
+    EvmEnv, FoundryInspectorExt, InspectorExt, backend, constants, decode, fork, hardfork, opts,
+    utils,
 };
 pub use foundry_evm_coverage as coverage;
 pub use foundry_evm_fuzz as fuzz;

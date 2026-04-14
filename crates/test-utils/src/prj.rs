@@ -1,11 +1,8 @@
 use crate::{init_tracing, rpc::rpc_endpoints};
 use eyre::{Result, WrapErr};
 use foundry_compilers::{
-    ArtifactOutput, ConfigurableArtifacts, PathStyle, ProjectPathsConfig,
-    artifacts::Contract,
-    cache::CompilerCache,
-    compilers::multi::MultiCompiler,
-    project_util::{TempProject, copy_dir},
+    ArtifactOutput, ConfigurableArtifacts, PathStyle, ProjectPathsConfig, artifacts::Contract,
+    cache::CompilerCache, compilers::multi::MultiCompiler, project_util::TempProject,
     solc::SolcSettings,
 };
 use foundry_config::Config;
@@ -25,7 +22,7 @@ use std::{
     },
 };
 
-use crate::util::{SOLC_VERSION, pretty_err};
+use crate::util::{SOLC_VERSION, copy_dir_filtered, pretty_err};
 
 static CURRENT_DIR_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
@@ -44,9 +41,7 @@ pub fn clone_remote(repo_url: &str, target_dir: &str, recursive: bool) {
     cmd.args([repo_url, target_dir]);
     test_debug!("{cmd:?}");
     let status = cmd.status().unwrap();
-    if !status.success() {
-        panic!("git clone failed: {status}");
-    }
+    assert!(status.success(), "git clone failed: {status}")
 }
 
 /// Setup an empty test project and return a command pointing to the forge
@@ -84,13 +79,13 @@ impl RemoteProject {
     }
 
     /// Whether to run `forge build`
-    pub fn set_build(mut self, run_build: bool) -> Self {
+    pub const fn set_build(mut self, run_build: bool) -> Self {
         self.run_build = run_build;
         self
     }
 
     /// Configures the project's pathstyle
-    pub fn path_style(mut self, path_style: PathStyle) -> Self {
+    pub const fn path_style(mut self, path_style: PathStyle) -> Self {
         self.path_style = path_style;
         self
     }
@@ -356,21 +351,19 @@ impl TestProject {
         config_paths_exist(&paths, self.inner.project().cached);
     }
 
-    /// Copies the project's root directory to the given target
+    /// Copies the project's root directory to the given target, excluding build artifacts.
     #[track_caller]
     pub fn copy_to(&self, target: impl AsRef<Path>) {
         let target = target.as_ref();
         pretty_err(target, fs::create_dir_all(target));
-        pretty_err(target, copy_dir(self.root(), target));
+        pretty_err(target, copy_dir_filtered(self.root(), target));
     }
 
     /// Creates a file with contents `contents` in the test project's directory. The
     /// file will be deleted when the project is dropped.
     pub fn create_file(&self, path: impl AsRef<Path>, contents: &str) -> PathBuf {
         let path = path.as_ref();
-        if !path.is_relative() {
-            panic!("create_file(): file path is absolute");
-        }
+        assert!(path.is_relative(), "create_file(): file path is absolute");
         let path = self.root().join(path);
         if let Some(parent) = path.parent() {
             pretty_err(parent, std::fs::create_dir_all(parent));
@@ -552,7 +545,7 @@ pub struct TestCommand {
 
 impl TestCommand {
     /// Returns a mutable reference to the underlying command.
-    pub fn cmd(&mut self) -> &mut Command {
+    pub const fn cmd(&mut self) -> &mut Command {
         &mut self.cmd
     }
 
@@ -775,7 +768,7 @@ impl TestCommand {
     }
 
     /// Does not apply [`snapbox`] redactions to the command output.
-    pub fn with_no_redact(&mut self) -> &mut Self {
+    pub const fn with_no_redact(&mut self) -> &mut Self {
         self.redact_output = false;
         self
     }
@@ -820,7 +813,7 @@ fn test_redactions() -> snapbox::Redactions {
             ("[GAS_COST]", r"[Gg]as cost\s*\(\d+\)"),
             ("[GAS_LIMIT]", r"[Gg]as limit\s*\(\d+\)"),
             ("[AVG_GAS]", r"μ: \d+, ~: \d+"),
-            ("[FILE]", r"-->.*\.sol"),
+            ("[FILE]", r"(-->|╭▸).*\.sol"),
             ("[FILE]", r"Location(.|\n)*\.rs(.|\n)*Backtrace"),
             ("[COMPILING_FILES]", r"Compiling \d+ files?"),
             ("[TX_HASH]", r"Transaction hash: 0x[0-9A-Fa-f]{64}"),
@@ -836,6 +829,7 @@ fn test_redactions() -> snapbox::Redactions {
                 "[ESTIMATED_AMOUNT_REQUIRED]",
                 r"Estimated amount required:\s*(\d+(\.\d+)?)\s*[A-Z]{3}",
             ),
+            ("[SEED]", r"Fuzz seed: 0x[0-9A-Fa-f]+"),
         ])
     });
     REDACTIONS.clone()

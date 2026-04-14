@@ -156,6 +156,7 @@ impl StorageArgs {
         }
 
         // Create or reuse a persistent cache for Etherscan sources; fall back to a temp dir
+        let mut temp_dir = None;
         let root_path = if let Some(cache_root) =
             foundry_config::Config::foundry_etherscan_chain_cache_dir(chain)
         {
@@ -163,12 +164,18 @@ impl StorageArgs {
             let contract_root = sources_root.join(format!("{address}"));
             if let Err(err) = std::fs::create_dir_all(&contract_root) {
                 sh_warn!("Could not create etherscan cache dir, falling back to temp: {err}")?;
-                tempfile::tempdir()?.path().to_path_buf()
+                let tmp = tempfile::tempdir()?;
+                let path = tmp.path().to_path_buf();
+                temp_dir = Some(tmp);
+                path
             } else {
                 contract_root
             }
         } else {
-            tempfile::tempdir()?.keep()
+            let tmp = tempfile::tempdir()?;
+            let path = tmp.path().to_path_buf();
+            temp_dir = Some(tmp);
+            path
         };
         let mut project = etherscan_project(metadata, &root_path)?;
         add_storage_layout_output(&mut project);
@@ -221,6 +228,7 @@ impl StorageArgs {
             artifact
         };
 
+        drop(temp_dir);
         fetch_and_print_storage(provider, address, block, artifact).await
     }
 }
@@ -366,15 +374,15 @@ fn print_storage(layout: StorageLayout, values: Vec<StorageValue>) -> Result<()>
 fn add_storage_layout_output<C: Compiler<CompilerContract = Contract>>(project: &mut Project<C>) {
     project.artifacts.additional_values.storage_layout = true;
     project.update_output_selection(|selection| {
-        selection.0.values_mut().for_each(|contract_selection| {
-            contract_selection
-                .values_mut()
-                .for_each(|selection| selection.push("storageLayout".to_string()))
-        });
+        for contract_selection in selection.0.values_mut() {
+            for selection in contract_selection.values_mut() {
+                selection.push("storageLayout".to_string());
+            }
+        }
     })
 }
 
-fn is_storage_layout_empty(storage_layout: &Option<StorageLayout>) -> bool {
+const fn is_storage_layout_empty(storage_layout: &Option<StorageLayout>) -> bool {
     if let Some(s) = storage_layout { s.storage.is_empty() } else { true }
 }
 

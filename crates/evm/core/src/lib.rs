@@ -8,7 +8,6 @@
 use crate::constants::DEFAULT_CREATE2_DEPLOYER;
 use alloy_primitives::{Address, map::HashMap};
 use auto_impl::auto_impl;
-use backend::DatabaseExt;
 use revm::{Inspector, inspector::NoOpInspector, interpreter::CreateInputs};
 use revm_inspectors::access_list::AccessListInspector;
 use tempo_revm::evm::TempoContext;
@@ -33,8 +32,6 @@ pub mod buffer;
 pub mod bytecode;
 pub mod constants;
 pub mod decode;
-#[cfg(feature = "op")]
-pub mod either_evm;
 pub mod evm;
 pub mod fork;
 pub mod ic;
@@ -44,19 +41,18 @@ pub mod state_snapshot;
 pub mod tempo;
 pub mod utils;
 
-/// An extension trait that allows us to add additional hooks to Inspector for later use in
-/// handlers.
+/// Foundry-specific inspector methods, decoupled from any particular EVM context type.
+///
+/// This trait holds Foundry-specific extensions (create2 factory, console logging,
+/// network config, deployer address). It has no `Inspector<CTX>` supertrait so it can
+/// be used in generic code with `I: FoundryInspectorExt + Inspector<CTX>`.
 #[auto_impl(&mut, Box)]
-pub trait InspectorExt: for<'a> Inspector<TempoContext<&'a mut dyn DatabaseExt>> {
+pub trait InspectorExt {
     /// Determines whether the `DEFAULT_CREATE2_DEPLOYER` should be used for a CREATE2 frame.
     ///
     /// If this function returns true, we'll replace CREATE2 frame with a CALL frame to CREATE2
     /// factory.
-    fn should_use_create2_factory(
-        &mut self,
-        _context: &mut TempoContext<&mut dyn DatabaseExt>,
-        _inputs: &CreateInputs,
-    ) -> bool {
+    fn should_use_create2_factory(&mut self, _depth: usize, _inputs: &CreateInputs) -> bool {
         false
     }
 
@@ -75,6 +71,14 @@ pub trait InspectorExt: for<'a> Inspector<TempoContext<&'a mut dyn DatabaseExt>>
         DEFAULT_CREATE2_DEPLOYER
     }
 }
+
+/// A combined inspector trait that integrates revm's [`Inspector`] with Foundry-specific
+/// extensions. Automatically implemented for any type that implements both [`Inspector<CTX>`]
+/// and [`InspectorExt`].
+pub trait FoundryInspectorExt<CTX: FoundryContextExt>: Inspector<CTX> + InspectorExt {}
+
+impl<CTX: FoundryContextExt, T> FoundryInspectorExt<CTX> for T where T: Inspector<CTX> + InspectorExt
+{}
 
 impl InspectorExt for NoOpInspector {}
 

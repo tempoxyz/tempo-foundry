@@ -72,12 +72,12 @@ impl ChiselDispatcher {
     }
 
     /// Returns the [`SessionSource`].
-    pub fn source(&self) -> &SessionSource {
+    pub const fn source(&self) -> &SessionSource {
         &self.session.source
     }
 
     /// Returns the [`SessionSource`].
-    pub fn source_mut(&mut self) -> &mut SessionSource {
+    pub const fn source_mut(&mut self) -> &mut SessionSource {
         &mut self.session.source
     }
 
@@ -132,8 +132,6 @@ impl ChiselDispatcher {
         // Create new source with exact input appended and parse
         let (new_source, do_execute) = source.clone_with_new_line(input.to_string())?;
 
-        // TODO: Cloning / parsing the session source twice on non-inspected inputs kinda sucks.
-        // Should change up how this works.
         let (cf, res) = source.inspect(input).await?;
         if let Some(res) = &res {
             let _ = sh_println!("{res}");
@@ -160,17 +158,18 @@ impl ChiselDispatcher {
         result: &mut ChiselResult,
         // known_contracts: &ContractsByArtifact,
     ) -> eyre::Result<CallTraceDecoder> {
+        let chain_id = session_config.evm_opts.get_remote_chain_id().await;
+
         let mut decoder = CallTraceDecoderBuilder::new()
             .with_labels(result.labeled_addresses.clone())
             .with_signature_identifier(SignaturesIdentifier::from_config(
                 &session_config.foundry_config,
             )?)
+            .with_chain_id(chain_id.map(|c| c.id()))
             .build();
 
-        let mut identifier = TraceIdentifiers::new().with_external(
-            &session_config.foundry_config,
-            session_config.evm_opts.get_remote_chain_id().await,
-        )?;
+        let mut identifier =
+            TraceIdentifiers::new().with_external(&session_config.foundry_config, chain_id)?;
         if !identifier.is_empty() {
             for (_, trace) in &mut result.traces {
                 decoder.identify(trace, &mut identifier);
@@ -513,7 +512,7 @@ fn preprocess(input: &str) -> (bool, Cow<'_, str>) {
     let mut only_trivia = true;
     let mut new_input = Cow::Borrowed(input);
     for (pos, token) in solar::parse::Cursor::new(input).with_position() {
-        use RawTokenKind::*;
+        use RawTokenKind::{BlockComment, LineComment, Literal, Whitespace};
 
         if matches!(token.kind, Whitespace | LineComment { .. } | BlockComment { .. }) {
             continue;

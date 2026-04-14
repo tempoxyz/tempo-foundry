@@ -1,22 +1,27 @@
 //! Provider-related instantiation and usage utilities.
 
+pub mod curl_transport;
 pub mod runtime_transport;
 pub mod tempo;
 
 use crate::{
-    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT, provider::runtime_transport::RuntimeTransportBuilder,
+    ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT,
+    provider::{curl_transport::CurlTransport, runtime_transport::RuntimeTransportBuilder},
 };
 use alloy_chains::NamedChain;
+use alloy_network::{Network, NetworkWallet};
 use alloy_provider::{
     Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
-    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
+    fillers::{FillProvider, JoinFill, RecommendedFillers, WalletFiller},
     network::{AnyNetwork, EthereumWallet},
 };
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
 use eyre::{Result, WrapErr};
+use foundry_config::Config;
 use reqwest::Url;
 use std::{
+    marker::PhantomData,
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
@@ -35,20 +40,8 @@ const POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR: f32 = 0.6;
 pub type RetryProvider<N = AnyNetwork> = RootProvider<N>;
 
 /// Helper type alias for a retry provider with a signer
-pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
-    JoinFill<
-        JoinFill<
-            Identity,
-            JoinFill<
-                GasFiller,
-                JoinFill<
-                    alloy_provider::fillers::BlobGasFiller,
-                    JoinFill<NonceFiller, ChainIdFiller>,
-                >,
-            >,
-        >,
-        WalletFiller<EthereumWallet>,
-    >,
+pub type RetryProviderWithSigner<N = AnyNetwork, W = EthereumWallet> = FillProvider<
+    JoinFill<JoinFill<Identity, <N as RecommendedFillers>::RecommendedFillers>, WalletFiller<W>>,
     RootProvider<N>,
     N,
 >;
@@ -83,8 +76,10 @@ pub fn try_get_http_provider(builder: impl AsRef<str>) -> Result<RetryProvider> 
 }
 
 /// Helper type to construct a `RetryProvider`
+///
+/// This builder is generic over the network type `N`, defaulting to `AnyNetwork`.
 #[derive(Debug)]
-pub struct ProviderBuilder {
+pub struct ProviderBuilder<N: Network = AnyNetwork> {
     // Note: this is a result, so we can easily chain builder calls
     url: Result<Url>,
     chain: NamedChain,
@@ -99,10 +94,16 @@ pub struct ProviderBuilder {
     is_local: bool,
     /// Whether to accept invalid certificates.
     accept_invalid_certs: bool,
+    /// Whether to disable automatic proxy detection.
+    no_proxy: bool,
+    /// Whether to output curl commands instead of making requests.
+    curl_mode: bool,
+    /// Phantom data for the network type.
+    _network: PhantomData<N>,
 }
 
-impl ProviderBuilder {
-    /// Creates a new builder instance
+impl<N: Network> ProviderBuilder<N> {
+    /// Creates a new ProviderBuilder helper instance.
     pub fn new(url_str: &str) -> Self {
         // a copy is needed for the next lines to work
         let mut url_str = url_str;
@@ -149,7 +150,39 @@ impl ProviderBuilder {
             headers: vec![],
             is_local,
             accept_invalid_certs: false,
+            no_proxy: false,
+            curl_mode: false,
+            _network: PhantomData,
         }
+    }
+
+    /// Constructs a [ProviderBuilder] instantiated using [Config] values.
+    ///
+    /// Defaults to `http://localhost:8545` and `Mainnet`.
+    pub fn from_config(config: &Config) -> Result<Self> {
+        let url = config.get_rpc_url_or_localhost_http()?;
+        let mut builder = Self::new(url.as_ref());
+
+        builder = builder.accept_invalid_certs(config.eth_rpc_accept_invalid_certs);
+        builder = builder.curl_mode(config.eth_rpc_curl);
+
+        if let Ok(chain) = config.chain.unwrap_or_default().try_into() {
+            builder = builder.chain(chain);
+        }
+
+        if let Some(jwt) = config.get_rpc_jwt_secret()? {
+            builder = builder.jwt(jwt.as_ref());
+        }
+
+        if let Some(rpc_timeout) = config.eth_rpc_timeout {
+            builder = builder.timeout(Duration::from_secs(rpc_timeout));
+        }
+
+        if let Some(rpc_headers) = config.eth_rpc_headers.clone() {
+            builder = builder.headers(rpc_headers);
+        }
+
+        Ok(builder)
     }
 
     /// Enables a request timeout.
@@ -158,19 +191,19 @@ impl ProviderBuilder {
     /// response body has finished.
     ///
     /// Default is no timeout.
-    pub fn timeout(mut self, timeout: Duration) -> Self {
+    pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
     /// Sets the chain of the node the provider will connect to
-    pub fn chain(mut self, chain: NamedChain) -> Self {
+    pub const fn chain(mut self, chain: NamedChain) -> Self {
         self.chain = chain;
         self
     }
 
     /// How often to retry a failed request
-    pub fn max_retry(mut self, max_retry: u32) -> Self {
+    pub const fn max_retry(mut self, max_retry: u32) -> Self {
         self.max_retry = max_retry;
         self
     }
@@ -189,7 +222,7 @@ impl ProviderBuilder {
     }
 
     /// The starting backoff delay to use after the first failed request
-    pub fn initial_backoff(mut self, initial_backoff: u64) -> Self {
+    pub const fn initial_backoff(mut self, initial_backoff: u64) -> Self {
         self.initial_backoff = initial_backoff;
         self
     }
@@ -197,7 +230,7 @@ impl ProviderBuilder {
     /// Sets the number of assumed available compute units per second
     ///
     /// See also, <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
-    pub fn compute_units_per_second(mut self, compute_units_per_second: u64) -> Self {
+    pub const fn compute_units_per_second(mut self, compute_units_per_second: u64) -> Self {
         self.compute_units_per_second = compute_units_per_second;
         self
     }
@@ -205,7 +238,10 @@ impl ProviderBuilder {
     /// Sets the number of assumed available compute units per second
     ///
     /// See also, <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
-    pub fn compute_units_per_second_opt(mut self, compute_units_per_second: Option<u64>) -> Self {
+    pub const fn compute_units_per_second_opt(
+        mut self,
+        compute_units_per_second: Option<u64>,
+    ) -> Self {
         if let Some(cups) = compute_units_per_second {
             self.compute_units_per_second = cups;
         }
@@ -215,7 +251,7 @@ impl ProviderBuilder {
     /// Sets the provider to be local.
     ///
     /// This is useful for local dev nodes.
-    pub fn local(mut self, is_local: bool) -> Self {
+    pub const fn local(mut self, is_local: bool) -> Self {
         self.is_local = is_local;
         self
     }
@@ -223,7 +259,7 @@ impl ProviderBuilder {
     /// Sets aggressive `max_retry` and `initial_backoff` values
     ///
     /// This is only recommend for local dev nodes
-    pub fn aggressive(self) -> Self {
+    pub const fn aggressive(self) -> Self {
         self.max_retry(100).initial_backoff(100).local(true)
     }
 
@@ -247,13 +283,31 @@ impl ProviderBuilder {
     }
 
     /// Sets whether to accept invalid certificates.
-    pub fn accept_invalid_certs(mut self, accept_invalid_certs: bool) -> Self {
+    pub const fn accept_invalid_certs(mut self, accept_invalid_certs: bool) -> Self {
         self.accept_invalid_certs = accept_invalid_certs;
         self
     }
 
+    /// Sets whether to disable automatic proxy detection.
+    ///
+    /// This can help in sandboxed environments (e.g., Cursor IDE sandbox, macOS App Sandbox)
+    /// where system proxy detection via SCDynamicStore causes crashes.
+    pub const fn no_proxy(mut self, no_proxy: bool) -> Self {
+        self.no_proxy = no_proxy;
+        self
+    }
+
+    /// Sets whether to output curl commands instead of making requests.
+    ///
+    /// When enabled, the provider will print equivalent curl commands to stdout
+    /// instead of actually executing the RPC requests.
+    pub const fn curl_mode(mut self, curl_mode: bool) -> Self {
+        self.curl_mode = curl_mode;
+        self
+    }
+
     /// Constructs the `RetryProvider` taking all configs into account.
-    pub fn build(self) -> Result<RetryProvider> {
+    pub fn build(self) -> Result<RetryProvider<N>> {
         let Self {
             url,
             chain,
@@ -265,17 +319,32 @@ impl ProviderBuilder {
             headers,
             is_local,
             accept_invalid_certs,
+            no_proxy,
+            curl_mode,
+            ..
         } = self;
         let url = url?;
 
         let retry_layer =
             RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
 
+        // If curl_mode is enabled, use CurlTransport instead of RuntimeTransport
+        if curl_mode {
+            let transport = CurlTransport::new(url).with_headers(headers).with_jwt(jwt);
+            let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+            let provider = AlloyProviderBuilder::<_, _, N>::default()
+                .connect_provider(RootProvider::new(client));
+
+            return Ok(provider);
+        }
+
         let transport = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
+            .no_proxy(no_proxy)
             .build();
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 
@@ -291,14 +360,22 @@ impl ProviderBuilder {
             );
         }
 
-        let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
-            .connect_provider(RootProvider::new(client));
+        let provider =
+            AlloyProviderBuilder::<_, _, N>::default().connect_provider(RootProvider::new(client));
 
         Ok(provider)
     }
+}
 
+impl<N: Network> ProviderBuilder<N> {
     /// Constructs the `RetryProvider` with a wallet.
-    pub fn build_with_wallet(self, wallet: EthereumWallet) -> Result<RetryProviderWithSigner> {
+    pub fn build_with_wallet<W: NetworkWallet<N> + Clone>(
+        self,
+        wallet: W,
+    ) -> Result<RetryProviderWithSigner<N, W>>
+    where
+        N: RecommendedFillers,
+    {
         let Self {
             url,
             chain,
@@ -310,17 +387,34 @@ impl ProviderBuilder {
             headers,
             is_local,
             accept_invalid_certs,
+            no_proxy,
+            curl_mode,
+            ..
         } = self;
         let url = url?;
 
         let retry_layer =
             RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
 
+        // If curl_mode is enabled, use CurlTransport instead of RuntimeTransport
+        if curl_mode {
+            let transport = CurlTransport::new(url).with_headers(headers).with_jwt(jwt);
+            let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+            let provider = AlloyProviderBuilder::<_, _, N>::default()
+                .with_recommended_fillers()
+                .wallet(wallet)
+                .connect_provider(RootProvider::new(client));
+
+            return Ok(provider);
+        }
+
         let transport = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
+            .no_proxy(no_proxy)
             .build();
 
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
@@ -337,7 +431,7 @@ impl ProviderBuilder {
             );
         }
 
-        let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
+        let provider = AlloyProviderBuilder::<_, _, N>::default()
             .with_recommended_fillers()
             .wallet(wallet)
             .connect_provider(RootProvider::new(client));
@@ -362,7 +456,11 @@ fn resolve_path(path: &Path) -> Result<PathBuf, ()> {
     {
         return Ok(path.to_path_buf());
     }
-    Err(())
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        std::env::current_dir().map(|d| d.join(path)).map_err(drop)
+    }
 }
 
 #[cfg(test)]
@@ -371,7 +469,7 @@ mod tests {
 
     #[test]
     fn can_auto_correct_missing_prefix() {
-        let builder = ProviderBuilder::new("localhost:8545");
+        let builder = ProviderBuilder::<AnyNetwork>::new("localhost:8545");
         assert!(builder.url.is_ok());
 
         let url = builder.url.unwrap();
