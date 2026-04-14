@@ -59,15 +59,10 @@ alloy-eips.workspace = true
 tempo-alloy.workspace = true
 tempo-contracts.workspace = true
 tempo-primitives.workspace = true
-alloy-evm.workspace = true
 
 op-alloy-consensus = { workspace = true, features = ["k256"] }
 op-alloy-flz.workspace = true
 op-alloy-network.workspace = true
-
-# tempo
-tempo-primitives.workspace = true
-tempo-alloy.workspace = true
 
 chrono.workspace = true
 eyre.workspace = true
