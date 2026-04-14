@@ -589,14 +589,7 @@ reth-zstd-compressors = { git = "https://github.com/paradigmxyz/reth-core", rev 
 # reth-codecs-derive = { git = "https://github.com/paradigmxyz/reth-core", rev = "af2174c" }
 # reth-rpc-traits = { git = "https://github.com/paradigmxyz/reth-core", rev = "af2174c" }
 
-## op-alloy / alloy-op-evm
-op-alloy-consensus = { git = "https://github.com/foundry-rs/optimism", branch = "develop" }
-op-alloy-network = { git = "https://github.com/foundry-rs/optimism", branch = "develop" }
-op-alloy-rpc-types = { git = "https://github.com/foundry-rs/optimism", branch = "develop" }
-op-alloy = { git = "https://github.com/foundry-rs/optimism", branch = "develop" }
-alloy-op-evm = { git = "https://github.com/foundry-rs/optimism", branch = "develop" }
-alloy-op-hardforks = { git = "https://github.com/foundry-rs/optimism", branch = "develop" }
-## op-revm: use crates.io v18 (revm 37 compatible), not foundry-rs/optimism
+## op-alloy/op-revm: use crates.io versions (revm 37 / alloy 2.0 compatible)
 
 ## foundry-fork-db
 foundry-fork-db = { path = "vendor/foundry-fork-db" }
