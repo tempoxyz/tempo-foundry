@@ -230,7 +230,7 @@ impl SessionProvider {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
-            Some(now + VALID_BEFORE_SECS)
+            std::num::NonZeroU64::new(now + VALID_BEFORE_SECS)
         };
 
         let tx = mpp::client::tempo::charge::tx_builder::build_tempo_tx(
@@ -328,7 +328,7 @@ impl SessionProvider {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
-            Some(now + VALID_BEFORE_SECS)
+            std::num::NonZeroU64::new(now + VALID_BEFORE_SECS)
         };
 
         let tx = mpp::client::tempo::charge::tx_builder::build_tempo_tx(

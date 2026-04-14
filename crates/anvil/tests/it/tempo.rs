@@ -1269,7 +1269,7 @@ async fn test_tempo_aa_transaction_with_valid_before() {
         nonce_key: U256::from(3), // Use a unique nonce key
         nonce: 0,
         fee_payer_signature: None,
-        valid_before: Some(valid_before),
+        valid_before: std::num::NonZeroU64::new(valid_before),
         valid_after: None,
         key_authorization: None,
         tempo_authorization_list: vec![],
@@ -1326,8 +1326,8 @@ async fn test_tempo_aa_transaction_with_valid_after() {
         nonce_key: U256::from(4), // Use a unique nonce key
         nonce: 0,
         fee_payer_signature: None,
-        valid_before: Some(valid_before),
-        valid_after: Some(valid_after),
+        valid_before: std::num::NonZeroU64::new(valid_before),
+        valid_after: std::num::NonZeroU64::new(valid_after),
         key_authorization: None,
         tempo_authorization_list: vec![],
     };
@@ -1385,7 +1385,7 @@ async fn test_tempo_aa_transaction_expiring_nonce() {
         nonce_key: U256::MAX, // Expiring nonce mode
         nonce: 0,             // Always 0 for expiring nonces
         fee_payer_signature: None,
-        valid_before: Some(valid_before), // Required for expiring nonces
+        valid_before: std::num::NonZeroU64::new(valid_before), // Required for expiring nonces
         valid_after: None,
         key_authorization: None,
         tempo_authorization_list: vec![],
@@ -1516,7 +1516,7 @@ async fn test_tempo_aa_expired_valid_before() {
         nonce_key: U256::from(100),
         nonce: 0,
         fee_payer_signature: None,
-        valid_before: Some(valid_before),
+        valid_before: std::num::NonZeroU64::new(valid_before),
         valid_after: None,
         key_authorization: None,
         tempo_authorization_list: vec![],
@@ -1571,8 +1571,8 @@ async fn test_tempo_aa_valid_after_future() {
         nonce_key: U256::from(101),
         nonce: 0,
         fee_payer_signature: None,
-        valid_before: Some(valid_before),
-        valid_after: Some(valid_after),
+        valid_before: std::num::NonZeroU64::new(valid_before),
+        valid_after: std::num::NonZeroU64::new(valid_after),
         key_authorization: None,
         tempo_authorization_list: vec![],
     };
@@ -1633,7 +1633,7 @@ async fn test_tempo_aa_expiring_nonce_replay() {
         nonce_key: U256::MAX, // Expiring nonce mode
         nonce: 0,
         fee_payer_signature: None,
-        valid_before: Some(valid_before),
+        valid_before: std::num::NonZeroU64::new(valid_before),
         valid_after: None,
         key_authorization: None,
         tempo_authorization_list: vec![],

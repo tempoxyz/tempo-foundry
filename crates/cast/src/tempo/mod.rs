@@ -67,10 +67,10 @@ impl<P: Provider<TempoNetwork>> CastTxBuilder<P, InitState, TempoTransactionRequ
 
         // Set validity window for expiring nonces
         if let Some(valid_before) = tx_opts.tempo.valid_before {
-            tx.set_valid_before(valid_before);
+            tx.set_valid_before(std::num::NonZeroU64::new(valid_before).expect("valid_before must be > 0"));
         }
         if let Some(valid_after) = tx_opts.tempo.valid_after {
-            tx.set_valid_after(valid_after);
+            tx.set_valid_after(std::num::NonZeroU64::new(valid_after).expect("valid_after must be > 0"));
         }
 
         Ok(Self {
