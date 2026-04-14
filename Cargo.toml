@@ -473,7 +473,7 @@ reth-codecs-derive = { git = "https://github.com/paradigmxyz/reth-core", rev = "
 reth-zstd-compressors = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
 
 ## foundry
-foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", branch = "main" }
+foundry-fork-db = { path = "vendor/foundry-fork-db" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
 # foundry-compilers = { git = "https://github.com/foundry-rs/compilers.git", branch = "main" }
 

@@ -1,0 +1,90 @@
+[package]
+name = "foundry-fork-db"
+description = "Fork database used by Foundry"
+version = "0.24.1"
+edition = "2024"
+# Remember to update clippy.toml as well
+rust-version = "1.93"
+authors = ["Foundry Contributors"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/foundry-rs/foundry-fork-db"
+repository = "https://github.com/foundry-rs/foundry-fork-db"
+
+[lints.clippy]
+borrow_as_ptr = "warn"
+branches_sharing_code = "warn"
+clear_with_drain = "warn"
+cloned_instead_of_copied = "warn"
+collection_is_never_read = "warn"
+dbg-macro = "warn"
+explicit_iter_loop = "warn"
+literal-string-with-formatting-args = "allow"
+manual-string-new = "warn"
+missing_const_for_fn = "warn"
+option_if_let_else = "warn"
+redundant-clone = "warn"
+result_large_err = "allow"
+uninlined-format-args = "warn"
+use-self = "warn"
+
+[lints.rust]
+redundant_imports = "warn"
+redundant-lifetimes = "warn"
+rust-2018-idioms = "warn"
+unused-must-use = "warn"
+
+[lints.rustdoc]
+all = "warn"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+alloy-chains = { version = "0.2", default-features = false, features = ["serde"] }
+alloy-primitives = { version = "1.5.7", features = ["map"] }
+alloy-provider = { version = "2.0.0", default-features = false }
+alloy-rpc-types = { version = "2.0.0", features = ["eth"] }
+
+eyre = "0.6"
+futures = "0.3"
+
+parking_lot = "0.12"
+
+revm = { version = "37.0.0", features = ["std", "serde"] }
+tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500", default-features = false }
+
+serde = "1.0"
+serde_json = "1.0"
+
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tracing = "0.1"
+
+url = "2"
+
+[dev-dependencies]
+alloy-consensus = { version = "2.0.0", default-features = false }
+alloy-rpc-client = "2.0.0"
+tiny_http = "0.12"
+
+[patch.crates-io]
+# alloy = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-consensus = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-consensus-any = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-eips = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-genesis = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-network = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-network-primitives = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-rpc-types-eth = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-serde = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+# alloy-transport-http = { git = "https://github.com/alloy-rs/alloy", rev = "100a3325ac4d624f3eb0bd404125750e76edf8ca" }
+
+# alloy-evm = { git = "https://github.com/alloy-rs/evm", rev = "04d8e4a" }
