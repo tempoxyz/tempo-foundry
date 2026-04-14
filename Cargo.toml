@@ -403,7 +403,7 @@ tempo-contracts = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d
 tempo-revm = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500" }
 tempo-evm = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500" }
 tempo-chainspec = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500" }
-tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500" }
+tempo-primitives = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500", default-features = false, features = ["std", "reth", "serde", "rpc"] }
 tempo-precompiles = { git = "https://github.com/tempoxyz/tempo", rev = "08304c637d44d809f05c6089ef9a6ce83b3dc500" }
 
 ## Pinned dependencies. Enabled for the workspace in crates/test-utils.
@@ -466,11 +466,8 @@ alloy-evm = { git = "https://github.com/alloy-rs/evm", rev = "0331f40e9deab54edb
 
 revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors", rev = "bf531ab5d761f95572c34289405fd2d1f1045e60" }
 
-## reth-core v0.2.0 with revm-state v11 (matching tempo tip1016)
+## reth-core (matching tempo's patches)
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-reth-codecs = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-reth-codecs-derive = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-reth-zstd-compressors = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
 
 ## foundry
 foundry-fork-db = { path = "vendor/foundry-fork-db" }
