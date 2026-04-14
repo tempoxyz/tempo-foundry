@@ -466,9 +466,6 @@ alloy-evm = { git = "https://github.com/alloy-rs/evm", rev = "0331f40e9deab54edb
 
 revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors", rev = "bf531ab5d761f95572c34289405fd2d1f1045e60" }
 
-## reth-core (matching tempo's patches)
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth-core", rev = "189f29d851766cef507ff947dd6e565800bc27ec" }
-
 ## foundry
 foundry-fork-db = { path = "vendor/foundry-fork-db" }
 # foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "f5b46b2" }
